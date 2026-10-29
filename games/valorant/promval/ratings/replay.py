@@ -1,5 +1,6 @@
 """Load played maps and replay a model chronologically without result leakage."""
 
+import json
 from itertools import pairwise
 
 import pandas as pd
@@ -31,6 +32,45 @@ def load_lineups(conn):
         if team in (1, 2):
             lineups.setdefault(game_id, ([], []))[team - 1].append(player_id)
     return {game: (tuple(a), tuple(b)) for game, (a, b) in lineups.items()}
+
+
+def load_performance(conn) -> dict:
+    """Load each player's agents and performance once, outside candidate replays."""
+    performance = {}
+    for (
+        game,
+        player,
+        team,
+        agents,
+        kills,
+        deaths,
+        assists,
+        rating,
+        rounds,
+    ) in conn.execute(
+        """SELECT p.game_id, p.player_id, p.team, p.agents,
+                  p.kills, p.deaths, p.assists, p.rating, g.score1 + g.score2
+           FROM player_maps p JOIN maps g USING (game_id)
+           WHERE g.score1 + g.score2 > 0"""
+    ):
+        if team not in (1, 2):
+            continue
+        try:
+            parsed = json.loads(agents) if agents else []
+        except (ValueError, TypeError):
+            parsed = []
+        agents = (
+            tuple(parsed)
+            if isinstance(parsed, list) and all(isinstance(a, str) for a in parsed)
+            else ()
+        )
+        kda = (
+            (kills + 0.5 * assists - deaths) / rounds
+            if all(v is not None for v in (kills, deaths, assists))
+            else None
+        )
+        performance.setdefault(game, {})[player] = (agents, kda, rating)
+    return performance
 
 
 def replay(maps, model) -> pd.DataFrame:

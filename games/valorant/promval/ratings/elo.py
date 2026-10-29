@@ -82,6 +82,11 @@ class EloModel:
         season_month=1,
         inactive_half_life=0.0,
         revert_target="init",
+        performance=None,
+        perf_stat="kda",
+        perf_k=0.0,
+        perf_alpha=0.01,
+        perf_min_count=20,
     ):
         if unit not in {"team", "player"} or credit not in {
             "binary",
@@ -101,6 +106,22 @@ class EloModel:
             or inactive_half_life < 0
         ):
             raise ValueError("invalid player reversion parameters")
+        if (
+            perf_stat not in {"kda", "rating"}
+            or not isfinite(perf_k)
+            or perf_k < 0
+            or not isfinite(perf_alpha)
+            or not 0 < perf_alpha <= 1
+            or not isinstance(perf_min_count, int)
+            or isinstance(perf_min_count, bool)
+            or perf_min_count < 1
+        ):
+            raise ValueError("invalid performance parameters")
+        self.performance = performance if performance is not None else {}
+        self.perf_stat, self.perf_k = perf_stat, perf_k
+        self.perf_alpha, self.perf_min_count = perf_alpha, perf_min_count
+        self.agent_mean, self.agent_count = {}, {}
+        self.global_mean = None
         self.season_revert, self.season_month = season_revert, season_month
         self.inactive_half_life = inactive_half_life
         self.last_played = {}
@@ -327,6 +348,39 @@ class EloModel:
         a, b, home_a, home_b, expected = self._state(row, revert=False)
         error = self.score(row) - expected
         delta = self.k * error
+        bonus = {}
+        observations = []
+        if self.unit == "player" and self.perf_k > 0:
+            performances = self.performance.get(row.game_id, {})
+            index = 1 if self.perf_stat == "kda" else 2
+            for units in (a, b):
+                raw = {}
+                for player in units:
+                    perf = performances.get(player)
+                    if perf is None or perf[index] is None:
+                        continue
+                    agents, value = perf[0], perf[index]
+                    means = [
+                        self.agent_mean[agent]
+                        for agent in agents
+                        if self.agent_count.get(agent, 0) >= self.perf_min_count
+                    ]
+                    expectation = (
+                        sum(means) / len(means)
+                        if means
+                        else self.global_mean
+                        if self.global_mean is not None
+                        else 0.0
+                    )
+                    raw[player] = value - expectation
+                    observations.append((agents, value))
+                if len(raw) >= 2:
+                    # Centre the bonus within each side so it is zero-sum.
+                    centre = sum(raw.values()) / len(raw)
+                    bonus.update(
+                        (player, self.perf_k * (value - centre))
+                        for player, value in raw.items()
+                    )
         if self.rd:
             date = row.start_utc
             if isinstance(date, str):
@@ -351,9 +405,25 @@ class EloModel:
                         self.rd_floor**2, 1 / (1 / variance + information)
                     )
                     self.last_seen[player] = date
-                self._set_rating(player, self.ratings[player] + change * weight)
+                self._set_rating(
+                    player,
+                    self.ratings[player] + (change + bonus.get(player, 0.0)) * weight,
+                )
                 if played is not None:
                     self.last_played[player] = played
+        for agents, value in observations:
+            for agent in agents:
+                if agent not in self.agent_mean:
+                    self.agent_mean[agent] = value
+                else:
+                    self.agent_mean[agent] += self.perf_alpha * (
+                        value - self.agent_mean[agent]
+                    )
+                self.agent_count[agent] = self.agent_count.get(agent, 0) + 1
+            if self.global_mean is None:
+                self.global_mean = value
+            else:
+                self.global_mean += self.perf_alpha * (value - self.global_mean)
         map_name = getattr(row, "map", None)
         if self.map_k > 0 and isinstance(map_name, str):
             change = self.map_k * error

@@ -118,3 +118,18 @@ PARAM_GRIDS[name] = PARAM_GRIDS["player_round_glicko_rookie_revert"] | {
     "season_revert": (0.1, 0.2, 0.35, 0.5),
     "inactive_half_life": (0,),
 }
+
+# Within-side performance bonuses on the adopted tier-reversion base.
+perf_base = base | {
+    "season_revert": 0.2,
+    "season_month": 11,
+    "inactive_half_life": 0,
+}
+for stat in ("kda", "rating"):
+    name = f"player_round_glicko_rookie_tier_revert_perf_{stat}"
+    MODELS[name] = partial(
+        MODELS["player_round_glicko_rookie_tier_revert"], perf_stat=stat
+    )
+    PARAM_GRIDS[name] = {key: (value,) for key, value in perf_base.items()} | {
+        "perf_k": (1, 2, 3, 5, 7, 10, 15, 20)
+    }

@@ -19,7 +19,7 @@ from promval.evaluation import (
     slot_probabilities,
 )
 from promval.ratings.models import MODELS
-from promval.ratings.replay import load_lineups, load_maps, replay
+from promval.ratings.replay import load_lineups, load_maps, load_performance, replay
 from scripts.evaluate_elo import (
     REPO,
     fit_series_temperature,
@@ -103,7 +103,10 @@ def main(argv=None):
     with sqlite3.connect(f"file:{args.db.resolve()}?mode=ro", uri=True) as conn:
         maps = scored_rows(load_maps(conn), args.seed_from, args.validate_to)
         predictions = replay(
-            maps, MODELS[args.model](lineups=load_lineups(conn), **params)
+            maps,
+            MODELS[args.model](
+                lineups=load_lineups(conn), performance=load_performance(conn), **params
+            ),
         )
     stage1 = scored_rows(predictions, args.tune_from, args.tune_to)
     m = fit_momentum(stage1)
