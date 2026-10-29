@@ -2,6 +2,7 @@ import itertools
 import sqlite3
 from copy import deepcopy
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -10,7 +11,7 @@ import pytest
 from promval.ratings.elo import EloConfig, EloModel, TeamElo
 from promval.ratings.models import MODELS, PARAM_GRIDS
 from promval.ratings.regions import REGION_CODES, macro_region
-from promval.ratings.replay import load_maps
+from promval.ratings.replay import load_maps, load_performance
 from promval.ratings.rounds import map_win
 
 
@@ -156,7 +157,7 @@ def test_region_offsets_only_cross_region_and_zero_sum():
 
 
 def test_registry_grids_and_v1_regression():
-    assert len(MODELS) == len(PARAM_GRIDS) == 22
+    assert len(MODELS) == len(PARAM_GRIDS) == 24
     assert "team_binary" not in MODELS
     for name in MODELS:
         if name == "coin":
@@ -980,3 +981,271 @@ def test_init_target_keeps_no_tier_state():
     assert model.tier_of == {} and model.tier_sum == {}
     with pytest.raises(ValueError):
         EloModel(revert_target="league")
+
+
+@pytest.mark.parametrize("rd", [False, True])
+@pytest.mark.parametrize("unit,perf_k", [("player", 0), ("team", 40)])
+def test_performance_inactive_exact_regression(rd, unit, perf_k):
+    options = {
+        "unit": unit,
+        "credit": "round",
+        "rd": rd,
+        "lineups": dict.fromkeys(range(1, 4), ((1, 2), (3, 4))),
+    }
+    baseline = EloModel(**options)
+    model = EloModel(
+        **options,
+        perf_k=perf_k,
+        performance={i: {1: (("sova",), 10, 2)} for i in range(1, 4)},
+    )
+    for i in range(1, 4):
+        game = row(game_id=i, score1=13 if i % 2 else 8)
+        assert model.predict(game) == baseline.predict(game)
+        model.update(game)
+        baseline.update(game)
+        assert model.ratings == baseline.ratings
+        assert model.rd_variance == baseline.rd_variance
+    assert model.agent_mean == model.agent_count == {}
+    assert model.global_mean is None
+
+
+@pytest.mark.parametrize("stat,index", [("kda", 1), ("rating", 2)])
+@pytest.mark.parametrize("rd,weight", [(False, 1), (True, 4)])
+def test_performance_zero_sum_and_rd_weight(stat, index, rd, weight):
+    performance = {
+        p: (("sova",), value if index == 1 else None, value if index == 2 else None)
+        for p, value in enumerate((2, -2, 3, -1), 1)
+    }
+    options = {
+        "unit": "player",
+        "credit": "round",
+        "rd": rd,
+        "lineups": {1: ((1, 2), (3, 4))},
+    }
+    baseline = EloModel(**options)
+    model = EloModel(
+        **options,
+        performance={1: performance},
+        perf_stat=stat,
+        perf_k=40,
+    )
+    baseline.update(row())
+    model.update(row())
+    for side in ((1, 2), (3, 4)):
+        assert sum(model.ratings[p] - 1500 for p in side) == pytest.approx(
+            sum(baseline.ratings[p] - 1500 for p in side)
+        )
+        assert model.ratings[side[0]] - baseline.ratings[side[0]] == pytest.approx(
+            80 * weight
+        )
+    assert model.ratings[1] > model.ratings[2]
+    assert model.ratings[2] < 1500
+
+
+def test_performance_agent_expectation_uses_earlier_maps():
+    model = EloModel(
+        unit="player",
+        credit="round",
+        perf_k=20,
+        perf_min_count=1,
+        lineups={1: ((1,), (2,)), 2: ((1, 2), (3,))},
+        performance={
+            1: {1: (("sova",), 2, None), 2: (("jett",), 0, None)},
+            2: {1: (("sova",), 1, None), 2: (("jett",), 1, None)},
+        },
+    )
+    model.update(row())
+    assert model.agent_mean == {"sova": 2, "jett": 0}
+    game = row(game_id=2)
+    model.predict(game)
+    before = model.ratings.copy()
+    change = model.k * (model.score(game) - model._state(game)[-1])
+    model.update(game)
+    assert model.ratings[1] - before[1] == pytest.approx(change - 20)
+    assert model.ratings[2] - before[2] == pytest.approx(change + 20)
+
+
+def test_performance_first_map_causal_ema_and_global_fallback():
+    model = EloModel(
+        unit="player",
+        credit="round",
+        perf_k=20,
+        perf_alpha=0.5,
+        perf_min_count=3,
+        lineups={1: ((1, 2), (3,)), 2: ((1, 2), (3,))},
+        performance={
+            1: {
+                1: (("sova",), 4, None),
+                2: (("jett", "sage"), 0, None),
+                3: ((), 2, None),
+            },
+            2: {1: (("sova",), 1, None), 2: ((), 1, None)},
+        },
+    )
+    model.predict(row())
+    assert model.global_mean is None and model.agent_mean == {}
+    delta = model.k * (model.score(row()) - 0.5)
+    model.update(row())
+    assert model.ratings[1] == pytest.approx(1500 + delta + 40)
+    assert model.ratings[2] == pytest.approx(1500 + delta - 40)
+    assert model.agent_mean == {"sova": 4, "jett": 0, "sage": 0}
+    assert model.agent_count == {"sova": 1, "jett": 1, "sage": 1}
+    assert model.global_mean == 2
+    game = row(game_id=2)
+    before = model.ratings.copy()
+    delta = model.k * (model.score(game) - model._state(game)[-1])
+    model.update(game)
+    # Neither agent qualifies yet; both players use the same global expectation.
+    assert model.ratings[1] - before[1] == pytest.approx(delta)
+    assert model.ratings[2] - before[2] == pytest.approx(delta)
+    assert model.agent_mean["sova"] == 2.5
+    assert model.global_mean == 1.25
+
+
+def test_performance_averages_only_qualified_agents():
+    model = EloModel(
+        unit="player",
+        credit="round",
+        perf_k=20,
+        perf_min_count=2,
+        lineups={1: ((1, 2), (3,))},
+        performance={1: {1: (("sova", "jett", "sage"), 2, None), 2: ((), 2, None)}},
+    )
+    model.agent_mean = {"sova": 4, "jett": 2, "sage": 100}
+    model.agent_count = {"sova": 2, "jett": 2, "sage": 1}
+    model.global_mean = 1
+    model.update(row())
+    delta = 32 * (13 / 24 - 0.5)
+    assert model.ratings[1] == pytest.approx(1500 + delta - 20)
+    assert model.ratings[2] == pytest.approx(1500 + delta + 20)
+
+
+def test_performance_missing_stats_and_single_observation():
+    options = {
+        "unit": "player",
+        "credit": "round",
+        "lineups": {1: ((1, 2, 5), (3, 4, 6))},
+    }
+    model = EloModel(
+        **options,
+        perf_k=20,
+        performance={
+            1: {
+                1: (("sova",), 4, None),
+                2: (("sova",), 0, None),
+                5: (("jett",), None, 99),
+                3: (("sage",), 2, None),
+                4: (("sage",), None, None),
+            }
+        },
+    )
+    baseline = EloModel(**options)
+    baseline.update(row())
+    model.update(row())
+    for player in (3, 4, 5, 6):
+        assert model.ratings[player] == baseline.ratings[player]
+    assert model.agent_count == {"sova": 2, "sage": 1}
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"perf_stat": "acs"},
+        {"perf_k": -1},
+        {"perf_k": float("inf")},
+        {"perf_k": float("nan")},
+        {"perf_alpha": 0},
+        {"perf_alpha": -1},
+        {"perf_alpha": 1.1},
+        {"perf_alpha": float("inf")},
+        {"perf_alpha": float("nan")},
+        {"perf_min_count": 0},
+        {"perf_min_count": 1.5},
+        {"perf_min_count": True},
+    ],
+)
+def test_invalid_performance_parameters(options):
+    with pytest.raises(ValueError, match="performance"):
+        EloModel(**options)
+
+
+@pytest.mark.parametrize("stat", ["kda", "rating"])
+def test_performance_registry_frozen_base(stat):
+    name = f"player_round_glicko_rookie_tier_revert_perf_{stat}"
+    base = {
+        "k": 32,
+        "tau": 0.5,
+        "rd_new": 280,
+        "rd_info": 0.25,
+        "new_player": "teammates",
+        "rookie_penalty": 200,
+        "rookie_maps": 400,
+        "season_revert": 0.2,
+        "season_month": 11,
+        "inactive_half_life": 0,
+    }
+    assert PARAM_GRIDS[name] == {
+        **{key: (value,) for key, value in base.items()},
+        "perf_k": (1, 2, 3, 5, 7, 10, 15, 20),
+    }
+    assert MODELS[name]().perf_k == 0
+    for perf_k in PARAM_GRIDS[name]["perf_k"]:
+        model = MODELS[name](**base, perf_k=perf_k)
+        assert model.unit == "player" and model.credit == "round" and model.rd
+        assert model.revert_target == "tier" and model.perf_stat == stat
+        assert all(getattr(model, key) == value for key, value in base.items())
+
+
+def test_load_performance_schema_formula_nulls_and_agents():
+    with sqlite3.connect(":memory:") as conn:
+        conn.executescript(
+            (
+                Path(__file__).resolve().parents[1] / "scripts/001_create_tables.sql"
+            ).read_text()
+        )
+        conn.execute(
+            """INSERT INTO matches
+               (match_id,event,event_id,start_utc,team1_name,team1_id,
+                team2_name,team2_id,score1,score2)
+               VALUES (1,'Test',1,'2026-01-01','A',10,'B',20,1,0)"""
+        )
+        for game, score in ((1, 13), (2, 0)):
+            conn.execute(
+                """INSERT INTO maps
+                   (game_id,match_id,"order",map,picked,score1,score2,overtime)
+                   VALUES (?,1,?,'Bind',0,?,0,0)""",
+                (game, game, score),
+            )
+        agents = [
+            '["sova"]',
+            '["jett","sage"]',
+            None,
+            "",
+            "bad",
+            "null",
+            '"sova"',
+            '{"sova":1}',
+            "[1]",
+            "[]",
+        ]
+        for player, agent in enumerate(agents, 1):
+            conn.execute(
+                """INSERT INTO player_maps
+                   (game_id,player_id,team,agents,kills,deaths,assists,rating)
+                   VALUES (1,?,?,?,20,10,6,?)""",
+                (player, 1 if player % 2 else 2, agent, 1.2 if player == 1 else None),
+            )
+        for player, column in ((2, "kills"), (3, "deaths"), (4, "assists")):
+            conn.execute(
+                f"UPDATE player_maps SET {column}=NULL WHERE player_id=?", (player,)
+            )
+        conn.execute(
+            "INSERT INTO player_maps(game_id,player_id,team) VALUES (1,11,NULL)"
+        )
+        conn.execute("INSERT INTO player_maps(game_id,player_id,team) VALUES (2,12,1)")
+        data = load_performance(conn)
+    assert set(data) == {1} and set(data[1]) == set(range(1, 11))
+    assert data[1][1] == (("sova",), 1, 1.2)
+    assert data[1][2] == (("jett", "sage"), None, None)
+    assert data[1][3] == data[1][4] == ((), None, None)
+    assert all(data[1][player] == ((), 1, None) for player in range(5, 11))
