@@ -1,6 +1,7 @@
 """Injectable, rate-limited MediaWiki query client."""
 
 import gzip
+import http.client
 import json
 import os
 import threading
@@ -63,7 +64,12 @@ class Fetcher:
             self._wait_for_slot()
             try:
                 result = self.get(params)
-            except (URLError, TimeoutError) as exc:
+            except (
+                URLError,
+                TimeoutError,
+                ConnectionError,
+                http.client.HTTPException,
+            ) as exc:
                 if isinstance(exc, HTTPError) and not (
                     exc.code == 429 or 500 <= exc.code < 600
                 ):

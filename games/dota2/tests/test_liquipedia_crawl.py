@@ -4,6 +4,7 @@ import gzip
 import itertools
 import json
 from datetime import UTC, datetime
+from http.client import RemoteDisconnected
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 
@@ -43,6 +44,7 @@ class FakeGet:
         self.category = list(self.pages) if category is None else category
         self.calls = []
         self.normalized = {}
+        self.listed = []  # main-namespace titles returned by list=allpages
 
     def __call__(self, params):
         self.calls.append(params)
@@ -60,6 +62,16 @@ class FakeGet:
             members = self.category[1:] if params.get("cmcontinue") else self.category
             return {
                 "query": {"categorymembers": [{"title": title} for title in members]}
+            }
+        if params.get("list") == "allpages":
+            assert params["apnamespace"] == 0
+            assert params["apfilterredir"] == "nonredirects"
+            return {
+                "query": {
+                    "allpages": [
+                        {"title": t} for t in self.listed if not t.startswith("Match:")
+                    ]
+                }
             }
         if params.get("generator") == "allpages":
             assert params["gapnamespace"] == 130
@@ -190,6 +202,8 @@ def test_query_only_and_spacing():
         HTTPError("url", 503, "server", {}, None),
         URLError("offline"),
         TimeoutError(),
+        RemoteDisconnected("closed"),
+        ConnectionResetError(),
     ],
 )
 def test_retry(error):
@@ -452,6 +466,8 @@ def test_saved_namespace_info_response_skips_unchanged_revisions():
         calls.append(params)
         if params.get("list") == "categorymembers":
             return {"query": {"categorymembers": []}}
+        if params.get("list") == "allpages":
+            return {"query": {"allpages": []}}
         assert params["generator"] == "allpages"
         if params.get("gapcontinue"):
             assert params["gapcontinue"] == response["continue"]["gapcontinue"]
@@ -460,4 +476,23 @@ def test_saved_namespace_info_response_skips_unchanged_revisions():
 
     result = crawl(fetcher(get))
     assert (result.fetched, result.match_pages, result.unchanged) == (0, 3, 3)
-    assert len(calls) == 3
+    assert len(calls) == 4  # category, subpage listing, two namespace pages
+
+
+def test_listed_subpages_are_crawled_under_their_nearest_root():
+    get = FakeGet(
+        {"Root": (1, ""), "Root/Group Stage": (2, ""), "Rooted/X": (3, "")}, ["Root"]
+    )
+    get.listed = ["Root", "Root/Group Stage", "Rooted/X", "Other/Root"]
+    result = crawl(fetcher(get))
+    index = cache.load_index()
+    assert index["Root/Group Stage"] == index["Root/Group Stage"] | {
+        "source": "subpage",
+        "parent": "Root",
+    }
+    assert "Rooted/X" not in index and result.subpages == 1
+
+
+def test_subpage_links_drop_fragments_and_double_spaces():
+    text = "|link1=Root/Chinese  Qualifier|link2=Root#Weekly Matches"
+    assert subpage_links("Root/Main", text) == {"Root/Chinese Qualifier", "Root"}

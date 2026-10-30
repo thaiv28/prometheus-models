@@ -87,11 +87,39 @@ def contents(fetcher, titles) -> list[dict]:
     return records
 
 
+def clean_title(title):
+    """Drop a #fragment and collapse spacing, as MediaWiki resolves the link."""
+    return re.sub(r"\s+", " ", title.split("#")[0].replace("_", " ")).strip()
+
+
+def list_subpages(fetcher, roots) -> dict[str, str]:
+    """Every non-redirect article under a tournament root → its nearest root."""
+    roots, found, continuation = set(roots), {}, {}
+    while True:
+        result = fetcher.query(
+            action="query",
+            list="allpages",
+            apnamespace=0,
+            aplimit=500,
+            apfilterredir="nonredirects",
+            **continuation,
+        )
+        for page in result["query"]["allpages"]:
+            parts = page["title"].split("/")
+            for cut in range(len(parts) - 1, 0, -1):
+                if "/".join(parts[:cut]) in roots:
+                    found[page["title"]] = "/".join(parts[:cut])
+                    break
+        if "apcontinue" not in result.get("continue", {}):
+            return found
+        continuation = result["continue"]
+
+
 def subpage_links(title, wikitext) -> set[str]:
-    title = title.replace("_", " ").strip()
+    title = clean_title(title)
     root = title.split("/")[0]
     links = {
-        match.replace("_", " ").strip()
+        clean_title(match)
         for match in re.findall(r"\|\s*link\d+\s*=\s*([^|}\n]+)", wikitext)
     }
     return {
@@ -116,6 +144,9 @@ def crawl(fetcher, limit=None, full=False, now=utc_now, no_matches=False) -> Sum
             if entry["source"] == "subpage" and title not in sources
         }
     )
+    # Dota tabs live in per-series templates, so links alone miss stage pages.
+    for title, parent in list_subpages(fetcher, titles).items():
+        sources.setdefault(title, ("subpage", parent))
     checked, missing = set(), set()
     attempted = 0
 

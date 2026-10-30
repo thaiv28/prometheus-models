@@ -94,7 +94,16 @@ def test_schedule(date, zone, expected):
 
 def test_invalid_schedule():
     assert scheduled_utc("no schedule") is None
-    assert scheduled_utc("originally scheduled for Apr 1, 2026, then") is None
+    assert scheduled_utc("originally scheduled for Oct 99, 2026, then") is None
+
+
+def test_date_only_schedule_reads_as_new_york_noon():
+    rules = "If MOUZ wins BLAST Slam 2025: MOUZ vs. Natus Vincere Dota 2 match originally scheduled for Dec 5, 2025, then"
+    assert scheduled_utc(rules) == "2025-12-05T17:00:00Z"
+    assert (
+        scheduled_utc("originally scheduled for Jul 1, 2026, then")
+        == "2026-07-01T16:00:00Z"
+    )
     assert scheduled_utc("originally scheduled for Oct 99, 2026 at 5:00 PM EDT") is None
 
 

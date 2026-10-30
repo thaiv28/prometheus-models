@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from itertools import permutations
+from zoneinfo import ZoneInfo
 
 
 def normalize(name):
@@ -26,14 +27,32 @@ def normalize(name):
 
 
 def scheduled_utc(rules_primary):
-    """Read the advertised Eastern time using its explicit EDT/EST offset."""
+    """Read the advertised Eastern time using its explicit EDT/EST offset.
+
+    2025 markets give only a date; that reads as noon New York time, which the
+    ±30-hour candidate window spans for the whole day.
+    """
     found = re.search(
         r"originally scheduled for (\w+ \d{1,2}, \d{4}) at "
         r"(\d{1,2}:\d{2} [AP]M) (EDT|EST)",
         rules_primary or "",
     )
     if not found:
-        return None
+        day = re.search(
+            r"originally scheduled for (\w+ \d{1,2}, \d{4})(?! at)", rules_primary or ""
+        )
+        try:
+            date = datetime.strptime(day[1], "%b %d, %Y") if day else None
+        except ValueError:
+            return None
+        if date is None:
+            return None
+        return (
+            date.replace(hour=12, tzinfo=ZoneInfo("America/New_York"))
+            .astimezone(UTC)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
     try:
         date = datetime.strptime(f"{found[1]} {found[2]}", "%b %d, %Y %I:%M %p")
     except ValueError:

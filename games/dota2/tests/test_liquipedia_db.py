@@ -168,3 +168,16 @@ def test_setup_db_offline_from_fixture_cache(tmp_path, monkeypatch):
         assert conn.execute("SELECT count(*) FROM player_games").fetchone() == (10,)
         assert conn.execute("SELECT count(*) FROM kalshi_markets").fetchone() == (4,)
     assert (project / "db/parse_errors.txt").read_text() == ""
+
+
+def test_same_page_under_two_spellings_loads_once(conn):
+    text = "{{Infobox league|name=X|liquipediatier=3}}"
+    pages = {
+        "Root/A  B": record("Root/A  B", 7, text),
+        "Root/A B": record("Root/A B", 7, text),
+        "Root#Part": record("Root#Part", 8, text),
+        "Root": record("Root", 8, text),
+    }
+    counts, errors = loader.build(conn, pages)
+    titles = [r[0] for r in conn.execute("SELECT title FROM events ORDER BY title")]
+    assert (titles, counts["duplicate_pages"], errors) == (["Root", "Root/A B"], 2, [])

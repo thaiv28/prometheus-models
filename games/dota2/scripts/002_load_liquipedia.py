@@ -13,6 +13,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from promdota.liquipedia import cache
+from promdota.liquipedia.crawl import clean_title
 from promdota.liquipedia.parse import (
     bracket_ids,
     fold,
@@ -62,8 +63,16 @@ def build(conn, pages: dict):
     """Load records into an empty schema; return counters and per-page errors."""
     conn.execute("PRAGMA foreign_keys = ON")
     counts, errors = Counter(pages=len(pages)), []
-    parsed = {}
-    for title, record in sorted(pages.items()):
+    parsed, seen_pages = {}, set()
+    # Old tab links cached one page under two spellings ("A  B", "A#Part");
+    # keep the clean spelling and skip the other.
+    for title, record in sorted(
+        pages.items(), key=lambda item: (clean_title(item[0]) != item[0], item[0])
+    ):
+        if record.get("pageid") in seen_pages:
+            counts["duplicate_pages"] += 1
+            continue
+        seen_pages.add(record.get("pageid"))
         try:
             text = record["wikitext"]
             local = Counter()
