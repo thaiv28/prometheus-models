@@ -2,7 +2,7 @@
 
 ## Status
 
-Playbook phase: **3 (benchmark)**. Data and benchmark ports are complete; real crawl and database pending. Liquipedia tournaments and Match pages, OpenDota enrichment, and Kalshi Dota 2 loading/linking build offline from caches. Binary team Elo and player Glicko now run the two-stage Dota benchmark with synthetic database coverage; real-data tuning and pins await the DB. Feed, trading and blend delivery remain deferred until the holdout gate passes.
+Playbook phase: **3 (baseline)**, waiting on data. 2026-10-29: 45,645 series and 91,503 games built from Liquipedia + OpenDota; Kalshi links series 1,380/1,869, games 1,882/2,564. OpenDota per-game top-up (~15,000 games without players, 1,800/day free) started 2026-10-29, newest first; ~8 days. Stage-1 baseline on partial data: player_glicko 0.6294 vs team_elo 0.6501 game log loss (ledger). No stage-2 look yet: the first waits for the top-up and the Kalshi backfill.
 
 ## Known limits
 

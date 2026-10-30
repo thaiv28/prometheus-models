@@ -1,3 +1,7 @@
+## 2026-10-29 — Stage-1 baseline on partial data
+
+Ran `evaluate_elo.py --validate-from 2026-07-01` (stage 1 only, 64 s, 8 jobs) on the 2026-10-29 build: player_glicko 0.6294 vs team_elo 0.6501 game log loss, 38,131 games; RD parameters at grid minima. Recorded in the ledger and Current state; no code change. OpenDota per-game top-up day 1 running.
+
 ## 2026-10-29 — Stage subpages, retry on dropped connections, date-only Kalshi schedules
 
 Branch `subpages`. Dota tournaments link stages through per-series tab templates, so the crawler now also lists every non-redirect article (`list=allpages`, ns 0, ~170 requests) and crawls titles under a tournament root. Tab links drop `#fragment`s and collapse spaces; the loader skips a second title with the same page ID. Liquipedia retries dropped connections. Kalshi's 2025 markets give only a date: it reads as noon New York time. Real data: +642 subpages, orphan Match pages 1,786 → 10; 45,645 series, 91,503 games (57,759 with players). Kalshi links: series 909 → 1,380 of 1,869, games 1,882 of 2,564; 12 result mismatches. Checks: pytest, ruff, real crawl and rebuild.
