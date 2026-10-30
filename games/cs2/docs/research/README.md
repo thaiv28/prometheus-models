@@ -4,6 +4,10 @@ Every model idea tested, adopted or not, newest first, with its numbers. These p
 
 ## Two-stage runs
 
+2026-10-29 Data fix: Liquipedia template-key aliases + team merges, and Kaggle per-map lineups (stand-ins). Adopted model with frozen parameters, new DB − old DB, paired by game_id.
+
+- **Shipped (data fix, significantly better).** Stage 1 −0.00116 [−0.00171, −0.00065] (tier2 −0.0009, tier3 −0.0014 significant; tier1 +0.0001 n.s.); stage 2 −0.00131 [−0.00218, −0.00043] (tier2 −0.0023, tier3 −0.0011 significant). Vs Kalshi: raw series −0.0054 (was −0.0041), blended −0.0146 (−0.0145), blended flat ROI +8.4% (+9.0%). Performance bonus retested on the new DB: stage 1 KDA −0.00004, ADR −0.00014; stage 2 −0.00009 / +0.00002 (all n.s.); still rejected.
+
 2026-10-29 Teammate-relative performance bonus (fifth stage-2 look), as adopted in valorant-model. Stats from Kaggle ektarr/counter-strike-pro-matches, linked to 8,942 maps (~6% of 2024–26 DB maps, mostly tiers 1–2). Zero-sum perf_k·(stat − side mean) over the adopted model; no role adjustment.
 
 - **Rejected.** Stage 1 chose KDA perf_k 5 / ADR 0.07: all −0.00006 [−0.00017, +0.00004] / −0.00011 [−0.00022, +0.00001]; tier1 −0.0005 / −0.0007, maps with stats −0.0005 / −0.0007 (all n.s.; ADR tier2 −0.0002 significant). Stage 2: −0.00002 / +0.00008 (n.s.). Vs Kalshi raw series −0.0046 / −0.0047 (adopted −0.0041). Valorant's gain was −0.003 with full stats coverage; here coverage is thin and lineups are event rosters.

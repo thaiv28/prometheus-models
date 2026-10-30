@@ -271,3 +271,89 @@ def test_cli_cache_root_and_error_log(tmp_path, monkeypatch, capsys):
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) <= 10
     assert "parse_errors=1" in lines[-1]
+
+
+def teamcard(name, prefix="p"):
+    return (
+        "{{TeamCard|team="
+        + name
+        + "".join(f"|p{i}={prefix}{i}" for i in range(1, 6))
+        + "}}"
+    )
+
+
+def test_alias_pairing_and_ambiguity():
+    cards = {"natusvincere": ("Natus Vincere", ()), "beta": ("Beta", ())}
+    assert loader.alias_votes(cards, ["navi", "navi", "beta"]) == {
+        "navi": {"natusvincere": 1}
+    }
+    cards["naviking"] = ("Navi King", ())
+    assert loader.alias_votes(cards, ["navi", "beta"]) == {}
+    # A card already claimed by another key is not available to an alias.
+    assert (
+        loader.alias_votes({"teamliquid": ("Team Liquid", ())}, ["tl", "liquid"]) == {}
+    )
+    assert loader.alias_votes({"xtl": ("XTL", ())}, ["tl"]) == {}
+
+
+def test_alias_global_threshold():
+    assert loader.confident_choices(
+        {
+            "one": loader.Counter(a=1),
+            "strong": loader.Counter(a=4, b=1),
+            "weak": loader.Counter(a=3, b=1),
+            "tie": loader.Counter(a=2, b=2),
+        }
+    ) == {"strong": "a"}
+
+
+def test_alias_roster_identity_merge_and_unchanged_ids(conn):
+    cards = teamcard("Team Vitality") + teamcard("Beta", "b")
+    pages = {}
+    for i, key in enumerate(("vit", "vitality", "vit", "vitality", "vit"), 1):
+        title = f"P{i}"
+        pages[title] = record(
+            title, i, cards + match(key, "beta").replace("Jan 1", f"Jan {i}")
+        )
+    counts, errors = loader.build(conn, pages)
+    assert errors == []
+    assert counts["merged_keys"] == 2 and counts["merged_groups"] == 1
+    assert conn.execute("SELECT key, name FROM teams ORDER BY key").fetchall() == [
+        ("beta", "Beta"),
+        ("vit", "Team Vitality"),
+    ]
+    assert conn.execute("SELECT DISTINCT team1_id FROM matches").fetchall() == [
+        (loader.stable_id("team:vit"),)
+    ]
+    for i, key in enumerate(("vit", "vitality", "vit", "vitality", "vit"), 1):
+        mid = loader.stable_id(f"match:P{i}|{key}|beta|2026-01-{i:02}T10:00:00Z|0")
+        assert conn.execute(
+            "SELECT game_id FROM maps WHERE match_id=?", (mid,)
+        ).fetchone() == (mid * 10 + 1,)
+    assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_cardless_key_gets_alias_roster(conn):
+    cards = teamcard("Natus Vincere") + teamcard("Beta", "b")
+    pages = {f"P{i}": record(f"P{i}", i, cards + match("navi", "beta")) for i in (1, 2)}
+    counts, errors = loader.build(conn, pages)
+    assert not errors and counts["aliases_resolved"] == 1
+    assert counts["both_rosters"] == 1  # Duplicate signature still uses raw keys.
+    assert conn.execute("SELECT count(*) FROM player_maps").fetchone() == (10,)
+    assert conn.execute("SELECT name FROM teams WHERE key='navi'").fetchone() == (
+        "Natus Vincere",
+    )
+
+
+def test_disambiguated_keys_do_not_merge():
+    from types import SimpleNamespace as N
+
+    cards = {"legacy": ("Legacy", ())}
+    pages = {
+        f"p{i}": (cards, [N(team1_key="legacy", team2_key="legacy (american team)")])
+        for i in range(3)
+    }
+    _, canonical, merged, groups = loader.team_resolution(pages)
+    assert canonical["legacy"] == "legacy"
+    assert canonical["legacy (american team)"] == "legacy (american team)"
+    assert (merged, groups) == (0, 0)

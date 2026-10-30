@@ -1,7 +1,6 @@
 """Build SQLite from the offline Liquipedia cache, isolating errors by page."""
 
 import argparse
-import hashlib
 import sqlite3
 import sys
 import time
@@ -12,6 +11,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+from promcs.kaggle import stable_id
 from promcs.liquipedia import cache
 from promcs.liquipedia.parse import (
     fold,
@@ -21,10 +21,6 @@ from promcs.liquipedia.parse import (
     section,
 )
 from promcs.liquipedia.regions import INTERNATIONAL_COUNTRIES, region
-
-
-def stable_id(text):
-    return int(hashlib.sha1(text.encode()).hexdigest()[:12], 16)
 
 
 def insert(conn, table, rows):
@@ -54,6 +50,74 @@ def match_card(cards, key):
         if min(len(name), len(key)) >= 3 and (name in key or key in name)
     ]
     return hits[0] if len(hits) == 1 else None
+
+
+def confident_choices(votes, minimum=2):
+    """Resolve only repeated, dominant evidence; ties cannot reach 80%."""
+    result = {}
+    for key, counts in votes.items():
+        identity, count = counts.most_common(1)[0]
+        if count >= minimum and count / counts.total() >= 0.8:
+            result[key] = identity
+    return result
+
+
+def alias_votes(cards, keys):
+    """One vote per page for unique unmatched, same-initial subsequences."""
+    keys = set(keys)
+    matched = {key: match_card(cards, key) for key in keys}
+    used = {fold(card[0]) for card in matched.values() if card is not None}
+    votes = {}
+    for key in sorted(keys):
+        if matched[key] is not None:
+            continue
+        folded = fold(key)
+        hits = []
+        for name in cards.keys() - used:
+            letters = iter(name)
+            if (
+                folded
+                and name.startswith(folded[0])
+                and all(char in letters for char in folded)
+            ):
+                hits.append(name)
+        if len(hits) == 1:
+            votes[key] = Counter({hits[0]: 1})
+    return votes
+
+
+def resolved_card(cards, key, aliases):
+    card = match_card(cards, key)
+    return card if card is not None else cards.get(aliases.get(key))
+
+
+def team_resolution(page_inputs):
+    """Learn aliases, then card identities and canonical match keys."""
+    votes = defaultdict(Counter)
+    for cards, matches in page_inputs.values():
+        keys = [key for m in matches for key in (m.team1_key, m.team2_key)]
+        for key, counts in alias_votes(cards, keys).items():
+            votes[key].update(counts)
+    aliases = confident_choices(votes)
+    identities, frequency = defaultdict(Counter), Counter()
+    for cards, matches in page_inputs.values():
+        for m in matches:
+            for key in (m.team1_key, m.team2_key):
+                frequency[key] += 1
+                card = resolved_card(cards, key, aliases)
+                if card is not None:
+                    identities[key][fold(card[0])] += 1
+    groups = defaultdict(list)
+    for key, identity in confident_choices(identities).items():
+        # "legacy (american team)" shares a card name with "legacy" but is not it.
+        qualifier = key.partition("(")[2]
+        groups[identity, qualifier].append(key)
+    canonical = {}
+    for members in groups.values():
+        winner = min(members, key=lambda key: (-frequency[key], key))
+        canonical.update((key, winner) for key in members)
+    merged = [members for members in groups.values() if len(members) > 1]
+    return aliases, canonical, sum(map(len, merged)), len(merged)
 
 
 def build(conn, pages: dict):
@@ -110,16 +174,25 @@ def build(conn, pages: dict):
             "revid": pages[title].get("revid"),
         }
     insert(conn, "events", list(events.values()))
-    teams, players, rosters, names = {}, {}, {}, defaultdict(Counter)
-    seen_ids, seen_games = set(), set()
+    page_inputs, sources = {}, {}
     for title, (_, _, matches) in parsed.items():
-        event = events[title]
-        if event["excluded"]:
+        if events[title]["excluded"]:
             continue
         source = next(
             (p for p in ancestry(title) if p in parsed and parsed[p][1]), None
         )
-        cards = parsed[source][1] if source else {}
+        sources[title] = source
+        page_inputs[title] = (parsed[source][1] if source else {}, matches)
+    aliases, canonical, merged_keys, merged_groups = team_resolution(page_inputs)
+    counts.update(
+        aliases_resolved=len(aliases),
+        merged_keys=merged_keys,
+        merged_groups=merged_groups,
+    )
+    teams, players, rosters, names = {}, {}, {}, defaultdict(Counter)
+    seen_ids, seen_games = set(), set()
+    for title, (cards, matches) in page_inputs.items():
+        event, source = events[title], sources[title]
         # A savepoint makes DB errors skip the entire page, including its matches.
         page_ids, page_games = set(), set()
         page_teams, page_players, page_rosters = {}, {}, {}
@@ -156,12 +229,17 @@ def build(conn, pages: dict):
                     continue
                 lineups = []
                 for key in keys:
-                    tid = stable_id("team:" + key)
-                    page_teams[tid] = {"team_id": tid, "key": key, "name": key}
-                    card = match_card(cards, key)
+                    canonical_key = canonical.get(key, key)
+                    tid = stable_id("team:" + canonical_key)
+                    page_teams[tid] = {
+                        "team_id": tid,
+                        "key": canonical_key,
+                        "name": canonical_key,
+                    }
+                    card = resolved_card(cards, key, aliases)
                     lineups.append(card[1] if card else ())
                     if card:
-                        page_names[key][card[0]] += 1
+                        page_names[canonical_key][card[0]] += 1
                         for slot, player in enumerate(card[1], 1):
                             pid = stable_id("player:" + player.key)
                             page_players[pid] = {
@@ -201,8 +279,12 @@ def build(conn, pages: dict):
                             "start_utc": utc,
                             "time_known": m.time_known,
                             "best_of": m.best_of,
-                            "team1_id": stable_id("team:" + keys[0]),
-                            "team2_id": stable_id("team:" + keys[1]),
+                            "team1_id": stable_id(
+                                "team:" + canonical.get(keys[0], keys[0])
+                            ),
+                            "team2_id": stable_id(
+                                "team:" + canonical.get(keys[1], keys[1])
+                            ),
                             "score1": wins1,
                             "score2": len(m.maps) - wins1,
                             "winner": m.winner,
@@ -290,6 +372,9 @@ def main(argv=None):
         f"matches={counts['matches']} maps={counts['maps']} duplicates={counts['duplicates']}"
     )
     pct = counts["both_rosters"] / counts["matches"] if counts["matches"] else 0
+    print(
+        f"aliases_resolved={counts['aliases_resolved']} teams_merged={counts['merged_keys']} keys -> {counts['merged_groups']} groups"
+    )
     print(f"both_rosters={counts['both_rosters']} ({pct:.1%})")
     print(
         f"unknown_tz={counts['unknown_tz']} dateless={counts['dateless']} map_order_gt9={counts['map_order_gt9']} players_both_sides={counts['players_both_sides']}"

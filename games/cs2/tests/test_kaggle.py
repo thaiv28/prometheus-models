@@ -227,3 +227,118 @@ def test_ineligible_candidates(db, tmp_path, changes):
 
 def test_missing_zip_skips(db, tmp_path):
     assert load_latest(db, tmp_path) == "kaggle: no dataset, skipped"
+
+
+def full_game(kid=101, **changes):
+    row = game(kid, **changes)
+    for side in (1, 2):
+        for i in range(1, 6):
+            row[f"team{side}_player{i}_id"] = str((side - 1) * 5 + i)
+    return row
+
+
+def lineup(db, gid=1, side=1):
+    return {
+        r[0]
+        for r in db.execute(
+            "SELECT player_id FROM player_maps WHERE game_id=? AND team=?", (gid, side)
+        )
+    }
+
+
+def test_learned_mapping_reuses_player_across_maps(db, tmp_path):
+    add_map(db, 2, start="2026-01-02T00:00:00Z")
+    row = full_game(102, datetime="2026-01-02 03:00:00", team1_player1="renamed")
+    summary = load_stats(db, archive(tmp_path, [full_game(), row]))
+    assert lineup(db, 2) == set(range(1, 6))
+    assert db.execute(
+        "SELECT player_id FROM player_stats WHERE game_id=2 ORDER BY player_id"
+    ).fetchall() == [(i,) for i in range(1, 11)]
+    assert "learned_mappings=10" in summary and "new_kaggle_players=0" in summary
+
+
+def test_standin_replaces_roster_and_gets_stats(db, tmp_path):
+    from promcs.kaggle import stable_id
+
+    row = full_game(team1_player5="NewGuy (Full Name), GB")
+    row["team1_player5_id"] = "999.0"
+    summary = load_stats(db, archive(tmp_path, [row]))
+    pid = stable_id("player:kaggle:999")
+    assert lineup(db) == {1, 2, 3, 4, pid}
+    assert db.execute(
+        "SELECT key, name FROM players WHERE player_id=?", (pid,)
+    ).fetchone() == ("kaggle:999", "NewGuy")
+    assert db.execute("SELECT count(*) FROM player_stats").fetchone() == (10,)
+    assert db.execute(
+        "SELECT count(*) FROM player_stats WHERE player_id=5"
+    ).fetchone() == (0,)
+    assert "sides_replaced=2; lineups_changed=1; new_kaggle_players=1" in summary
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_conflicting_lineups_leave_sides_unchanged(db, tmp_path):
+    # Learn id 6 as LP player 6 on the other map, then try to put it on both sides.
+    add_map(db, 2, start="2026-01-02T00:00:00Z")
+    row = full_game(team1_player5="unknown")
+    row["team1_player5_id"] = "6"
+    summary = load_stats(
+        db, archive(tmp_path, [row, full_game(102, datetime="2026-01-02 03:00:00")])
+    )
+    assert lineup(db) == set(range(1, 6))
+    assert lineup(db, side=2) == set(range(6, 11))
+    assert "sides_replaced=2; lineups_changed=0" in summary
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+@pytest.mark.parametrize("missing", ["team1_player5_id", "team1_player5"])
+def test_incomplete_lineup_keeps_liquipedia(db, tmp_path, missing):
+    row = full_game(team1_player4="standin")
+    row[missing] = ""
+    summary = load_stats(db, archive(tmp_path, [row]))
+    assert lineup(db) == set(range(1, 6))
+    assert "sides_replaced=1; lineups_changed=0; new_kaggle_players=0" in summary
+
+
+def test_duplicate_resolved_players_keep_side(db, tmp_path):
+    row = full_game(team1_player5="p4")
+    summary = load_stats(db, archive(tmp_path, [row]))
+    assert lineup(db) == set(range(1, 6))
+    assert "sides_replaced=1" in summary
+
+
+def test_full_lineup_populates_cardless_side(db, tmp_path):
+    db.execute("DELETE FROM player_maps WHERE team=2")
+    summary = load_stats(db, archive(tmp_path, [full_game(team2="Beta")]))
+    assert len(lineup(db, side=2)) == 5
+    assert db.execute("SELECT count(*) FROM player_stats").fetchone() == (10,)
+    assert "lineups_changed=1; new_kaggle_players=5" in summary
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_full_swapped_lineup_stats_keep_liquipedia_side(db, tmp_path):
+    row = full_game(score1_game="9", score2_game="13")
+    for i in range(1, 6):
+        row[f"team1_player{i}"] = f"p{i + 5}"
+        row[f"team1_player{i}_id"] = str(i + 5)
+        row[f"team2_player{i}"] = f"p{i}"
+        row[f"team2_player{i}_id"] = str(i)
+    summary = load_stats(db, archive(tmp_path, [row]))
+    assert lineup(db) == set(range(1, 6))
+    assert db.execute(
+        "SELECT count(*) FROM player_stats WHERE team=2 AND player_id>5"
+    ).fetchone() == (5,)
+    assert "sides_replaced=2; lineups_changed=0" in summary
+
+
+def test_display_name_and_spelling_variants():
+    from promcs.kaggle import display_name, leftover, similar
+
+    assert display_name("tex1y, RU") == "tex1y"
+    assert display_name("OLIMP (Patryk  Woźniak ), PL") == "OLIMP"
+    assert similar("device", "dev1ce") and similar("jotta", "jottaaa")
+    assert not similar("zywoo", "apex")
+    roster = {
+        n: {i} for i, n in enumerate(["dev1ce", "staehr", "stavn", "hooxi", "jabbi"])
+    }
+    assert leftover(roster, ["device", "staehr", "stavn", "hooxi", "jabbi"]) == (0, 0)
+    assert leftover(roster, ["stand1n", "staehr", "stavn", "hooxi", "jabbi"]) is None
