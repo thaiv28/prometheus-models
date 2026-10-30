@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Kaggle player stats; performance bonus rejected
+
+Branch `player-stats`, base `main` (7446fb5). `promcs kaggle fetch` caches the weekly ektarr/counter-strike-pro-matches zip (CC BY-SA 4.0); `006_load_kaggle.py` links map rows (times UTC+3) to Liquipedia by map, score, ±12 h, and per-side agreement (≥3 nicknames or team name incl. Kalshi aliases) into `kaggle_links`/`player_stats`: 8,942/12,322 linked (72.6%), 68,680 player rows; 15 sampled weak links all correct. Off-by-default zero-sum bonus perf_k·(stat − side mean), KDA and ADR variants. Benchmark: stage 1 KDA −0.00006, ADR −0.00011 (n.s.); on maps with stats −0.0005/−0.0007 (n.s.); stage 2 n.s. Rejected; left off. Checks: pytest 283 → 314 (40.3 s → 12.4 s, timing noise), ruff, benchmark (5.5 min). Codex wrote most code.
+
 ## 2026-10-29 — Actions site feed snapshots
 
 Branch `game-feed`, base phase-1 `f31f2fe`. Split DB/candle replay into a versioned gzip-pickle snapshot; export accepts it without SQLite. Added hourly refresh and frequent feed workflows with OIDC, raw caches, conditional prediction-log persistence and optional Prometheus dispatch. S3: `cs2-model/{liquipedia/,kalshi/,feed/{state.pkl.gz,predictions.json,cs2.json.gz,upcoming/}}`. Checks: 261 tests passed/12.93 s (phase-1: 255/14.99 s; six added guards); ruff format/check, bash syntax and normalized feed cmp passed. Offline state: 6,164,779 bytes/7.84 s; export 0.44 s versus DB 8.47 s. Used UV_NO_SYNC/UV_OFFLINE for uv’s local macOS panic. Limits: workflows not yet run on GitHub; runner times unmeasured; raw caches must be seeded in S3 once. No network or commits. Merged main: the feed replays the adopted `player_round_glicko_rookie_weights`; `evaluate_elo.py --write-weights` (report to scratch; docs/elo_backtest.md unchanged) reproduced its parameters and stored stage-1 series temperatures Bo3 0.86, Bo5 0.68.

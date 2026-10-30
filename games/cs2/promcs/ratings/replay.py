@@ -34,6 +34,24 @@ def load_lineups(conn):
     return {game: (tuple(a), tuple(b)) for game, (a, b) in lineups.items()}
 
 
+def load_performance(conn) -> dict:
+    """Load each player's map performance once, outside candidate replays."""
+    performance = {}
+    for game_id, player_id, kills, deaths, assists, adr, rounds in conn.execute(
+        """SELECT s.game_id, s.player_id, s.kills, s.deaths, s.assists, s.adr,
+                  m.score1 + m.score2
+           FROM player_stats s JOIN maps m USING (game_id)"""
+    ):
+        kda = (
+            (kills + 0.5 * assists - deaths) / rounds
+            if all(v is not None for v in (kills, deaths, assists, rounds))
+            and rounds > 0
+            else None
+        )
+        performance.setdefault(game_id, {})[player_id] = (kda, adr)
+    return performance
+
+
 def replay(maps, model) -> pd.DataFrame:
     keys = ["start_utc", "match_id", "order"]
     # load_maps already orders rows; avoid O(n log n) work on every candidate.

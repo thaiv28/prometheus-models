@@ -11,7 +11,7 @@ Hourly `refresh-db.yml` and 10-minute `feed.yml` are implemented for S3 snapshot
 ## Known limits
 
 - Settlement mismatches need source review; 2,210 markets lack a parseable scheduled time and use the open-time fallback.
-- No form layer: per-player statistics are absent.
+- Kaggle stats: 8,942/12,322 maps linked (72.6%), mostly tiers 1–2 (~6% of 2024–26 DB maps); 68,680 player rows. Upstream origin is undocumented; the refresh workflow does not fetch Kaggle. Teammate-relative KDA/ADR bonuses were rejected (ledger).
 - Liquipedia has tournament rosters, not per-match lineups, so stand-ins are missed; no veto data.
 - Time zones are converted from a fixed abbreviation table (0 unknown on 2026-10-29); unknown ones would be treated as UTC with time_known=0. International classification is approximate.
 - Liquipedia terms do not address betting/trading use; ask in their #api-help Discord.

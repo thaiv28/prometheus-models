@@ -143,7 +143,7 @@ def test_region_offsets_only_cross_region_and_zero_sum():
 
 
 def test_registry_grids_and_v1_regression():
-    assert len(MODELS) == len(PARAM_GRIDS) == 20
+    assert len(MODELS) == len(PARAM_GRIDS) == 22
     assert "team_binary" not in MODELS
     for name in MODELS:
         if name == "coin":
@@ -554,3 +554,148 @@ def test_k_multipliers_scale_two_map_replay(online, tier, ratio):
 def test_invalid_k_multipliers(parameter, value):
     with pytest.raises(ValueError, match="online_k and tier3_k"):
         EloModel(**{parameter: value})
+
+
+@pytest.mark.parametrize("rd", [False, True])
+def test_zero_performance_bonus_preserves_player_replay(rd):
+    options = {"unit": "player", "rd": rd, "lineups": {1: ((1, 2), (3, 4))}}
+    original = EloModel(**options)
+    disabled = EloModel(
+        **options,
+        performance={1: {1: (0.5, 100), 2: (-0.5, 20), 3: (1, 120), 4: (0, 40)}},
+        perf_k=0,
+    )
+    for game in (row(), row(won=0), row(score1=4, score2=13, won=0)):
+        assert original.predict(game) == disabled.predict(game)
+        original.update(game)
+        disabled.update(game)
+        assert original.ratings == disabled.ratings
+        assert original.rd_variance == disabled.rd_variance
+
+
+@pytest.mark.parametrize("stat,index,strength", [("kda", 0, 4), ("adr", 1, 0.1)])
+def test_performance_bonus_centres_each_side_and_uses_selected_stat(
+    stat, index, strength
+):
+    lineups = {1: ((1, 2, 3), (4, 5, 6))}
+    performance = {
+        1: {
+            1: (1, 20),
+            2: (-1, 100),
+            3: (None, None),
+            4: (0, 40),
+            5: (2, 80),
+            6: (None, None),
+            99: (1000, 1000),  # Outside the Liquipedia lineup.
+        }
+    }
+    base = EloModel(unit="player", lineups=lineups)
+    model = EloModel(
+        unit="player",
+        lineups=lineups,
+        performance=performance,
+        perf_stat=stat,
+        perf_k=strength,
+    )
+    assert model.predict(row()) == base.predict(row())
+    base.update(row())
+    model.update(row())
+    for side in lineups[1]:
+        assert sum(model.ratings[p] - base.ratings[p] for p in side) == pytest.approx(0)
+        known = [p for p in side if performance[1][p][index] is not None]
+        mean = sum(performance[1][p][index] for p in known) / len(known)
+        for p in known:
+            assert model.ratings[p] - base.ratings[p] == pytest.approx(
+                strength * (performance[1][p][index] - mean)
+            )
+        low, high = sorted(known, key=lambda p: performance[1][p][index])
+        assert model.ratings[high] > model.ratings[low]
+    assert model.ratings[3] == base.ratings[3]
+    assert model.ratings[6] == base.ratings[6]
+    assert 99 not in model.ratings
+
+
+def test_performance_bonus_requires_two_players_and_player_unit():
+    performance = {1: {1: (1, 100), 2: (None, None), 3: (None, 80)}}
+    options = {"lineups": {1: ((1, 2), (3, 4))}, "performance": performance}
+    for unit in ("player", "team"):
+        base = EloModel(unit=unit, **options)
+        model = EloModel(unit=unit, perf_k=10, **options)
+        base.update(row())
+        model.update(row())
+        assert model.ratings == base.ratings
+
+
+def test_performance_bonus_uses_existing_rd_weight():
+    model = EloModel(
+        unit="player",
+        rd=True,
+        lineups={1: ((1, 2), (3, 4))},
+        performance={1: {1: (1, None), 2: (-1, None)}},
+        perf_k=2,
+    )
+    model.update(row())
+    assert model.ratings[1] - 1500 == pytest.approx((16 + 2) * 4)
+    assert model.ratings[2] - 1500 == pytest.approx((16 - 2) * 4)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"perf_stat": "kills"},
+        {"perf_k": -1},
+        {"perf_k": float("inf")},
+        {"perf_k": float("nan")},
+    ],
+)
+def test_invalid_performance_parameters(options):
+    with pytest.raises(ValueError, match="perf_"):
+        EloModel(**options)
+
+
+@pytest.mark.parametrize(
+    "stat,grid",
+    [
+        ("kda", (1, 2, 3, 5, 7, 10, 15, 20)),
+        ("adr", (0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2)),
+    ],
+)
+def test_performance_registry_and_exact_grids(stat, grid):
+    from promcs.ratings.models import ADOPTED, PINNED
+
+    name = f"{ADOPTED}_perf_{stat}"
+    assert name not in PINNED
+    assert PARAM_GRIDS[name] == {
+        key: (value,) for key, value in PINNED[ADOPTED].items()
+    } | {"perf_k": grid}
+    model = MODELS[name](
+        **{key: values[0] for key, values in PARAM_GRIDS[name].items()}
+    )
+    assert model.perf_stat == stat and model.perf_k == grid[0]
+    assert model.unit == "player" and model.rd
+
+
+def test_load_performance_formula_and_nulls():
+    import sqlite3
+
+    from promcs.ratings.replay import load_performance
+
+    with sqlite3.connect(":memory:") as conn:
+        conn.executescript("""
+            CREATE TABLE maps (game_id INTEGER PRIMARY KEY, score1 REAL, score2 REAL);
+            CREATE TABLE player_stats (
+                game_id INTEGER, player_id INTEGER, kills REAL, deaths REAL,
+                assists REAL, adr REAL
+            );
+            INSERT INTO maps VALUES (1, 13, 11), (2, 0, 0), (3, NULL, 13);
+            INSERT INTO player_stats VALUES
+                (1, 1, 20, 10, 8, 90), (1, 2, NULL, 10, 8, 70),
+                (1, 3, 20, NULL, 8, NULL), (1, 4, 20, 10, NULL, 80),
+                (2, 1, 20, 10, 8, 100), (3, 1, 20, 10, 8, 80);
+        """)
+        performance = load_performance(conn)
+    assert performance == {
+        1: {1: (14 / 24, 90), 2: (None, 70), 3: (None, None), 4: (None, 80)},
+        2: {1: (None, 100)},
+        3: {1: (None, 80)},
+    }

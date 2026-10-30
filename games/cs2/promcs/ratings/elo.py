@@ -51,6 +51,9 @@ class EloModel:
         region_k=0.0,
         new_player="fixed",
         lineups=None,
+        performance=None,
+        perf_stat="kda",
+        perf_k=0.0,
         init=1500.0,
         scale=400.0,
         rd=False,
@@ -78,6 +81,12 @@ class EloModel:
             raise ValueError("Elo parameters must be positive (region_k may be zero)")
         if not (0 < online_k <= 2 and 0 < tier3_k <= 2):
             raise ValueError("online_k and tier3_k must be in (0, 2]")
+        if perf_stat not in {"kda", "adr"}:
+            raise ValueError("unknown perf_stat")
+        if not isfinite(perf_k) or perf_k < 0:
+            raise ValueError("perf_k must be finite and nonnegative")
+        self.performance = performance if performance is not None else {}
+        self.perf_stat, self.perf_k = perf_stat, perf_k
         self.online_k, self.tier3_k = online_k, tier3_k
         self.rd = bool(rd and unit == "player")
         if self.rd and (
@@ -215,6 +224,19 @@ class EloModel:
             information = self.rd_info * (log(10) / self.scale) ** 2
             information *= expected * (1 - expected)
         for units, change in ((a, delta), (b, -delta)):
+            bonus = {}
+            if self.unit == "player" and self.perf_k > 0:
+                performance = self.performance.get(row.game_id, {})
+                index = 0 if self.perf_stat == "kda" else 1
+                values = {
+                    p: performance[p][index]
+                    for p in units
+                    if p in performance and performance[p][index] is not None
+                }
+                if len(values) >= 2:
+                    mean = sum(values.values()) / len(values)
+                    # Teammate-relative performance bonuses are zero-sum per side.
+                    bonus = {p: self.perf_k * (v - mean) for p, v in values.items()}
             for player in units:
                 weight = 1.0
                 if self.rd:
@@ -232,7 +254,7 @@ class EloModel:
                         self.rd_floor**2, 1 / (1 / variance + information)
                     )
                     self.last_seen[player] = date
-                self.ratings[player] += change * weight
+                self.ratings[player] += (change + bonus.get(player, 0.0)) * weight
         if (
             self.region_k
             and home_a is not None

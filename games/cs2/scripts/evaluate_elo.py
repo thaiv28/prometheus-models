@@ -34,7 +34,7 @@ from promcs.quotes import TRADEABLE as TRADEABLE
 from promcs.ratings.layers import LAYERS
 from promcs.ratings.models import ADOPTED, MODELS, PARAM_GRIDS, PINNED
 from promcs.ratings.regions import macro_region
-from promcs.ratings.replay import load_lineups, load_maps, replay
+from promcs.ratings.replay import load_lineups, load_maps, load_performance, replay
 
 
 def candle_mid(candles, start_utc):
@@ -429,16 +429,22 @@ def parameter_grid(model, k_grid=None, full=False):
     return [dict(zip(grid, values)) for values in product(*grid.values())]
 
 
-def initialize_worker(maps, lineups, tune_from, tune_to):
-    global _WORKER_MAPS, _WORKER_LINEUPS, _WORKER_TUNE_FROM, _WORKER_TUNE_TO
-    _WORKER_MAPS, _WORKER_LINEUPS = maps, lineups
+def initialize_worker(maps, lineups, performance, tune_from, tune_to):
+    global _WORKER_MAPS, _WORKER_LINEUPS, _WORKER_PERFORMANCE
+    global _WORKER_TUNE_FROM, _WORKER_TUNE_TO
+    _WORKER_MAPS, _WORKER_LINEUPS, _WORKER_PERFORMANCE = maps, lineups, performance
     _WORKER_TUNE_FROM, _WORKER_TUNE_TO = tune_from, tune_to
 
 
 def tune_candidate(task):
     """Return just a scalar score, avoiding retention of all candidate replays."""
     name, params = task
-    candidate = replay(_WORKER_MAPS, MODELS[name](lineups=_WORKER_LINEUPS, **params))
+    candidate = replay(
+        _WORKER_MAPS,
+        MODELS[name](
+            lineups=_WORKER_LINEUPS, performance=_WORKER_PERFORMANCE, **params
+        ),
+    )
     tuning = scored_rows(candidate, _WORKER_TUNE_FROM, _WORKER_TUNE_TO)
     return name, params, float(game_losses(tuning.p, tuning.won).log_loss.mean())
 
@@ -578,6 +584,7 @@ def main(argv=None):
         if tuning_maps.empty:
             parser.error("no tuning maps in the requested scoring window")
         lineups = load_lineups(conn)
+        performance = load_performance(conn)
         tasks = [
             (name, params)
             for name in names
@@ -588,6 +595,7 @@ def main(argv=None):
             initialize_worker(
                 maps[maps.start_utc < args.tune_to],
                 lineups,
+                performance,
                 args.tune_from,
                 args.tune_to,
             )
@@ -601,6 +609,7 @@ def main(argv=None):
                 initargs=(
                     maps[maps.start_utc < args.tune_to],
                     lineups,
+                    performance,
                     args.tune_from,
                     args.tune_to,
                 ),
@@ -624,7 +633,12 @@ def main(argv=None):
             )
         )
         winners = {
-            name: replay(maps, MODELS[name](lineups=lineups, **best_params[name]))
+            name: replay(
+                maps,
+                MODELS[name](
+                    lineups=lineups, performance=performance, **best_params[name]
+                ),
+            )
             for name in names
         }
         temperatures = {}
