@@ -33,6 +33,10 @@ Syncs never delete remote objects. Keep candidates, state and raw inputs private
 
 `kalshi-collect.yml` runs every six hours (`23 */6 * * *`) or manually, on main, with a 30-minute timeout. It downloads `kalshi/manifest.json`; missing manifest fails unless dispatch sets `allow_full=true`. It uploads partial progress even after collection failure. Seed a completed local archive using `promdota kalshi manifest` and `scripts/kalshi_data.sh push`; `pull` restores it. These commands are operator actions, not run during implementation.
 
+## Seeding from a Mac
+
+Build `seed/raw.tar.zst` with `COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -cf - --exclude='*/books/*' data/liquipedia data/opendota data/kalshi | zstd -T0 -3 | aws s3 cp - s3://$BUCKET/dota2-model/seed/raw.tar.zst`. Plain macOS `tar` adds `._*` metadata files; on 2026-10-30 they reached S3 (38,434 objects, deleted) and broke the OpenDota loader, which now skips dot-files.
+
 ## Cost
 
 The repo is public (since 2026-10-30), so standard-runner Actions minutes are free; the rules still apply for Liquipedia/OpenDota politeness and the CI time budget. Method if it ever goes private: runs/month × billed minutes/run, each job rounded up to a whole minute.

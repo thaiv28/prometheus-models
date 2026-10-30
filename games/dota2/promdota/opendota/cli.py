@@ -41,8 +41,8 @@ def games(
 def status():
     """Count cached months, single games and retry records."""
     root = cache.data_dir()
-    months = len(list((root / "explorer/matches").glob("*.json.gz")))
-    singles = len(list((root / "matches").glob("*/*.json.gz")))
+    months = len(cache.cached(root / "explorer/matches", "*.json.gz"))
+    singles = len(cache.cached(root / "matches", "*/*.json.gz"))
     typer.echo(
         f"months={months} games={singles} missing={len(cache.read(root / 'missing.json', {}))}"
     )

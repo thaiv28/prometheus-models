@@ -64,17 +64,22 @@ def project(record):
     return result
 
 
+def cached(folder, pattern):
+    """Cache files, skipping dot-files such as macOS `._*` tar companions."""
+    return sorted(p for p in folder.glob(pattern) if not p.name.startswith("."))
+
+
 def load_records():
     """Return match id → data, merging bulk player rows and single projections."""
     records = {}
-    for path in sorted((data_dir() / "explorer/matches").glob("*.json.gz")):
+    for path in cached(data_dir() / "explorer/matches", "*.json.gz"):
         for row in read(path)["rows"]:
             records[int(row["match_id"])] = dict(row, players=[])
-    for path in sorted((data_dir() / "explorer/players").glob("*.json.gz")):
+    for path in cached(data_dir() / "explorer/players", "*.json.gz"):
         for row in read(path)["rows"]:
             if int(row["match_id"]) in records:
                 records[int(row["match_id"])]["players"].append(row)
-    for path in sorted((data_dir() / "matches").glob("*/*.json.gz")):
+    for path in cached(data_dir() / "matches", "*/*.json.gz"):
         record = read(path)
         records[int(record["match_id"])] = record
     return records

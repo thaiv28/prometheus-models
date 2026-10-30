@@ -214,3 +214,12 @@ def test_api_key_is_sent_lifts_the_daily_cap_and_spaces_less(monkeypatch):
     assert waits == [0.1]
     monkeypatch.delenv("OPENDOTA_API_KEY")
     assert Fetcher().limit == 1800 and Fetcher(limit=5000).limit == 1800
+
+
+def test_cache_skips_macos_tar_companions(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROMDOTA_DATA", str(tmp_path))
+    folder = cache.data_dir() / "explorer/matches"
+    folder.mkdir(parents=True)
+    cache.save(folder / "2020-01.json.gz", {"rows": [{"match_id": 1}]})
+    (folder / "._2020-01.json.gz").write_bytes(b"\x00\x05\x16\x07junk")
+    assert list(cache.load_records()) == [1]

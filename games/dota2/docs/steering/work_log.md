@@ -1,5 +1,9 @@
 
 
+## 2026-10-30 — First GitHub refresh runs; macOS seed junk
+
+First `refresh-db` run: crawl 5 min, then the OpenDota loader failed on `._*.json.gz` files from a seed tarball built with macOS `tar` (they had also been synced to S3: 38,434 objects, deleted). Rebuilt the seed without Mac metadata (56,303 entries, no `._`), cleared Actions caches, and the OpenDota cache now skips dot-files (test added). Seed command in deployment.md. Checks: pytest, ruff.
+
 ## 2026-10-30 — Live CI-cost check; public repo; thinner backups
 
 Live APIs: cold export 220 s (64 fetches), warm 4.2 s (0 fetches, 64 reused); gate with nothing changed: `run=false` in 3 s; same 8 candidates as the previous code. Repo made public (Actions minutes free). GitHub backups thinned so they don't double the cron-job.org dispatches: feed `37 * * * *`, refresh `41 */6 * * *`. Cost section rewritten. Checks: pytest, ruff.
