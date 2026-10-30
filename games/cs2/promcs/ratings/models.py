@@ -103,3 +103,15 @@ for variant in ("rookie", "moves", "rookie_moves", "weights", "rookie_weights"):
     if variant == "rookie_weights":
         grid.update(rookie_penalty=(200, 300, 400), rookie_maps=(100, 200, 400))
     PARAM_GRIDS[name] = grid
+
+
+# Search performance strength around the pinned adopted model.
+for stat, grid in (
+    ("kda", (1, 2, 3, 5, 7, 10, 15, 20)),
+    ("adr", (0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2)),
+):
+    name = f"{ADOPTED}_perf_{stat}"
+    MODELS[name] = partial(MODELS[ADOPTED], perf_stat=stat)
+    PARAM_GRIDS[name] = {key: (value,) for key, value in PINNED[ADOPTED].items()} | {
+        "perf_k": grid
+    }

@@ -114,9 +114,13 @@ def test_refresh_database_input_cache():
     inputs = next(step for step in steps if "id: inputs\n" in step)
     assert "hashFiles('scripts/**', 'promcs/**', 'uv.lock')" in inputs
     assert (
-        "find data/liquipedia data/kalshi -type f -not -path '*/books/*' "
-        "-print0 | LC_ALL=C sort -z | xargs -0 sha256sum" in inputs
+        "{ find data/liquipedia data/kalshi -type f -not -path '*/books/*' "
+        "-print0; find data/kaggle -name '*.zip' -print0; } "
+        "| LC_ALL=C sort -z | xargs -0 sha256sum" in inputs
     )
+    # The daily last_checked marker must not force a rebuild; the fetch runs first.
+    kaggle = next(step for step in steps if "promcs kaggle fetch" in step)
+    assert steps.index(kaggle) < steps.index(inputs)
     assert "printf '%s\\n' \"$CODE_HASH\"" in inputs
     assert "sha256sum" in inputs
     caches = [step for step in steps if "key: db-" in step]

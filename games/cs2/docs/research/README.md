@@ -4,6 +4,18 @@ Every model idea tested, adopted or not, newest first, with its numbers. These p
 
 ## Two-stage runs
 
+2026-10-29 Data fix: player identity splits (bare Liquipedia keys → disambiguated siblings by team context; Kaggle spelling pairs, fallback and ID unification). Adopted model, new DB − f22f6ef DB, paired by game_id.
+
+- **Shipped (data fix, neutral).** Stage 1 +0.00003 [−0.00008, +0.00014]; tier1 −0.00098 [−0.00186, −0.00014] significant; tier3 +0.00016 [+0.00007, +0.00025] significant but inside the +0.0005 non-inferiority margin. Stage 2 −0.00017 [−0.00043, +0.00009]; no section significant. Raw series vs Kalshi −0.0057 (was −0.0054).
+
+2026-10-29 Data fix: Liquipedia template-key aliases + team merges, and Kaggle per-map lineups (stand-ins). Adopted model with frozen parameters, new DB − old DB, paired by game_id.
+
+- **Shipped (data fix, significantly better).** Stage 1 −0.00116 [−0.00171, −0.00065] (tier2 −0.0009, tier3 −0.0014 significant; tier1 +0.0001 n.s.); stage 2 −0.00131 [−0.00218, −0.00043] (tier2 −0.0023, tier3 −0.0011 significant). Vs Kalshi: raw series −0.0054 (was −0.0041), blended −0.0146 (−0.0145), blended flat ROI +8.4% (+9.0%). Performance bonus retested on the new DB: stage 1 KDA −0.00004, ADR −0.00014; stage 2 −0.00009 / +0.00002 (all n.s.); still rejected.
+
+2026-10-29 Teammate-relative performance bonus (fifth stage-2 look), as adopted in valorant-model. Stats from Kaggle ektarr/counter-strike-pro-matches, linked to 8,942 maps (~6% of 2024–26 DB maps, mostly tiers 1–2). Zero-sum perf_k·(stat − side mean) over the adopted model; no role adjustment.
+
+- **Rejected.** Stage 1 chose KDA perf_k 5 / ADR 0.07: all −0.00006 [−0.00017, +0.00004] / −0.00011 [−0.00022, +0.00001]; tier1 −0.0005 / −0.0007, maps with stats −0.0005 / −0.0007 (all n.s.; ADR tier2 −0.0002 significant). Stage 2: −0.00002 / +0.00008 (n.s.). Vs Kalshi raw series −0.0046 / −0.0047 (adopted −0.0041). Valorant's gain was −0.003 with full stats coverage; here coverage is thin and lineups are event rosters.
+
 2026-10-29 Regional layer retest over the adopted model (fourth stage-2 look; `--baseline` paired tables). Fit on 5,211 cross-region stage-1 maps: s = 0.76 (map), effects EU +0.44, CIS +0.24, AS +0.16, NA +0.10, SA +0.04, OCE −0.45, AF −0.53.
 
 - **Rejected (below the 0.0005 bar, no market gain).** Stage-2 maps −0.00044 [−0.00084, −0.00001]; series −0.00077 [−0.00145, −0.00010]; tier2 significant, no section worse. Vs Kalshi: raw series −0.0046 (adopted −0.0041), blended −0.0144 (−0.0145), blended flat ROI +8.7% (+9.0%).

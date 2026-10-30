@@ -1,17 +1,19 @@
 """Build SQLite from the offline Liquipedia cache, isolating errors by page."""
 
 import argparse
-import hashlib
 import sqlite3
 import sys
 import time
+from bisect import bisect_left
 from collections import Counter, defaultdict
 from dataclasses import asdict
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+from promcs.kaggle import stable_id
 from promcs.liquipedia import cache
 from promcs.liquipedia.parse import (
     fold,
@@ -21,10 +23,6 @@ from promcs.liquipedia.parse import (
     section,
 )
 from promcs.liquipedia.regions import INTERNATIONAL_COUNTRIES, region
-
-
-def stable_id(text):
-    return int(hashlib.sha1(text.encode()).hexdigest()[:12], 16)
 
 
 def insert(conn, table, rows):
@@ -54,6 +52,154 @@ def match_card(cards, key):
         if min(len(name), len(key)) >= 3 and (name in key or key in name)
     ]
     return hits[0] if len(hits) == 1 else None
+
+
+def confident_choices(votes, minimum=2):
+    """Resolve only repeated, dominant evidence; ties cannot reach 80%."""
+    result = {}
+    for key, counts in votes.items():
+        identity, count = counts.most_common(1)[0]
+        if count >= minimum and count / counts.total() >= 0.8:
+            result[key] = identity
+    return result
+
+
+def alias_votes(cards, keys):
+    """One vote per page for unique unmatched, same-initial subsequences."""
+    keys = set(keys)
+    matched = {key: match_card(cards, key) for key in keys}
+    used = {fold(card[0]) for card in matched.values() if card is not None}
+    votes = {}
+    for key in sorted(keys):
+        if matched[key] is not None:
+            continue
+        folded = fold(key)
+        hits = []
+        for name in cards.keys() - used:
+            letters = iter(name)
+            if (
+                folded
+                and name.startswith(folded[0])
+                and all(char in letters for char in folded)
+            ):
+                hits.append(name)
+        if len(hits) == 1:
+            votes[key] = Counter({hits[0]: 1})
+    return votes
+
+
+def resolved_card(cards, key, aliases):
+    card = match_card(cards, key)
+    return card if card is not None else cards.get(aliases.get(key))
+
+
+def team_resolution(page_inputs):
+    """Learn aliases, then card identities and canonical match keys."""
+    votes = defaultdict(Counter)
+    for cards, matches in page_inputs.values():
+        keys = [key for m in matches for key in (m.team1_key, m.team2_key)]
+        for key, counts in alias_votes(cards, keys).items():
+            votes[key].update(counts)
+    aliases = confident_choices(votes)
+    identities, frequency = defaultdict(Counter), Counter()
+    for cards, matches in page_inputs.values():
+        for m in matches:
+            for key in (m.team1_key, m.team2_key):
+                frequency[key] += 1
+                card = resolved_card(cards, key, aliases)
+                if card is not None:
+                    identities[key][fold(card[0])] += 1
+    groups = defaultdict(list)
+    for key, identity in confident_choices(identities).items():
+        # "legacy (american team)" shares a card name with "legacy" but is not it.
+        qualifier = key.partition("(")[2]
+        groups[identity, qualifier].append(key)
+    canonical = {}
+    for members in groups.values():
+        winner = min(members, key=lambda key: (-frequency[key], key))
+        canonical.update((key, winner) for key in members)
+    merged = [members for members in groups.values() if len(members) > 1]
+    return aliases, canonical, sum(map(len, merged)), len(merged)
+
+
+def resolve_bare_keys(conn):
+    """Resolve bare cards from a frozen snapshot of nearby sibling appearances."""
+    players = dict(conn.execute("SELECT key, player_id FROM players"))
+    siblings = defaultdict(set)
+    for key, pid in players.items():
+        base, sep, qualifier = key.partition(" (")
+        if sep and qualifier.endswith(")") and base in players:
+            siblings[players[base]].add(pid)
+    relevant = set(siblings) | set().union(*siblings.values()) if siblings else set()
+    appearances = defaultdict(set)
+    map_rows, occupants = [], defaultdict(set)
+    for gid, pid, team, start in conn.execute(
+        "SELECT p.game_id, p.player_id, CASE p.team WHEN 1 THEN m.team1_id "
+        "ELSE m.team2_id END, substr(m.start_utc,1,10) FROM player_maps p "
+        "JOIN maps g USING(game_id) JOIN matches m USING(match_id)"
+    ):
+        if pid not in relevant:
+            continue
+        day = date.fromisoformat(start).toordinal()
+        appearances[pid, team].add(day)
+        occupants[gid].add(pid)
+        if pid in siblings:
+            map_rows.append((gid, pid, team, day))
+    appearances = {key: sorted(days) for key, days in appearances.items()}
+
+    def candidate(pid, team, day):
+        hits = []
+        for sibling in siblings[pid]:
+            days = appearances.get((sibling, team), [])
+            i = bisect_left(days, day - 365)
+            if i < len(days) and days[i] <= day + 365:
+                hits.append(sibling)
+        return hits[0] if len(hits) == 1 else None
+
+    changes, touched = [], set()
+    for gid, pid, team, day in map_rows:
+        target = candidate(pid, team, day)
+        if target is not None and target not in occupants[gid]:
+            changes.append((target, gid, pid))
+            touched.add(pid)
+    roster_changes = []
+    roster_rows = conn.execute(
+        "SELECT r.event_id, r.team_id, r.slot, r.player_id, "
+        "e.start_date, first_match.start FROM rosters r "
+        "JOIN events e USING(event_id) LEFT JOIN "
+        "(SELECT event_id, min(substr(start_utc,1,10)) start FROM matches GROUP BY event_id) "
+        "first_match USING(event_id)"
+    ).fetchall()
+    roster_occupants = defaultdict(set)
+    for eid, team, _slot, pid, _start, _first in roster_rows:
+        roster_occupants[eid, team].add(pid)
+    for eid, team, slot, pid, start, first in roster_rows:
+        if pid not in siblings:
+            continue
+        # Liquipedia also stores partial event dates such as 2024-02-??.
+        day = None
+        for value in (start, first):
+            try:
+                day = date.fromisoformat((value or "")[:10]).toordinal()
+                break
+            except ValueError:
+                continue
+        if day is None:
+            continue
+        target = candidate(pid, team, day)
+        if target is not None and target not in roster_occupants[eid, team]:
+            roster_changes.append((target, eid, team, slot))
+            touched.add(pid)
+    conn.executemany(
+        "UPDATE player_maps SET player_id=? WHERE game_id=? AND player_id=?", changes
+    )
+    conn.executemany(
+        "UPDATE rosters SET player_id=? WHERE event_id=? AND team_id=? AND slot=?",
+        roster_changes,
+    )
+    resolved = len(changes) + len(roster_changes)
+    print(f"bare_keys_resolved={resolved} players={len(touched)}")
+    return resolved, len(touched)
 
 
 def build(conn, pages: dict):
@@ -110,16 +256,25 @@ def build(conn, pages: dict):
             "revid": pages[title].get("revid"),
         }
     insert(conn, "events", list(events.values()))
-    teams, players, rosters, names = {}, {}, {}, defaultdict(Counter)
-    seen_ids, seen_games = set(), set()
+    page_inputs, sources = {}, {}
     for title, (_, _, matches) in parsed.items():
-        event = events[title]
-        if event["excluded"]:
+        if events[title]["excluded"]:
             continue
         source = next(
             (p for p in ancestry(title) if p in parsed and parsed[p][1]), None
         )
-        cards = parsed[source][1] if source else {}
+        sources[title] = source
+        page_inputs[title] = (parsed[source][1] if source else {}, matches)
+    aliases, canonical, merged_keys, merged_groups = team_resolution(page_inputs)
+    counts.update(
+        aliases_resolved=len(aliases),
+        merged_keys=merged_keys,
+        merged_groups=merged_groups,
+    )
+    teams, players, rosters, names = {}, {}, {}, defaultdict(Counter)
+    seen_ids, seen_games = set(), set()
+    for title, (cards, matches) in page_inputs.items():
+        event, source = events[title], sources[title]
         # A savepoint makes DB errors skip the entire page, including its matches.
         page_ids, page_games = set(), set()
         page_teams, page_players, page_rosters = {}, {}, {}
@@ -156,12 +311,17 @@ def build(conn, pages: dict):
                     continue
                 lineups = []
                 for key in keys:
-                    tid = stable_id("team:" + key)
-                    page_teams[tid] = {"team_id": tid, "key": key, "name": key}
-                    card = match_card(cards, key)
+                    canonical_key = canonical.get(key, key)
+                    tid = stable_id("team:" + canonical_key)
+                    page_teams[tid] = {
+                        "team_id": tid,
+                        "key": canonical_key,
+                        "name": canonical_key,
+                    }
+                    card = resolved_card(cards, key, aliases)
                     lineups.append(card[1] if card else ())
                     if card:
-                        page_names[key][card[0]] += 1
+                        page_names[canonical_key][card[0]] += 1
                         for slot, player in enumerate(card[1], 1):
                             pid = stable_id("player:" + player.key)
                             page_players[pid] = {
@@ -201,8 +361,12 @@ def build(conn, pages: dict):
                             "start_utc": utc,
                             "time_known": m.time_known,
                             "best_of": m.best_of,
-                            "team1_id": stable_id("team:" + keys[0]),
-                            "team2_id": stable_id("team:" + keys[1]),
+                            "team1_id": stable_id(
+                                "team:" + canonical.get(keys[0], keys[0])
+                            ),
+                            "team2_id": stable_id(
+                                "team:" + canonical.get(keys[1], keys[1])
+                            ),
                             "score1": wins1,
                             "score2": len(m.maps) - wins1,
                             "winner": m.winner,
@@ -253,6 +417,7 @@ def build(conn, pages: dict):
                 "UPDATE teams SET name=? WHERE team_id=?",
                 (votes.most_common(1)[0][0], row["team_id"]),
             )
+    resolve_bare_keys(conn)
     for table in ("events", "matches", "maps"):
         counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     counts["excluded"] = sum(e["excluded"] for e in events.values())
@@ -290,6 +455,9 @@ def main(argv=None):
         f"matches={counts['matches']} maps={counts['maps']} duplicates={counts['duplicates']}"
     )
     pct = counts["both_rosters"] / counts["matches"] if counts["matches"] else 0
+    print(
+        f"aliases_resolved={counts['aliases_resolved']} teams_merged={counts['merged_keys']} keys -> {counts['merged_groups']} groups"
+    )
     print(f"both_rosters={counts['both_rosters']} ({pct:.1%})")
     print(
         f"unknown_tz={counts['unknown_tz']} dateless={counts['dateless']} map_order_gt9={counts['map_order_gt9']} players_both_sides={counts['players_both_sides']}"

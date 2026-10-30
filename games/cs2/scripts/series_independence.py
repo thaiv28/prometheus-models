@@ -173,7 +173,7 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
     from promcs.ratings.models import MODELS
-    from promcs.ratings.replay import load_lineups, load_maps, replay
+    from promcs.ratings.replay import load_lineups, load_maps, load_performance, replay
 
     if args.model not in MODELS:
         parser.error("unknown model")
@@ -194,7 +194,9 @@ def main(argv=None):
         maps = maps[maps.start_utc < args.end]
         predictions = replay(
             maps,
-            MODELS[args.model](lineups=load_lineups(conn), **params),
+            MODELS[args.model](
+                lineups=load_lineups(conn), performance=load_performance(conn), **params
+            ),
         )
     result = series_check(predictions, args.start, args.end)
     args.out.parent.mkdir(parents=True, exist_ok=True)

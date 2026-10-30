@@ -100,6 +100,7 @@ def database(tmp_path):
             CREATE TABLE matches(match_id PRIMARY KEY, event_id, start_utc, best_of, team1_id, team2_id, score1, score2, winner);
             CREATE TABLE maps(game_id PRIMARY KEY, match_id, "order", map, score1, score2);
             CREATE TABLE player_maps(game_id, player_id, team);
+            CREATE TABLE player_stats(game_id, player_id, kills, deaths, assists, adr);
             CREATE TABLE kalshi_markets(ticker, series, event_ticker, kind, competitor_id, open_time);
             CREATE TABLE team_aliases(competitor_id, liquipedia_team_id);
             CREATE TABLE kalshi_links(event_ticker, match_id, game_id, kind, method, reason);

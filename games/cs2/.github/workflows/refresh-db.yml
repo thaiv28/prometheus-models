@@ -77,12 +77,20 @@ jobs:
           if [ -z "$modified" ] || [ "$modified" = "None" ] || [ $(( $(date -u +%s) - $(date -u -d "$modified" +%s) )) -gt 604800 ]; then
             tar -I 'zstd -T0 -3' -cf - --exclude='*/books/*' data/liquipedia data/kalshi | aws s3 cp - "s3://$BUCKET/cs2-model/seed/raw.tar.zst" --expected-size 3000000000 --only-show-errors
           fi
+      - name: Kaggle player stats
+        run: |
+          # At most one download per UTC day; a new zip is stored only when it changed.
+          mkdir -p data/kaggle
+          aws s3 sync "s3://$BUCKET/cs2-model/kaggle" data/kaggle --only-show-errors
+          uv run promcs kaggle fetch | tee -a "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning::Kaggle fetch failed; using the cached archive"
+          aws s3 sync data/kaggle "s3://$BUCKET/cs2-model/kaggle" --only-show-errors
       - name: Hash database inputs
         id: inputs
         env:
           CODE_HASH: ${{ hashFiles('scripts/**', 'promcs/**', 'uv.lock') }}
         run: |
-          INPUTS=$({ find data/liquipedia data/kalshi -type f -not -path '*/books/*' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
+          INPUTS=$({ { find data/liquipedia data/kalshi -type f -not -path '*/books/*' -print0; find data/kaggle -name '*.zip' -print0; } | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
           echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: database
