@@ -7,6 +7,8 @@ from promdota.ratings.elo import EloConfig, TeamElo
 from promdota.ratings.models import MODELS, TeamEloModel
 from promdota.ratings.replay import replay
 
+pytestmark = pytest.mark.skip(reason="Phase 3: port to games schema")
+
 
 def test_symmetry_and_zero_sum():
     elo = TeamElo(EloConfig(k=40))

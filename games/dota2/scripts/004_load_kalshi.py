@@ -1,6 +1,7 @@
 """Load the saved Kalshi catalog into SQLite without network access."""
 
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -23,18 +24,18 @@ CREATE TABLE IF NOT EXISTS kalshi_markets (
 
 
 def main():
-    directory = REPO / "db"
+    database = Path(os.environ.get("PROMDOTA_DB", REPO / "db" / "dota2.db"))
+    directory = database.parent
     directory.mkdir(exist_ok=True)
-    with sqlite3.connect(directory / "cs2.db") as conn:
+    with sqlite3.connect(database) as conn:
         conn.executescript(SCHEMA)
         conn.execute("DELETE FROM kalshi_markets")
         count = 0
+        missing = 0
         for series in SERIES:
             path = data_dir() / "markets" / f"{series}.json"
             if not path.exists():
-                print(
-                    f"Missing Kalshi catalog: {path}; loading zero markets for {series}"
-                )
+                missing += 1
                 continue
             for raw in json.loads(path.read_text()):
                 row = market_row(raw, series)
@@ -45,7 +46,7 @@ def main():
                     tuple(row.values()),
                 )
                 count += 1
-    print(f"kalshi_markets={count}")
+    print(f"kalshi_markets={count} missing_catalogs={missing}")
 
 
 if __name__ == "__main__":

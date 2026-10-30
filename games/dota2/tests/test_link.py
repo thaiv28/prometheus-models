@@ -58,7 +58,7 @@ def match(mid=1, names=("FURIA GC", "MIBR GC"), ids=(10, 20), start=TIME):
         "team2_id": ids[1],
         "start_utc": start,
         "winner": 1,
-        "maps": [{"game_id": 100 + mid, "order": 1, "score1": 13, "score2": 6}],
+        "games": [{"game_id": 100 + mid, "order": 1, "winner": 1}],
     }
 
 
@@ -174,13 +174,13 @@ def test_fallback_and_no_partial_alias():
 
 
 def test_maps_and_results():
-    series = event("KXCS2GAME-26X")
+    series = event("KXDOTA2GAME-26X")
     # Reverse market ordering to verify inherited competitor identities.
     played = replace(
-        event("KXCS2MAP-26X-1", kind="map", map_number=1),
+        event("KXDOTA2MAP-26X-1", kind="map", map_number=1),
         markets=tuple(reversed(series.markets)),
     )
-    unplayed = event("KXCS2MAP-26X-2", kind="map", map_number=2)
+    unplayed = event("KXDOTA2MAP-26X-2", kind="map", map_number=2)
     result = link([series, played, unplayed], [match()])
     assert result.links[1].game_id == 101
     assert result.links[1].team_ids == (20, 10)
@@ -190,7 +190,7 @@ def test_maps_and_results():
     assert (checked.agreements, checked.checked, checked.mismatches) == (4, 4, [])
     wrong = match()
     wrong["winner"] = 2
-    wrong["maps"][0]["score2"] = 14
+    wrong["games"][0]["winner"] = 2
     checked = cross_check([series, played], result.links[:2], [wrong])
     assert checked.agreements == 0 and checked.checked == 4
     assert len(checked.mismatches) == 4
@@ -220,18 +220,18 @@ def load_script(name, root, monkeypatch):
 def builder(tmp_path, monkeypatch):
     monkeypatch.setenv("PROMDOTA_DATA", str(tmp_path / "data"))
     (tmp_path / "db").mkdir()
-    with sqlite3.connect(tmp_path / "db" / "cs2.db") as conn:
+    with sqlite3.connect(tmp_path / "db" / "dota2.db") as conn:
         conn.executescript((REPO / "scripts" / "001_create_tables.sql").read_text())
     return (
-        load_script("003_load_kalshi", tmp_path, monkeypatch),
-        load_script("004_link_kalshi", tmp_path, monkeypatch),
+        load_script("004_load_kalshi", tmp_path, monkeypatch),
+        load_script("005_link_kalshi", tmp_path, monkeypatch),
         tmp_path,
     )
 
 
 def fixture_response(name):
-    # Reuse saved response shapes, adapting names/rules in memory for CS2.
-    text = (FIXTURES / name).read_text().replace(" Valorant match", " CS2 match")
+    # Reuse saved response shapes, adapting names/rules in memory for Dota 2.
+    text = (FIXTURES / name).read_text().replace(" Valorant match", " Dota 2 match")
     return json.loads(text.replace("KRÜ Blaze", "FÚRIA Female"))
 
 
@@ -242,8 +242,8 @@ def test_fixture_db_build(builder, capsys):
     games = fixture_response("markets_settled_game.json")["markets"]
     games += fixture_response("historical_markets_game.json")["markets"]
     maps = fixture_response("markets_open_map.json")["markets"]
-    (catalog / "KXCS2GAME.json").write_text(json.dumps(games))
-    (catalog / "KXCS2MAP.json").write_text(json.dumps(maps))
+    (catalog / "KXDOTA2GAME.json").write_text(json.dumps(games))
+    (catalog / "KXDOTA2MAP.json").write_text(json.dumps(maps))
     seeds = [
         ("FURIA GC", "Team Liquid Brazil", "2026-10-28T21:00:00Z"),
         ("MIBR GC", "SK Nebula", "2026-10-28T18:00:00Z"),
@@ -251,7 +251,7 @@ def test_fixture_db_build(builder, capsys):
         ("Global Esports", "VARREL", "2026-08-27T11:00:00Z"),
         ("FURIA GC", "MIBR GC", "2026-10-30T21:00:00Z"),
     ]
-    with sqlite3.connect(root / "db" / "cs2.db") as conn:
+    with sqlite3.connect(root / "db" / "dota2.db") as conn:
         conn.execute(
             "INSERT INTO events (event_id,title,section,international,excluded) "
             "VALUES (1,'Fixture','matches',1,0), (2,'Excluded','matches',1,1)"
@@ -273,13 +273,13 @@ def test_fixture_db_build(builder, capsys):
         # A same-time duplicate in an excluded event must never compete.
         conn.execute(
             "INSERT INTO matches SELECT 99,2,page,ordinal,start_utc,time_known,"
-            "best_of,team1_id,team2_id,score1,score2,winner,hltv_id "
+            "best_of,team1_id,team2_id,score1,score2,winner "
             "FROM matches WHERE match_id=1"
         )
         conn.execute(
-            "INSERT INTO maps "
-            '(game_id,match_id,"order",map,score1,score2,ot1,ot2) '
-            'VALUES (501,5,1,"Mirage",13,6,0,0)'
+            "INSERT INTO games "
+            '(game_id,match_id,"order",winner,winner_source) '
+            "VALUES (501,5,1,1,'liquipedia')"
         )
     for _ in range(2):  # Re-running refreshes rather than duplicates rows.
         loader.main()
@@ -287,7 +287,7 @@ def test_fixture_db_build(builder, capsys):
     output = capsys.readouterr().out
     assert "kalshi_markets=12" in output
     assert "series=4/4 map=1/2 aliases=8 results=8/8 mismatches=0" in output
-    with sqlite3.connect(root / "db" / "cs2.db") as conn:
+    with sqlite3.connect(root / "db" / "dota2.db") as conn:
         assert conn.execute("SELECT count(*) FROM kalshi_links").fetchone()[0] == 6
         assert conn.execute("SELECT count(*) FROM team_aliases").fetchone()[0] == 8
         assert conn.execute(
@@ -311,7 +311,7 @@ def test_fixture_db_build(builder, capsys):
     assert "scheduled=2026-10-30T21:00:00Z" in report
     assert "event=VCT Game Changers Championship 2026" in report
     assert "FÚRIA Female" in report or "FURIA GC" in report
-    with sqlite3.connect(root / "db" / "cs2.db") as conn:
+    with sqlite3.connect(root / "db" / "dota2.db") as conn:
         conn.execute(
             "UPDATE matches SET start_utc='2020-01-01T00:00:00Z' WHERE match_id=1"
         )
@@ -327,7 +327,8 @@ def test_missing_catalog(builder, capsys):
     loader.main()
     linker.main()
     output = capsys.readouterr().out
-    assert output.count("Missing Kalshi catalog:") == 2
+    assert "kalshi_markets=0 missing_catalogs=2" in output
+    assert len(output.splitlines()) == 2
     assert "series=0/0 map=0/0 aliases=0 results=0/0 mismatches=0" in output
     assert (root / "db" / "link_report.txt").exists()
 
@@ -335,11 +336,11 @@ def test_missing_catalog(builder, capsys):
 def test_old_ticker_does_not_supply_date():
     row = market_row(
         {
-            "ticker": "KXCS2GAME-25-DRX",
-            "event_ticker": "KXCS2GAME-25",
+            "ticker": "KXDOTA2GAME-25-DRX",
+            "event_ticker": "KXDOTA2GAME-25",
             "yes_sub_title": "DRX",
         },
-        "KXCS2GAME",
+        "KXDOTA2GAME",
     )
     assert row["scheduled_utc"] is None
     assert row["team_code"] == "DRX"
@@ -469,26 +470,26 @@ def test_sge_short_name_via_learned_alias():
     assert [r.method for r in result.links] == ["alias", "anchor"]
 
 
-@pytest.mark.parametrize("series", ["KXCS2GAME", "KXCS2MAP"])
-def test_cs2_rules_with_colon_tournament(series):
+@pytest.mark.parametrize("series", ["KXDOTA2GAME", "KXDOTA2MAP"])
+def test_dota_rules_with_colon_tournament(series):
     raw = {
         "ticker": f"{series}-26OCT311400ILLAZU-1-ILL",
         "event_ticker": f"{series}-26OCT311400ILLAZU-1",
         "yes_sub_title": "ILLYRIANS",
         "rules_primary": (
             "If ILLYRIANS wins the CCT Europe Closed Qualifier: Series #13 2026: "
-            "ILLYRIANS vs. Azuolas CS2 match originally scheduled for "
+            "ILLYRIANS vs. Azuolas Dota 2 match originally scheduled for "
             "Oct 31, 2026 at 2:00 PM EDT, then the market resolves to Yes."
         ),
     }
     row = market_row(raw, series)
     assert row["scheduled_utc"] == "2026-10-31T18:00:00Z"
     assert row["event_name"] == "CCT Europe Closed Qualifier: Series #13 2026"
-    assert row["kind"] == ("map" if series == "KXCS2MAP" else "series")
-    assert row["map_number"] == (1 if series == "KXCS2MAP" else None)
+    assert row["kind"] == ("map" if series == "KXDOTA2MAP" else "series")
+    assert row["map_number"] == (1 if series == "KXDOTA2MAP" else None)
 
 
-def test_cs2_normalization():
+def test_dota_normalization():
     assert normalize("GG Team G2 Esports") == normalize("G2")
     assert normalize("ENCE Academy") != normalize("ENCE")
 
@@ -516,3 +517,30 @@ def test_academy_alone_does_not_make_anchor_opponent_plausible():
     rejected = link([target], [candidate]).links[0]
     assert rejected.match_id is None
     assert rejected.reason == "anchor: other team implausible"
+
+
+@pytest.mark.parametrize(
+    ("kind", "tournament", "expected_time"),
+    [
+        ("game", "Esports Pro Circuit  2026", "2026-10-29T18:00:00Z"),
+        ("map", "NEXUS SERIES 2026", "2026-10-29T21:00:00Z"),
+    ],
+)
+def test_real_dota_rules_tickers_and_game_links(kind, tournament, expected_time):
+    from promdota.link import events_from_markets
+
+    raw = json.loads((FIXTURES / "kalshi_dota_markets.json").read_text())[kind]
+    series = "KXDOTA2MAP" if kind == "map" else "KXDOTA2GAME"
+    rows = [market_row(market, series) for market in raw]
+    assert {row["event_name"] for row in rows} == {tournament}
+    assert {row["scheduled_utc"] for row in rows} == {expected_time}
+    assert {row["kind"] for row in rows} == {"map" if kind == "map" else "series"}
+    assert {row["map_number"] for row in rows} == {1 if kind == "map" else None}
+    events = events_from_markets(rows)
+    assert events[0].series_ticker.startswith("KXDOTA2GAME-")
+    candidate = match(
+        names=tuple(row["team_name"] for row in rows), start=expected_time
+    )
+    result = link(events, [candidate])
+    assert result.links[0].match_id == candidate["match_id"]
+    assert result.links[0].game_id == (101 if kind == "map" else None)

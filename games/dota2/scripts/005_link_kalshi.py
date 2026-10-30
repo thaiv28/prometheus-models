@@ -1,5 +1,6 @@
 """Link cached Kalshi markets to Liquipedia and report settlement disagreements."""
 
+import os
 import sqlite3
 import sys
 from dataclasses import asdict
@@ -17,15 +18,16 @@ CREATE TABLE IF NOT EXISTS team_aliases (
 );
 CREATE TABLE IF NOT EXISTS kalshi_links (
     event_ticker TEXT PRIMARY KEY, match_id INTEGER REFERENCES matches(match_id),
-    game_id INTEGER REFERENCES maps(game_id),
+    game_id INTEGER REFERENCES games(game_id),
     kind TEXT CHECK (kind IN ('series', 'map')), method TEXT, reason TEXT
 );
 """
 
 
 def main():
-    directory = REPO / "db"
-    with sqlite3.connect(directory / "cs2.db") as conn:
+    database = Path(os.environ.get("PROMDOTA_DB", REPO / "db" / "dota2.db"))
+    directory = database.parent
+    with sqlite3.connect(database) as conn:
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         conn.executescript(SCHEMA)
@@ -41,10 +43,10 @@ def main():
             )
         }
         for match in matches.values():
-            match["maps"] = []
-        for row in conn.execute("SELECT * FROM maps"):
+            match["games"] = []
+        for row in conn.execute("SELECT * FROM games"):
             if row["match_id"] in matches:
-                matches[row["match_id"]]["maps"].append(dict(row))
+                matches[row["match_id"]]["games"].append(dict(row))
         result = link(events, matches.values())
         checked = cross_check(events, result.links, matches.values())
         conn.execute("DELETE FROM team_aliases")

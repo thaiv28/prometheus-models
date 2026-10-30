@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from promdota.liquipedia import cache
 
-CATEGORY = "Category:CS2 Tournaments"
+CATEGORY = "Category:Tournaments"
 BATCH = 50
 
 
@@ -21,6 +21,7 @@ class Summary:
     changed: int = 0
     unchanged: int = 0
     subpages: int = 0
+    match_pages: int = 0
     missing: int = 0
     fetched: int = 0
 
@@ -100,7 +101,7 @@ def subpage_links(title, wikitext) -> set[str]:
     }
 
 
-def crawl(fetcher, limit=None, full=False, now=utc_now) -> Summary:
+def crawl(fetcher, limit=None, full=False, now=utc_now, no_matches=False) -> Summary:
     if limit is not None and limit < 0:
         raise ValueError("limit must be nonnegative")
     titles = list(dict.fromkeys(list_category(fetcher, CATEGORY)))
@@ -118,11 +119,11 @@ def crawl(fetcher, limit=None, full=False, now=utc_now) -> Summary:
     checked, missing = set(), set()
     attempted = 0
 
-    def refresh(candidates):
+    def refresh(candidates, current=None):
         nonlocal attempted
         candidates = [title for title in candidates if title not in checked]
         checked.update(candidates)
-        current = revisions(fetcher, candidates)
+        current = revisions(fetcher, candidates) if current is None else current
         missing.update(set(candidates) - current.keys())
         todo = []
         for title, (_, revid, _) in current.items():
@@ -171,6 +172,28 @@ def crawl(fetcher, limit=None, full=False, now=utc_now) -> Summary:
         if not discovered:
             break
         refresh(discovered)
+    if not no_matches:
+        match_revisions, continuation = {}, {}
+        while True:
+            result = fetcher.query(
+                action="query",
+                generator="allpages",
+                gapnamespace=130,
+                gaplimit=500,
+                prop="info",
+                **continuation,
+            )
+            for page in result.get("query", {}).get("pages", {}).values():
+                title = page["title"]
+                match_revisions[title] = (page["pageid"], page["lastrevid"], None)
+                sources[title] = ("match", None)
+            continuation = result.get("continue", {})
+            if "gapcontinue" not in continuation:
+                break
+        refresh(list(match_revisions), match_revisions)
+        for title in match_revisions:
+            if title in index:
+                index[title].update(source="match", parent=None)
     # Keep category membership authoritative even if a former subpage now belongs
     # to the category and its revision did not change.
     for title in titles:
@@ -178,5 +201,6 @@ def crawl(fetcher, limit=None, full=False, now=utc_now) -> Summary:
             index[title].update(source="category", parent=None)
     cache.save_index(index)
     summary.subpages = sum(entry["source"] == "subpage" for entry in index.values())
+    summary.match_pages = sum(entry["source"] == "match" for entry in index.values())
     summary.missing = len(missing)
     return summary

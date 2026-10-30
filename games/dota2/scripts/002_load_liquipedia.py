@@ -14,7 +14,9 @@ sys.path.insert(0, str(REPO))
 
 from promdota.liquipedia import cache
 from promdota.liquipedia.parse import (
+    bracket_ids,
     fold,
+    match_page_key,
     parse_infobox,
     parse_matches,
     roster_cards,
@@ -76,8 +78,19 @@ def build(conn, pages: dict):
         except Exception as exc:
             parsed.pop(title, None)
             errors.append(f"{title}: {type(exc).__name__}: {exc}".replace("\n", " "))
+    owners = {}
+    for title in parsed:
+        if not match_page_key(title):
+            for position, bracket in enumerate(bracket_ids(pages[title]["wikitext"])):
+                owners.setdefault(bracket, (title, position))
+    match_keys = defaultdict(list)
+    for title in parsed:
+        if key := match_page_key(title):
+            match_keys[key[0]].append(key[1])
     events = {}
     for title, (info, _, _) in parsed.items():
+        if match_page_key(title):
+            continue
         ancestors = [p for p in ancestry(title) if p in parsed]
         inherited = {
             k: next(
@@ -97,27 +110,36 @@ def build(conn, pages: dict):
             "section": section(tier),
             "country": country,
             "region": region(country),
-            "international": int(tier == "S" or country in INTERNATIONAL_COUNTRIES),
+            "international": int(tier == "tier1" or country in INTERNATIONAL_COUNTRIES),
             "online": int(inherited["type"] == "Online"),
             "start_date": inherited["sdate"],
             "end_date": inherited["edate"],
             "mode": inherited["mode"],
             "prize_usd": inherited["prize_usd"],
             "excluded": int(
-                inherited["tier_type"] == "showmatch"
+                (inherited["tier_type"] or "").lower() == "showmatch"
                 or inherited["mode"] not in (None, "", "team")
             ),
             "revid": pages[title].get("revid"),
+            "leagueid": inherited["leagueid"],
         }
     insert(conn, "events", list(events.values()))
     teams, players, rosters, names = {}, {}, {}, defaultdict(Counter)
     seen_ids, seen_games = set(), set()
     for title, (_, _, matches) in parsed.items():
-        event = events[title]
+        owner = title
+        if key := match_page_key(title):
+            if key[0] not in owners:
+                counts["orphan_match_pages"] += 1
+                continue
+            owner, position = owners[key[0]]
+            for m in matches:
+                m.ordinal = position * 1000 + sorted(match_keys[key[0]]).index(key[1])
+        event = events[owner]
         if event["excluded"]:
             continue
         source = next(
-            (p for p in ancestry(title) if p in parsed and parsed[p][1]), None
+            (p for p in ancestry(owner) if p in parsed and parsed[p][1]), None
         )
         cards = parsed[source][1] if source else {}
         # A savepoint makes DB errors skip the entire page, including its matches.
@@ -129,20 +151,20 @@ def build(conn, pages: dict):
             for m in matches:
                 utc = m.start_utc.isoformat().replace("+00:00", "Z")
                 keys = (m.team1_key, m.team2_key)
-                mid = (
-                    stable_id(f"hltv:{m.hltv_id}")
-                    if m.hltv_id
-                    else stable_id(
-                        f"match:{title}|{keys[0]}|{keys[1]}|{utc}|{m.ordinal}"
-                    )
-                )
-                # Normalize scores to sorted team order, preserving team association.
+                mid = stable_id(f"match:{title}|{keys[0]}|{keys[1]}|{utc}|{m.ordinal}")
+                # Normalize team orientation while retaining each game's identity.
                 scores = tuple(
                     sorted(
-                        (g.score1, g.score2)
-                        if keys[0] <= keys[1]
-                        else (g.score2, g.score1)
-                        for g in m.maps
+                        (
+                            (
+                                g.dota_match_id,
+                                g.winner
+                                if keys[0] <= keys[1]
+                                else (3 - g.winner if g.winner else None),
+                            )
+                            for g in m.games
+                        ),
+                        key=lambda item: str(item),
                     )
                 )
                 signature = (tuple(sorted(keys)), utc, scores)
@@ -188,7 +210,7 @@ def build(conn, pages: dict):
                                 f"INSERT OR IGNORE INTO {table} VALUES (?, ?, ?)",
                                 tuple(row.values()),
                             )
-                wins1 = sum(g.score1 > g.score2 for g in m.maps)
+                wins1 = sum(g.winner == 1 for g in m.games)
                 insert(
                     conn,
                     "matches",
@@ -204,30 +226,25 @@ def build(conn, pages: dict):
                             "team1_id": stable_id("team:" + keys[0]),
                             "team2_id": stable_id("team:" + keys[1]),
                             "score1": wins1,
-                            "score2": len(m.maps) - wins1,
+                            "score2": sum(g.winner == 2 for g in m.games),
                             "winner": m.winner,
-                            "hltv_id": m.hltv_id,
                         }
                     ],
                 )
-                overlap = {p.key for p in lineups[0]} & {p.key for p in lineups[1]}
-                for game in m.maps:
+                for game in m.games:
                     gid = mid * 10 + game.order
                     insert(
-                        conn, "maps", [dict(game_id=gid, match_id=mid, **asdict(game))]
+                        conn,
+                        "games",
+                        [
+                            dict(
+                                game_id=gid,
+                                match_id=mid,
+                                **asdict(game),
+                                winner_source="liquipedia" if game.winner else None,
+                            )
+                        ],
                     )
-                    rows = {
-                        p.key: {
-                            "game_id": gid,
-                            "player_id": stable_id("player:" + p.key),
-                            "team": side,
-                        }
-                        for side, lineup in enumerate(lineups, 1)
-                        for p in lineup
-                        if p.key not in overlap
-                    }
-                    insert(conn, "player_maps", list(rows.values()))
-                    page_counts["players_both_sides"] += len(overlap)
                 page_ids.add(mid)
                 page_games.add(signature)
                 page_counts["both_rosters"] += int(all(lineups))
@@ -253,7 +270,7 @@ def build(conn, pages: dict):
                 "UPDATE teams SET name=? WHERE team_id=?",
                 (votes.most_common(1)[0][0], row["team_id"]),
             )
-    for table in ("events", "matches", "maps"):
+    for table in ("events", "matches", "games"):
         counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     counts["excluded"] = sum(e["excluded"] for e in events.values())
     counts["parse_errors"] = len(errors)
@@ -283,18 +300,13 @@ def main(argv=None):
         counts, errors = build(conn, pages)
     errors = read_errors + errors
     (args.db.parent / "parse_errors.txt").write_text("".join(e + "\n" for e in errors))
+    with sqlite3.connect(args.db) as conn:
+        winners = conn.execute(
+            "SELECT count(*) FROM games WHERE winner_source='liquipedia'"
+        ).fetchone()[0]
     print(
-        f"pages={len(pages) + len(read_errors)} events={counts['events']} excluded={counts['excluded']}"
+        f"events={counts['events']} matches={counts['matches']} games={counts['games']} liquipedia_winners={winners} opendota_winners=0 games_with_players=0 orphan_match_pages={counts['orphan_match_pages']} winner_conflicts=0 parse_errors={len(errors)} seconds={time.monotonic() - start:.2f}"
     )
-    print(
-        f"matches={counts['matches']} maps={counts['maps']} duplicates={counts['duplicates']}"
-    )
-    pct = counts["both_rosters"] / counts["matches"] if counts["matches"] else 0
-    print(f"both_rosters={counts['both_rosters']} ({pct:.1%})")
-    print(
-        f"unknown_tz={counts['unknown_tz']} dateless={counts['dateless']} map_order_gt9={counts['map_order_gt9']} players_both_sides={counts['players_both_sides']}"
-    )
-    print(f"parse_errors={len(errors)} seconds={time.monotonic() - start:.2f}")
 
 
 if __name__ == "__main__":

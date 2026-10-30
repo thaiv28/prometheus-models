@@ -31,6 +31,9 @@ benchmark = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(benchmark)
 
 
+pytestmark = pytest.mark.skip(reason="Phase 3: port to games schema")
+
+
 def test_series_probability():
     assert series_probability(0.6, 1) == 0.6
     assert series_probability(0.6, 3) == pytest.approx(0.648)

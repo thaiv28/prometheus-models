@@ -1,1 +1,1 @@
-"""Polite, cached Liquipedia CS2 tournament collection."""
+"""Polite, cached Liquipedia Dota 2 tournament collection."""

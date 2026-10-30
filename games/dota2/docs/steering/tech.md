@@ -8,70 +8,63 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 
 | Path | Purpose |
 |---|---|
-| `promdota/main.py` | CLI entry; mounts `kalshi`, `liquipedia`, `feed-state`, `blend-artifact` and `export` |
-| `promdota/kalshi/api.py` | Public HTTP client, pacing, retries and pagination |
-| `promdota/kalshi/collect.py` | Raw catalog, trade, candle and book files |
-| `promdota/liquipedia/` | Rate-limited API queries, incremental raw cache and CLI |
-| `promdota/liquipedia/parse.py` | Pure balanced-template, infobox, match/map and roster parser (version 1) |
+| `promdota/main.py` | CLI groups: `kalshi`, `liquipedia`, `opendota` |
+| `promdota/kalshi/{api,collect,cli}.py` | Public HTTP client, raw catalogs, trades, candles and books |
+| `promdota/liquipedia/{http,cache,crawl,cli}.py` | Rate-limited query API, incremental raw cache and discovery |
+| `promdota/liquipedia/parse.py` | Pure balanced-template Dota parser, version 2 |
 | `promdota/liquipedia/regions.py` | Tournament host country → macro region |
-| `promdota/feed.py`, `promdota/quotes.py` | Site feed orchestration, frozen calls and shared candle rules |
-| `promdota/ratings/elo_weights.json` | Existing stage-1 fit and string-keyed series temperatures |
-| `promdota/trading.py`, `benchmark.py`, `blend_artifact.json` | Private candidates, shared benchmark rows and frozen blend fits |
-| `tests/test_trading.py` | Causal fits and execution contract checks |
-| `tests/test_feed.py` | Offline feed, schedule, freeze, join and market checks |
-| `promdota/ratings/` | Team/player Elo, round conversion, chronological replay, regional layers |
-| `promdota/evaluation.py`, `backtest.py`, `blend.py` | Scoring, match bootstrap, execution simulation, causal market blend |
-| `scripts/evaluate_elo.py`, `series_independence.py` | Two-stage benchmark and series diagnostics |
-| `tests/test_elo.py`, `test_elo_variants.py`, `test_evaluation.py`, `test_backtest.py`, `test_layers.py` | Synthetic CS2 ratings, layers, quotes and report checks |
+| `promdota/opendota/{http,cache,fetch,cli}.py` | Explorer months, projected single games, pacing and retry cache |
 | `scripts/001_create_tables.sql` | SQLite schema and indexes |
-| `scripts/002_load_liquipedia.py` | Offline cache loader, inheritance and deduplication |
-| `promdota/link.py` | Pure catalog parsing, team matching, aliases and settlement checks |
-| `scripts/003_load_kalshi.py` | Offline Kalshi catalog loader |
-| `scripts/004_link_kalshi.py` | Liquipedia linking and real-data report |
-| `tests/test_link.py` | Offline linking and catalog-to-DB checks |
-| `scripts/setup_db.sh` | Rebuild `db/dota2.db` from raw cache |
-| `tests/test_liquipedia_parse.py`, `tests/test_liquipedia_db.py` | Offline fixture parser and DB checks |
-| `tests/test_liquipedia_crawl.py` | Offline crawler, HTTP, cache and CLI tests |
-| `promdota/kalshi/cli.py` | Collector, manifest and book-loop commands |
-| `scripts/kalshi_data.sh`, `feed_data.sh` | S3 archives and conditional prediction-log persistence |
-| `.github/workflows/ci.yml`, `kalshi-collect.yml` | CI and scheduled Kalshi collection |
-| `.github/workflows/refresh-db.yml`, `feed.yml` | Hourly ratings snapshot and frequent DB-free site feed |
-| `.githooks/pre-commit`, `scripts/work_log.py` | Work-log rotation and tooling |
-| `tests/test_kalshi_collect.py` | Offline fixture-based collector and CLI tests |
-| `tests/test_workflows.py`, `tests/test_steering.py` | Workflow and document guards |
-| `tests/fixtures/kalshi/` | Saved Kalshi API responses |
+| `scripts/002_load_liquipedia.py` | Offline tournament, Match-page, roster and game loader |
+| `scripts/003_load_opendota.py` | Offline winners, Steam players, stats and team mappings |
+| `scripts/004_load_kalshi.py` | Offline Kalshi catalogs |
+| `scripts/005_link_kalshi.py`, `promdota/link.py` | Series/game linking, aliases and settlement checks |
+| `scripts/setup_db.sh` | Rebuild `db/dota2.db` from cached inputs only |
+| `tests/test_liquipedia_*.py`, `tests/test_opendota.py`, `tests/test_link.py`, `tests/test_kalshi_collect.py` | Offline fixture and temporary-cache checks |
+| `tests/fixtures/` | Saved API projections and raw Liquipedia records |
+| `promdota/ratings/`, `evaluation.py`, `backtest.py`, `blend.py` | Phase 3 model code, awaiting games-schema port |
+| `scripts/evaluate_elo.py`, `series_independence.py` | Existing two-stage benchmark and diagnostics |
+| `.githooks/pre-commit`, `scripts/work_log.py`, `tests/test_steering.py` | Work-log rotation and document guards |
 
 ## Kalshi collector
 
-`promdota kalshi collect [--no-books] [--limit N]` refreshes `KXCS2GAME` and `KXCS2MAP`, saves final-market histories and snapshots active books. `--limit` caps new trade/candle fetches combined. `promdota kalshi books --every 60 --minutes 60` refreshes active tickers each pass. Data root is `PROMDOTA_DATA` (default `data/`); files live under `kalshi/`. GitHub Actions is intended to collect every six hours (see Deployment).
+`promdota kalshi collect [--no-books] [--limit N]` refreshes `KXDOTA2GAME` (series) and `KXDOTA2MAP` (individual games), saves final-market histories and snapshots active books. `--limit` caps new trade/candle fetches combined. `promdota kalshi books --every 60 --minutes 60` refreshes active tickers each pass. Data root is `PROMDOTA_DATA` (default `data/`); files live under `kalshi/`. See Deployment for scheduling.
 
 ## Liquipedia crawler
 
-`promdota liquipedia crawl [--limit N] [--full]` uses only `action=query` at `https://liquipedia.net/counterstrike/api.php`, with gzip, a 2.2-second request interval and retry backoff. The User-Agent carries the owner's email (`http.CONTACT`); `LIQUIPEDIA_CONTACT` overrides it. Category members and revisions are refreshed; content is fetched only for new or changed revision IDs unless `--full` is set. `--limit` caps content titles per run. Tab `linkN` parameters discover pages under the same tournament root, through three rounds.
+`promdota liquipedia crawl [--limit N] [--full] [--no-matches]` uses only `action=query` at `https://liquipedia.net/dota2/api.php`, gzip, a request interval above two seconds and retry backoff. The User-Agent identifies dota2-model and carries the existing contact; `LIQUIPEDIA_CONTACT` overrides it. Category:Tournaments membership remains authoritative. Revision checks fetch only new or changed content unless `--full` is set. Tab links discover subpages through three rounds.
 
-Under `PROMDOTA_DATA` (default `data/`), `liquipedia/pages/<sha1-prefix>/<sha1>.json.gz` stores unparsed wikitext and revision metadata; `index.json` tracks revisions, sources and parents, atomically saved after each batch. `category/*.json` stores the latest title lists. `promdota liquipedia status` reports cache counts and newest fetch time. Content credit: Liquipedia contributors, CC BY-SA 3.0. No HTML scraping.
+A second pass lists namespace 130 with `generator=allpages`, `gapnamespace=130`, `gaplimit=500`, `prop=info`, following continuation. New or changed `lastrevid` values trigger content batches of 50. Match pages have source `match`, no parent. `--no-matches` skips this pass; `--limit` caps fetched titles across both passes, tournaments first. Summaries include `match_pages`.
+
+Under `PROMDOTA_DATA`, `liquipedia/pages/<sha1-prefix>/<sha1>.json.gz` stores unparsed wikitext and metadata. `index.json` tracks revisions, sources and parents, atomically saved after batches; category snapshots record title lists. `promdota liquipedia status` reports cache counts and newest fetch time. Credit: Liquipedia contributors, CC BY-SA 3.0. No HTML scraping.
+
+## OpenDota fetcher
+
+`promdota opendota bulk [--from 2019-01] [--to YYYY-MM]` requests two `/explorer?sql=` queries per UTC month: match metadata and joined player stats, ordered by game and player slot. Rows are saved unchanged with `fetched_at` under `opendota/explorer/{matches,players}/YYYY-MM.json.gz`. An `err` response is counted and never cached. A month fetched more than 45 days after its end is final; recent months refresh.
+
+`promdota opendota games [--limit N] [--db db/dota2.db]` fills missing referenced games newest first through `/matches/{id}`. It skips games already available from explorer or single caches. Single records under `opendota/matches/<last-three-digits>/<id>.json.gz` carry `FETCH_VERSION=1` and only match ID, time, duration, outcome, league/series/team IDs plus each player's account ID, slot, hero, KDA, GPM and XPM. Full responses are about 250 KB each (roughly 5 GB for history); this projection avoids retaining unused telemetry. Only finished games with ten players are cached. Missing/incomplete responses enter `missing.json` and retry after seven days. Index and missing files are written atomically after batches of 50. `status` counts cached months, singles and missing IDs.
+
+For initial single-game top-ups, build the Liquipedia-only database with `uv run python scripts/002_load_liquipedia.py` before enrichment: the final rebuild removes series without any resolved winner.
+
+The HTTP client identifies dota2-model, accepts gzip, spaces requests by at least 1.1 seconds and retries 429/5xx with backoff, at most four attempts. The default run budget is 1,800 requests. Injected HTTP functions keep tests offline; the build never fetches. `PROMDOTA_DATA` controls the root.
 
 ## Database
 
-`uv run bash scripts/setup_db.sh` rebuilds `db/dota2.db` offline from the cache (`PROMDOTA_DATA` supported). The loader accepts `--db`; errors go beside the DB in `parse_errors.txt`. Tables: `events`, `teams`, `players`, `matches`, `maps`, `rosters`, `player_maps`, `kalshi_markets`, `team_aliases`, `kalshi_links`. SQL foreign keys are enabled.
+`uv run bash scripts/setup_db.sh` rebuilds `db/dota2.db` offline. Tables: `events`, `teams`, `players`, `matches`, `games`, `rosters`, `player_games`, `opendota_teams`, `kalshi_markets`, `team_aliases`, `kalshi_links`. Foreign keys are enabled. Loaders print aggregate summaries; parse failures go beside the DB in `parse_errors.txt`.
 
-Event IDs are page IDs. Team/player IDs are the first 12 SHA-1 hex digits of `team:<key>` / `player:<key>`. Match IDs hash `hltv:<id>` when available, otherwise `match:<page>|<team1>|<team2>|<UTC ISO with Z>|<ordinal>`. Map IDs are match ID × 10 + order (1–9). Duplicate IDs or unordered team pairs with the same timestamp and sorted, team-oriented map scores keep the first page-title occurrence.
+Event IDs are page IDs; missing infobox fields inherit independently from cached ancestors. Numeric tiers 1/2/3–4 become tier1/tier2/tier3; others are unknown. `tier_type` retains qualifiers/showmatches/monthlies; `leagueid` is optional. Online/international/mode exclusions remain. Team/player IDs use deterministic hashes of their keys; Steam players have `steam:<account_id>` keys. Rosters retain Liquipedia player keys and display names.
 
-Missing infobox fields inherit independently from the nearest cached ancestor. S/A tiers map to tier1, B to tier2, C/D to tier3; absent tiers are unknown. International means S tier or World/International/Global/Americas country. Showmatches and non-team modes are excluded. Online means type exactly Online.
+Inline Match templates and MatchPage templates produce series with at least one game. Empty slots are skipped. A Match page belongs to the tournament/subpage whose Bracket or Matchlist contains its ten-character bracket ID; unowned pages are counted and skipped. Match-page ordinals are bracket position × 1,000 plus the sorted page-key rank. Match IDs retain deterministic page/team/time/ordinal hashing and duplicate rules; game IDs are match ID × 10 + order (1–9).
 
-Rosters use five-player TeamCards or Opponent/Persons, excluding non-player roles. Matches use the nearest ancestor with any cards. Folded alphanumeric team names match exactly, then by unique containment with both strings at least three characters. Roster rows belong to the supplying event. Team display names use the most frequent matched card; players on both sides are omitted from that map.
+Inline `Map` winners supply `winner_source=liquipedia`, optional Radiant/Dire side, duration and match ID. Skipped/unfinished maps without playable content are omitted. `ApiMap` sets team1 to Dire when `reversed=true`, otherwise Radiant. OpenDota fills unresolved winners by side; disagreements retain Liquipedia's winner and increment conflicts. Thus a reversed game with `radiant_win=true` belongs to opponent2. Series scores and winners are recomputed from games; series without any resolved game stay with a NULL winner (`opendota games` reads their match IDs; ratings skip them) and are counted as `unresolved_matches`.
 
-Maps require unequal parsed scores, maximum ≥13, and finished neither skip nor false. Regulation sides and overtime totals are retained. Dates convert listed zones to UTC; missing times use noon UTC. Unknown zones use UTC with time_known=0 and are counted; dateless matches are skipped and counted.
+Known sides build counted `(od_team_id, team_id)` mappings in `opendota_teams`; these can resolve games with missing side information. Unknown sides cannot assign players. Slots below 128 are Radiant; other slots are Dire. `player_games` stores hero, kills/deaths/assists, GPM/XPM. Games without OpenDota data have no player stats. Dates convert listed zones to UTC; absent times use noon UTC and unknown zones are counted with `time_known=0`.
 
 ## Kalshi ↔ Liquipedia links
 
-The numbered rebuild loads `kalshi_markets` from `collect.data_dir()/markets/{KXCS2GAME,KXCS2MAP}.json`; missing catalogs load zero rows with a note. Rules supply EDT/EST schedules converted to UTC Z. Tournament names split at the last matchup colon. Tickers supply team codes and map numbers.
+The rebuild loads catalogs from `kalshi/markets/{KXDOTA2GAME,KXDOTA2MAP}.json`; absent inputs load zero rows. Dota 2 rules supply tournament names and EDT/EST schedules, converted to UTC. Tickers supply team codes and game numbers. Kalshi “map N” targets game N; map-event series lookup replaces `KXDOTA2MAP-` with `KXDOTA2GAME-`.
 
-`team_aliases` maps consistent competitor IDs to Liquipedia team IDs with confident evidence counts; conflicts permanently drop aliases. `kalshi_links` stores each event's match/map, method and failure reason. Only events with `excluded=0` supply candidates.
-
-Candidates lie within ±30 hours of schedule (fallback: open time +24 hours). Exact → alias → anchor passes repeat; a final fuzzy pass requires both similarities ≥0.8. Anchors require one confirmed team unique in the window and a plausible opponent (shared tokens, code initials/token or similarity ≥0.6). Exact opponents take precedence; ambiguity stays unresolved. Name variants union display names and template keys, including trailing parentheticals. Normalization removes accents/generic words and `gg`, equates female/women/GC, and retains `academy`. CS2 guard: `academy` is ignored in opponent plausibility overlap/similarity. `1w`/`1WIN` reaches the existing anchor threshold with a unique confirmed opponent. Map links inherit series identity, selecting played map order; absent maps are `unplayed`.
-
-Binary settlements are cross-checked against winners. `db/link_report.txt` lists failures, anchor mappings and mismatches; reruns replace derived rows.
+`team_aliases` maps consistent competitor IDs using confident evidence; conflicts drop aliases. `kalshi_links` stores match/game identity, method and failure reason. Only nonexcluded events supply candidates. Candidates lie within ±30 hours of schedule, falling back to open time +24 hours. Exact, alias and anchor passes repeat; fuzzy matching requires both similarities ≥0.8. Anchors require one confirmed team unique in the window and a plausible opponent. Exact opponents take precedence; ambiguity stays unresolved. Generic normalization and thresholds remain. The tested academy-only overlap safeguard prevents unrelated academy teams from anchoring; there is no special 1WIN rule. Game links inherit series identity; absent games are unplayed. Binary settlements are checked against winners; `db/link_report.txt` records failures and mismatches.
 
 ## Model change rules
 
@@ -84,6 +77,8 @@ Do not tune or select on holdout. Stage 1 tunes on outcomes only, 2024-01-01 to 
 - Trading results are reported, not gates. Data fixes (a link, alias, tier, parser bug) are not model changes: they ship when correct and the benchmark doesn't get significantly worse.
 
 ## Ratings and benchmark
+
+Phase 3: still CS2's; not yet ported to the games schema.
 
 `uv run python scripts/evaluate_elo.py` reads `db/dota2.db` and writes `docs/elo_backtest.md`. `--models` selects candidates; `--report-models` selects detailed reports (default team_elo, player_round_glicko and best two by tuning loss). Explicit report models are tuned too; team_elo is always the comparator. `--jobs` defaults to min(cpu,8), `--k-grid` overrides K, `player_round_glicko` and the adopted model (`models.ADOPTED`) score their pinned parameters (`models.PINNED`) unless `--full-grid` re-searches their grids (do so after major data changes and update `PINNED`), `--baseline` (default the adopted model) adds candidate − baseline paired tables by section, and `--write-weights` saves parameters and fit date in `promdota/ratings/elo_weights.json`. No dependencies or network are needed beyond the installed environment and caches.
 

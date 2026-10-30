@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
-SERIES = ("KXCS2GAME", "KXCS2MAP")
+SERIES = ("KXDOTA2GAME", "KXDOTA2MAP")
 FINAL = {"finalized", "settled"}
 HISTORIES = {"trades": ".jsonl.gz", "candles": ".json.gz"}
 

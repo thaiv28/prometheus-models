@@ -1,4 +1,4 @@
-"""Collect Kalshi CS2 histories and open-market order books."""
+"""Collect Kalshi Dota 2 histories and open-market order books."""
 
 import time
 

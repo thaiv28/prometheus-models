@@ -50,12 +50,12 @@ def scheduled_utc(rules_primary):
 def market_row(raw, series):
     """Project a raw market without deriving dates from its ticker."""
     event = raw["event_ticker"]
-    kind = "map" if series == "KXCS2MAP" else "series"
+    kind = "map" if series == "KXDOTA2MAP" else "series"
     suffix = event.rsplit("-", 1)[-1]
     # Match through the matchup, then use its last colon boundary so tournament
     # names such as "CCT Europe Closed Qualifier: Series #13 2026" survive.
     matchup = re.search(
-        r"\b(?:in|wins) the (.+?) CS2 match", raw.get("rules_primary") or ""
+        r"\b(?:in|wins) the (.+?) Dota 2 match", raw.get("rules_primary") or ""
     )
     event_name = (
         matchup[1].rsplit(": ", 1)[0] if matchup and ": " in matchup[1] else None
@@ -90,7 +90,9 @@ class Event:
     def series_ticker(self):
         if self.kind == "series":
             return self.event_ticker
-        return self.event_ticker.rsplit("-", 1)[0].replace("KXCS2MAP-", "KXCS2GAME-", 1)
+        return self.event_ticker.rsplit("-", 1)[0].replace(
+            "KXDOTA2MAP-", "KXDOTA2GAME-", 1
+        )
 
 
 def events_from_markets(rows):
@@ -267,7 +269,7 @@ def _orientations(event, match, method, aliases):
 def link(kalshi_events, liquipedia_matches, initial_aliases=None):
     """Iterate confident series links, then fuzzy-match and inherit map links.
 
-    Matches are dictionaries; optional ``maps`` holds played map dictionaries.
+    Matches are dictionaries; optional ``games`` holds played game dictionaries.
     A map-only catalog supplies a representative event for the absent series.
     Optional initial_aliases supplies previously learned competitor/team IDs.
     """
@@ -420,7 +422,7 @@ def link(kalshi_events, liquipedia_matches, initial_aliases=None):
                 game = next(
                     (
                         g
-                        for g in match.get("maps", [])
+                        for g in match.get("games", [])
                         if g["order"] == event.map_number
                     ),
                     None,
@@ -459,14 +461,8 @@ def cross_check(events, links, matches):
         match = by_match[linked.match_id]
         winner = match.get("winner")
         if linked.kind == "map":
-            game = next(g for g in match["maps"] if g["game_id"] == linked.game_id)
-            winner = (
-                1
-                if game["score1"] > game["score2"]
-                else 2
-                if game["score2"] > game["score1"]
-                else None
-            )
+            game = next(g for g in match["games"] if g["game_id"] == linked.game_id)
+            winner = game.get("winner")
         if winner not in (1, 2):
             continue
         winner_id = match[f"team{winner}_id"]

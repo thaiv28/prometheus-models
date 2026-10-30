@@ -61,6 +61,30 @@ class FakeGet:
             return {
                 "query": {"categorymembers": [{"title": title} for title in members]}
             }
+        if params.get("generator") == "allpages":
+            assert params["gapnamespace"] == 130
+            assert params["gaplimit"] == 500
+            assert params["prop"] == "info"
+            titles = [t for t in self.pages if t.startswith("Match:")]
+            selected = titles[1:] if params.get("gapcontinue") else titles[:1]
+            out = {
+                "query": {
+                    "pages": {
+                        str(i): {
+                            "pageid": i + 50,
+                            "title": t,
+                            "lastrevid": self.pages[t][0],
+                        }
+                        for i, t in enumerate(selected)
+                    }
+                }
+            }
+            if len(titles) > 1 and not params.get("gapcontinue"):
+                out["continue"] = {
+                    "gapcontinue": titles[1],
+                    "continue": "gapcontinue||",
+                }
+            return out
         result = {}
         for i, title in enumerate(params["titles"].split("|")):
             title = self.normalized.get(title, title)
@@ -381,3 +405,59 @@ def test_cli(monkeypatch):
     assert result.exit_code == 0, result.output
     assert "pages=1 subpages=0" in result.output
     assert "newest fetched_at=none" not in result.output
+
+
+def test_match_namespace_continuation_revisions_and_combined_limit():
+    get = FakeGet(
+        {
+            "Root": (1, ""),
+            "Match:ID abcdefghij 0001": (2, "a"),
+            "Match:ID abcdefghij 0002": (3, "b"),
+        },
+        ["Root"],
+    )
+    result = crawl(fetcher(get), limit=2)
+    assert (result.fetched, result.match_pages) == (2, 1)
+    assert get.content_titles() == ["Root", "Match:ID abcdefghij 0001"]
+    get.calls.clear()
+    result = crawl(fetcher(get))
+    assert (result.fetched, result.unchanged, result.match_pages) == (1, 2, 2)
+    assert cache.load_index()["Match:ID abcdefghij 0002"]["source"] == "match"
+    get.calls.clear()
+    assert crawl(fetcher(get), no_matches=True).fetched == 0
+    assert not any(c.get("generator") for c in get.calls)
+    get.calls.clear()
+    get.pages["Match:ID abcdefghij 0001"] = (4, "new")
+    assert crawl(fetcher(get)).changed == 1
+    assert get.content_titles() == ["Match:ID abcdefghij 0001"]
+
+
+def test_saved_namespace_info_response_skips_unchanged_revisions():
+    from pathlib import Path
+
+    response = json.loads(
+        (
+            Path(__file__).parent / "fixtures/liquipedia/lp_allpages_match_info.json"
+        ).read_text()
+    )
+    cache.save_index(
+        {
+            p["title"]: {"revid": p["lastrevid"], "source": "match", "parent": None}
+            for p in response["query"]["pages"].values()
+        }
+    )
+    calls = []
+
+    def get(params):
+        calls.append(params)
+        if params.get("list") == "categorymembers":
+            return {"query": {"categorymembers": []}}
+        assert params["generator"] == "allpages"
+        if params.get("gapcontinue"):
+            assert params["gapcontinue"] == response["continue"]["gapcontinue"]
+            return {"query": {"pages": {}}}
+        return response
+
+    result = crawl(fetcher(get))
+    assert (result.fetched, result.match_pages, result.unchanged) == (0, 3, 3)
+    assert len(calls) == 3

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
-PARSER_VERSION = 1
+PARSER_VERSION = 2
 TZ = dict(
     zip(
         "UTC GMT WET WEST BST CET CEST EET EEST MSK TRT AST GST IST ICT SGT PHT HKT AWST KST JST AEST AEDT NZST NZDT EST EDT CST CDT MST MDT PST PDT BRT ART CLT CLST".split(),
@@ -149,21 +149,13 @@ def fold(value):
 
 
 def normalize_tier(value):
-    return {
-        "S-Tier": "S",
-        "A-Tier": "A",
-        "B-Tier": "B",
-        "C-Tier": "C",
-        "C": "C",
-        "C-tier": "C",
-        "4": "D",
-    }.get(value)
+    return {"1": "tier1", "2": "tier2", "3": "tier3", "4": "tier3"}.get(
+        str(value), "unknown"
+    )
 
 
 def section(tier):
-    return {"S": "tier1", "A": "tier1", "B": "tier2", "C": "tier3", "D": "tier3"}.get(
-        tier, "unknown"
-    )
+    return tier if tier in ("tier1", "tier2", "tier3") else "unknown"
 
 
 def parse_infobox(wikitext) -> dict:
@@ -173,12 +165,15 @@ def parse_infobox(wikitext) -> dict:
         k: p.get(k) or None
         for k in ("name", "country", "type", "sdate", "edate", "mode")
     }
-    result["tier"] = normalize_tier(p.get("liquipediatier"))
-    result["tier_type"] = p.get("liquipediatiertype", "").strip().lower() or None
+    result["tier"] = (
+        normalize_tier(p["liquipediatier"]) if p.get("liquipediatier") else None
+    )
+    result["tier_type"] = p.get("liquipediatiertype", "").strip() or None
     try:
         result["prize_usd"] = float(p["prizepoolusd"].replace(",", ""))
     except (KeyError, ValueError):
         result["prize_usd"] = None
+    result["leagueid"] = _number(p, "leagueid")
     return result
 
 
@@ -247,18 +242,12 @@ def parse_date(value):
 
 
 @dataclass
-class ParsedMap:
+class ParsedGame:
     order: int
-    map: str
-    score1: int
-    score2: int
-    team1_first_side: str | None
-    team1_t: int | None
-    team1_ct: int | None
-    team2_t: int | None
-    team2_ct: int | None
-    ot1: int
-    ot2: int
+    dota_match_id: int | None
+    team1_side: str | None
+    winner: int | None
+    duration_s: int | None
 
 
 @dataclass
@@ -268,48 +257,106 @@ class ParsedMatch:
     team2_key: str
     start_utc: datetime
     time_known: int
-    hltv_id: int | None
     best_of: int
-    maps: list[ParsedMap]
+    games: list[ParsedGame]
     winner: int | None
 
 
 def _number(p, key):
     try:
         return int(p.get(key, ""))
-    except ValueError:
+    except (ValueError, TypeError):
         return None
 
 
-def _map(order, block):
+def bracket_ids(wikitext) -> list[str]:
+    found = []
+    for match in re.finditer(
+        r"\{\{\s*(Bracket|Matchlist)\s*(?=[|\n}])", clean(wikitext)
+    ):
+        block = blocks(clean(wikitext)[match.start() :], match[1])
+        value = params(block[0]).get("id", "") if block else ""
+        if re.fullmatch(r"[A-Za-z0-9]{10}", value):
+            found.append(value)
+    return found
+
+
+def match_page_key(title):
+    match = re.fullmatch(r"Match:ID ([A-Za-z0-9]{10}) (\S+)", title)
+    return (match[1], match[2]) if match else None
+
+
+def _game(order, value, p):
+    api = blocks(value, "ApiMap")
+    maps = api or blocks(value, "Map")
+    if not maps:
+        return None
+    mp = params(maps[0])
+    if mp.get("finished", "").lower() in ("skip", "false"):
+        return None
+    match_id = _number(mp, "matchid") if api else _number(p, f"matchid{order}")
+    winner = _number(mp, "winner")
+    winner = winner if winner in (1, 2) and not api else None
+    if winner is None and match_id is None:
+        return None
+    side = (
+        ("dire" if mp.get("reversed", "").lower() == "true" else "radiant")
+        if api
+        else mp.get("team1side", "").lower()
+    )
+    duration = re.fullmatch(r"(?:(\d+)m)?(?:(\d+)s)?", mp.get("length", ""))
+    seconds = (
+        int(duration[1] or 0) * 60 + int(duration[2] or 0)
+        if duration and duration[0]
+        else None
+    )
+    return ParsedGame(
+        order, match_id, side if side in ("radiant", "dire") else None, winner, seconds
+    )
+
+
+def _match_blocks(wikitext):
+    # MatchPage and Match are distinct balanced template names.
+    return blocks(wikitext, "MatchPage") or blocks(wikitext, "Match")
+
+
+def _read_match(block, ordinal, counts):
     p = params(block)
-    if p.get("finished", "").lower() in ("skip", "false"):
+    teams = []
+    for side in (1, 2):
+        opponent = p.get(f"opponent{side}", "")
+        b = blocks(opponent, "TeamOpponent")
+        pos = positional(b[0]) if len(b) == 1 and opponent.strip() == b[0] else []
+        teams.append(pos[0].strip().lower() if pos else "")
+    if any(t in ("", "tbd", "bye") for t in teams):
         return None
-    halves = [_number(p, k) for k in ("t1t", "t1ct", "t2t", "t2ct")]
-    ot = [0, 0]
-    for n in range(1, 10):
-        values = [_number(p, f"o{n}{k}") for k in ("t1t", "t1ct", "t2t", "t2ct")]
-        if None in values:
-            break
-        ot[0] += values[0] + values[1]
-        ot[1] += values[2] + values[3]
-    scores = [_number(p, k) for k in ("score1", "score2")]
-    if None not in scores:
-        halves = [None] * 4
-    elif None not in halves:
-        scores = [sum(halves[:2]) + ot[0], sum(halves[2:]) + ot[1]]
-    else:
+    dt, known, unknown = parse_date(p.get("date", ""))
+    counts["unknown_tz"] += unknown
+    if dt is None:
+        counts["dateless"] += 1
         return None
-    if scores[0] == scores[1] or max(scores) < 13:
-        return None
-    side = p.get("t1firstside", "").lower()
-    return ParsedMap(
-        order,
-        p.get("map", "").strip(),
-        *scores,
-        side if side in ("ct", "t") else None,
-        *halves,
-        *ot,
+    mapkeys = sorted(
+        (k for k in p if re.fullmatch(r"map\d+", k)), key=lambda k: int(k[3:])
+    )
+    games = []
+    for key in mapkeys:
+        order = int(key[3:])
+        if not 1 <= order <= 9:
+            counts["game_order_gt9"] += 1
+            continue
+        if game := _game(order, p[key], p):
+            games.append(game)
+    wins1 = sum(g.winner == 1 for g in games)
+    wins2 = sum(g.winner == 2 for g in games)
+    winner = (
+        None
+        if wins1 == wins2 or any(g.winner is None for g in games)
+        else 1
+        if wins1 > wins2
+        else 2
+    )
+    return ParsedMatch(
+        ordinal, *teams, dt, known, _number(p, "bestof") or len(mapkeys), games, winner
     )
 
 
@@ -317,51 +364,11 @@ def parse_matches(
     title, wikitext, *, counts: Counter | None = None
 ) -> list[ParsedMatch]:
     counts = counts if counts is not None else Counter()
-    matches = []
-    for ordinal, block in enumerate(blocks(wikitext, "Match")):
-        p = params(block)
-        teams = []
-        for side in (1, 2):
-            opponent = p.get(f"opponent{side}", "")
-            b = blocks(opponent, "TeamOpponent")
-            pos = positional(b[0]) if len(b) == 1 and opponent.strip() == b[0] else []
-            teams.append(pos[0].strip().lower() if pos else "")
-        if any(t in ("", "tbd", "bye") for t in teams):
-            continue
-        dt, known, unknown = parse_date(p.get("date", ""))
-        counts["unknown_tz"] += unknown
-        if dt is None:
-            counts["dateless"] += 1
-            continue
-        mapkeys = sorted(
-            (k for k in p if re.fullmatch(r"map\d+", k)), key=lambda k: int(k[3:])
-        )
-        maps = []
-        for key in mapkeys:
-            order = int(key[3:])
-            if order > 9:
-                counts["map_order_gt9"] += 1
-                continue
-            for b in blocks(p[key], "Map")[:1]:
-                if game := _map(order, b):
-                    maps.append(game)
-        if maps:
-            wins1 = sum(g.score1 > g.score2 for g in maps)
-            wins2 = len(maps) - wins1
-            winner = None if wins1 == wins2 else (1 if wins1 > wins2 else 2)
-            matches.append(
-                ParsedMatch(
-                    ordinal,
-                    *teams,
-                    dt,
-                    known,
-                    _number(p, "hltv"),
-                    len(mapkeys) or len(maps),
-                    maps,
-                    winner,
-                )
-            )
-    return matches
+    return [
+        m
+        for ordinal, block in enumerate(_match_blocks(wikitext))
+        if (m := _read_match(block, ordinal, counts)) and m.games
+    ]
 
 
 @dataclass
@@ -378,41 +385,25 @@ class ScheduledMatch:
 
 
 def parse_scheduled(title, wikitext) -> list[ScheduledMatch]:
-    """Read dated, named Match blocks, including those without played maps."""
     matches = []
-    for ordinal, block in enumerate(blocks(wikitext, "Match")):
-        p = params(block)
-        teams = []
-        for side in (1, 2):
-            opponent = p.get(f"opponent{side}", "")
-            b = blocks(opponent, "TeamOpponent")
-            pos = positional(b[0]) if len(b) == 1 and opponent.strip() == b[0] else []
-            teams.append(pos[0].strip().lower() if pos else "")
-        if any(t in ("", "tbd", "bye") for t in teams):
-            continue
-        dt, known, _ = parse_date(p.get("date", ""))
-        if dt is None:
-            continue
-        mapkeys = [k for k in p if re.fullmatch(r"map\d+", k)]
-        maps = []
-        for key in sorted(mapkeys, key=lambda k: int(k[3:])):
-            order = int(key[3:])
-            if order > 9:
-                continue
-            for b in blocks(p[key], "Map")[:1]:
-                if game := _map(order, b):
-                    maps.append((game.score1, game.score2))
-        matches.append(
-            ScheduledMatch(
-                title,
-                ordinal,
-                *teams,
-                dt,
-                known,
-                _number(p, "bestof") if "bestof" in p else len(mapkeys) or None,
-                maps,
-                p.get("finished", "").strip().lower()
-                not in ("", "0", "false", "no", "skip"),
+    for ordinal, block in enumerate(_match_blocks(wikitext)):
+        m = _read_match(block, ordinal, Counter())
+        if m:
+            matches.append(
+                ScheduledMatch(
+                    title,
+                    ordinal,
+                    m.team1_key,
+                    m.team2_key,
+                    m.start_utc,
+                    m.time_known,
+                    m.best_of or None,
+                    [
+                        (int(g.winner == 1), int(g.winner == 2))
+                        for g in m.games
+                        if g.winner
+                    ],
+                    m.winner is not None,
+                )
             )
-        )
     return matches

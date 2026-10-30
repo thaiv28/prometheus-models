@@ -9,7 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-API = "https://liquipedia.net/counterstrike/api.php"
+API = "https://liquipedia.net/dota2/api.php"
 USER_AGENT = "dota2-model/0.1 (+https://github.com/thaiv28/dota2-model)"
 # Liquipedia's API terms ask for contact details; LIQUIPEDIA_CONTACT overrides this.
 CONTACT = "thaivillaluna@gmail.com"
