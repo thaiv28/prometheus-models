@@ -757,13 +757,11 @@ def main(argv=None):
                         validate="one_to_one",
                     )
                     report.append(f"{name} − {args.baseline} (paired log loss):")
+                    # Split by section on both stages: adoption needs stage-1
+                    # gains and no significantly worse guarded section.
                     report.append(
                         comparison_table(
-                            frame,
-                            "baseline_p",
-                            args.baseline,
-                            name,
-                            by_section=not tuning,
+                            frame, "baseline_p", args.baseline, name, by_section=True
                         )
                     )
             if tuning:

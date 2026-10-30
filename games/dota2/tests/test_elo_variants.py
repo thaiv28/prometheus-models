@@ -388,8 +388,8 @@ def test_ladder_registry_exact_grids(variant):
     grid = {}
     if "rookie" in variant:
         grid.update(
-            rookie_penalty=(150, 200, 300, 400, 600),
-            rookie_maps=(50, 100, 200, 400),
+            rookie_penalty=(300, 400, 600, 800, 1200),
+            rookie_maps=(200, 400, 800, 1600),
         )
     if "weights" in variant:
         grid.update(online_k=(0.5, 0.75, 1.0), tier3_k=(0.5, 0.75, 1.0))

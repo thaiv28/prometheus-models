@@ -1,3 +1,7 @@
+## 2026-10-30 — Ladder stage 1: rookie and tier/online K; per-section stage-1 tables
+
+Rookie grid widened to penalty 300–1,200, maps 200–1,600 (the first grid chose both maxima). Stage-1 baseline comparisons now split by section, as adoption needs (they showed only "all"). Stage 1 over the pinned base: `player_glicko_rookie_weights` (penalty 600, maps 800, online K 0.75, tier-3 K 0.75) −0.0122 [−0.0139, −0.0106], significant in every tier; weights alone chose 1.0. Ledger has the numbers. No stage-2 look. Checks: pytest, ruff, three stage-1 runs (~2 min each).
+
 ## 2026-10-30 — Base pinned; first stage-2 run
 
 OpenDota top-up with the API key: 24,690 games saved (392 missing, 187 errors); players on 84,091 of 91,503 games; Liquipedia/OpenDota winner conflicts 177 (Liquipedia kept). Widened player_glicko RD grids (rd_new 160–450, rd_info 0.03125–0.5); pinned k 24, rd_new 280, rd_info 0.0625, fixed. First stage-2 look: level with Kalshi (blended series −0.0042 n.s., +11.8% flat); numbers in the ledger, report in `docs/elo_backtest.md`, weights in `elo_weights.json`. Checks: rebuild, benchmark (stage 1 131 s; pinned run 24 s), ruff. Committed `13e7c44` with 6 tests still expecting the empty pin and old grids; fixed in the next commit (tests set their own pin state; full grid 300 points); pytest passes there.
