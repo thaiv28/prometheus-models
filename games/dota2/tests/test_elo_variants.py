@@ -1,3 +1,5 @@
+from copy import deepcopy
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -125,7 +127,7 @@ def test_region_offsets_only_cross_region_and_zero_sum():
 
 
 def test_registry_grids_and_v1_regression():
-    assert len(MODELS) == len(PARAM_GRIDS) == 9
+    assert len(MODELS) == len(PARAM_GRIDS) == 12
     assert "team_binary" not in MODELS
     for name in MODELS:
         if name == "coin":
@@ -489,3 +491,299 @@ def test_k_multipliers_scale_two_map_replay(online, tier, ratio):
 def test_invalid_k_multipliers(parameter, value):
     with pytest.raises(ValueError, match="online_k and tier3_k"):
         EloModel(**{parameter: value})
+
+
+def reversion_model(rd, start="2025-01-01T00:00:00Z", **options):
+    model = EloModel(unit="player", rd=rd, lineups={1: ((1,), (2,))}, **options)
+    model.update(row(start_utc=start))
+    model.ratings = {1: 1700, 2: 1500}
+    return model
+
+
+@pytest.mark.parametrize("rd", [False, True])
+@pytest.mark.parametrize(
+    "date,factor",
+    [
+        ("2025-12-31T23:59:59Z", 1),
+        ("2026-01-01T00:00:00Z", 0.5),
+        ("2027-01-01T00:00:00Z", 0.25),
+    ],
+)
+def test_season_reversion_boundaries(rd, date, factor):
+    model = reversion_model(rd, season_revert=0.5)
+    expected = 1 / (1 + 10 ** (-200 * factor / 400))
+    assert model.predict(row(start_utc=date)) == expected
+
+
+@pytest.mark.parametrize("rd", [False, True])
+@pytest.mark.parametrize(
+    "date,factor",
+    [
+        ("2025-09-30T23:59:59Z", 1),
+        ("2025-10-01T00:00:00Z", 0.5),
+        # The date must be compared in UTC, including offset datetime inputs.
+        (datetime.fromisoformat("2025-09-30T20:00:00-04:00"), 0.5),
+    ],
+)
+def test_october_season_reversion(rd, date, factor):
+    model = reversion_model(rd, season_revert=0.5, season_month=10)
+    assert model.predict(row(start_utc=date)) == 1 / (1 + 10 ** (-200 * factor / 400))
+
+
+@pytest.mark.parametrize("rd", [False, True])
+@pytest.mark.parametrize(
+    "options,date,factor",
+    [
+        ({"inactive_half_life": 365}, "2026-01-01T00:00:00Z", 0.5),
+        (
+            {"inactive_half_life": 365, "season_revert": 0.5},
+            "2026-01-01T00:00:00Z",
+            0.25,
+        ),
+        ({"season_revert": 1}, "2026-01-01T00:00:00Z", 0),
+        ({"season_revert": 1}, "2025-01-01T00:00:00Z", 1),
+        ({"season_revert": 0.5, "inactive_half_life": 365}, "2024-01-01T00:00:00Z", 1),
+    ],
+)
+def test_inactivity_and_combined_reversion(rd, options, date, factor):
+    model = reversion_model(rd, **options)
+    assert model.predict(row(start_utc=date)) == 1 / (1 + 10 ** (-200 * factor / 400))
+
+
+@pytest.mark.parametrize("rd", [False, True])
+@pytest.mark.parametrize("credit", ["binary"])
+def test_reversion_prediction_and_update_agree_without_prediction_history(rd, credit):
+    model = reversion_model(
+        rd,
+        season_revert=0.5,
+        inactive_half_life=365,
+        credit=credit,
+        rookie_penalty=200,
+        move_up_penalty=100,
+    )
+    model.tier_homes = {1: 2, 2: 3}
+    game = row(
+        start_utc=datetime.fromisoformat("2026-01-01T00:00:00Z"), section="tier1"
+    )
+    before = deepcopy({k: v for k, v in vars(model).items() if isinstance(v, dict)})
+    expected = model._state(game)[-1]
+    prediction = model.predict(game)
+    assert prediction == model.predict(game)
+    assert prediction == pytest.approx(expected)
+    assert {k: v for k, v in vars(model).items() if isinstance(v, dict)} == before
+    # Reversion happens before rookie/move adjustments: effective difference is 50-100.
+    assert expected == 1 / (1 + 10 ** (50 / 400))
+    weight = 4 if rd else 1  # The long gap grows RD back to its cap.
+    model.update(game)
+    delta = model.k * (model.score(game) - expected) * weight
+    assert model.ratings[1] == pytest.approx(1550 + delta)
+    assert model.ratings[2] == pytest.approx(1500 - delta)
+    assert model.last_played == {1: game.start_utc, 2: game.start_utc}
+    # A second map at the same start must not revert again.
+    expected = model._state(game)[-1]
+    previous = model.ratings.copy()
+    weight = model.rd_variance[1] / model.rd_floor**2 if rd else 1
+    model.update(game)
+    assert model.ratings[1] == pytest.approx(
+        previous[1] + model.k * (model.score(game) - expected) * weight
+    )
+
+
+@pytest.mark.parametrize("rd", [False, True])
+def test_reversion_teammates_initialization_and_new_players(rd):
+    model = reversion_model(rd, season_revert=0.5, new_player="teammates")
+    model.lineups[2] = ((1, 3), (2, 4))
+    game = row(game_id=2, start_utc="2026-01-01T00:00:00Z")
+    before_dates = model.last_played.copy()
+    prediction = model.predict(game)
+    assert model.ratings == {1: 1700, 2: 1500, 3: 1600, 4: 1500}
+    assert model.last_played == before_dates
+    assert prediction == 1 / (1 + 10 ** (-100 / 400))
+    # Even far-future predictions do not revert players with no update history.
+    assert model._rating(3, datetime.fromisoformat("2030-01-01T00:00:00Z")) == 1600
+    model.update(game)
+    weight = 4 if rd else 1
+    assert (
+        model.ratings[1]
+        == model.ratings[3]
+        == pytest.approx(1600 + 32 * (1 - prediction) * weight)
+    )
+
+
+def test_team_reversion_options_have_no_effect():
+    model = EloModel(season_revert=1, inactive_half_life=1)
+    baseline = EloModel()
+    for date in ("2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z"):
+        game = row(start_utc=date)
+        assert model.predict(game) == baseline.predict(game)
+        model.update(game)
+        baseline.update(game)
+        assert model.ratings == baseline.ratings
+    assert model.last_played == {}
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"season_revert": -0.1},
+        {"season_revert": 1.1},
+        {"season_revert": float("nan")},
+        {"season_revert": float("inf")},
+        {"season_month": 0},
+        {"season_month": 13},
+        {"season_month": 1.5},
+        {"season_month": 1.0},
+        {"season_month": True},
+        {"season_month": float("nan")},
+        {"season_month": float("inf")},
+        {"inactive_half_life": -1},
+        {"inactive_half_life": float("nan")},
+        {"inactive_half_life": float("inf")},
+    ],
+)
+def test_invalid_reversion_parameters(options):
+    with pytest.raises(ValueError, match="reversion"):
+        EloModel(unit="player", **options)
+
+
+def tier_sums_match(model):
+    for section, total in model.tier_sum.items():
+        members = [p for p, s in model.tier_of.items() if s == section]
+        assert model.tier_count[section] == len(members)
+        assert total == pytest.approx(sum(model.ratings[p] for p in members))
+
+
+@pytest.mark.parametrize("rd", [False, True])
+def test_tier_reversion_pulls_toward_latest_tier_mean(rd):
+    lineups = {1: ((1,), (2,)), 2: ((3,), (4,)), 3: ((1,), (3,)), 4: ((3,), (5,))}
+    model = EloModel(
+        unit="player", rd=rd, lineups=lineups, season_revert=0.5, revert_target="tier"
+    )
+    model.update(row(game_id=1, start_utc="2025-03-01T00:00:00Z", section="tier1"))
+    model.update(row(game_id=2, start_utc="2025-03-02T00:00:00Z", section="tier3"))
+    # Unknown-section games neither set nor move a player's tier.
+    model.update(row(game_id=4, start_utc="2025-03-03T00:00:00Z", section="unknown"))
+    assert model.tier_of == {1: "tier1", 2: "tier1", 3: "tier3", 4: "tier3"}
+    tier_sums_match(model)
+    tier1 = (model.ratings[1] + model.ratings[2]) / 2
+    tier3 = (model.ratings[3] + model.ratings[4]) / 2
+    game = row(game_id=3, start_utc="2026-01-05T00:00:00Z", section="tier1")
+    r1 = tier1 + 0.5 * (model.ratings[1] - tier1)
+    r3 = tier3 + 0.5 * (model.ratings[3] - tier3)
+    expected = 1 / (1 + 10 ** (-(r1 - r3) / 400))
+    assert model._state(game)[-1] == pytest.approx(expected)
+    model.update(game)
+    # Player 3 moves from tier3 to tier1; sums follow every rating change and move.
+    assert model.tier_of[3] == "tier1" and model.tier_count["tier3"] == 1
+    tier_sums_match(model)
+
+
+def test_tier_reversion_prediction_matches_update_expectation():
+    lineups = {1: ((1,), (2,)), 2: ((1,), (2,))}
+    model = EloModel(
+        unit="player", lineups=lineups, season_revert=0.35, revert_target="tier"
+    )
+    model.update(row(game_id=1, start_utc="2025-03-01T00:00:00Z", section="tier2"))
+    game = row(game_id=2, start_utc="2026-02-01T00:00:00Z", section="tier2")
+    tier2 = (model.ratings[1] + model.ratings[2]) / 2
+    reverted = tier2 + 0.65 * (model.ratings[1] - tier2)
+    expected = model._state(game)[-1]
+    model.update(game)
+    # The update starts from the reverted rating and uses the predicted chance.
+    assert model.ratings[1] == pytest.approx(reverted + model.k * (1 - expected))
+    tier_sums_match(model)
+
+
+def test_init_target_keeps_no_tier_state():
+    model = reversion_model(False, season_revert=0.5)
+    model.update(row(start_utc="2026-01-02T00:00:00Z", section="tier1"))
+    assert model.tier_of == {} and model.tier_sum == {}
+    with pytest.raises(ValueError):
+        EloModel(revert_target="league")
+
+
+@pytest.mark.parametrize("rd,weight", [(False, 1), (True, 4)])
+def test_performance_zero_sum_causal_and_missing(rd, weight):
+    options = {"unit": "player", "rd": rd, "lineups": {1: ((1, 2, 5), (3, 4, 6))}}
+    baseline = EloModel(**options)
+    model = EloModel(
+        **options,
+        perf_k=20,
+        performance={1: {1: (10, 4), 2: (20, 0), 3: (30, 2), 4: (40, None)}},
+    )
+    model.predict(row())
+    assert model.hero_mean == {} and model.global_mean is None
+    baseline.update(row())
+    model.update(row())
+    assert model.ratings[1] - baseline.ratings[1] == pytest.approx(40 * weight)
+    assert model.ratings[2] - baseline.ratings[2] == pytest.approx(-40 * weight)
+    for player in (3, 4, 5, 6):
+        assert model.ratings[player] == baseline.ratings[player]
+    assert model.hero_count == {10: 1, 20: 1, 30: 1}
+    assert model.hero_mean == {10: 4, 20: 0, 30: 2}
+    assert model.global_mean == pytest.approx((4 * 0.99) * 0.99 + 0.01 * 2)
+
+
+@pytest.mark.parametrize("count,bonus", [(19, 0), (20, -20)])
+def test_hero_ema_threshold_and_update_after_game(count, bonus):
+    options = {"unit": "player", "lineups": {1: ((1, 2), (3,))}}
+    model = EloModel(**options, perf_k=20, performance={1: {1: (10, 1), 2: (20, 1)}})
+    model.hero_count = {10: count}
+    model.hero_mean = {10: 3}
+    model.global_mean = 1
+    baseline = EloModel(**options)
+    baseline.update(row())
+    model.update(row())
+    assert model.ratings[1] - baseline.ratings[1] == pytest.approx(bonus)
+    assert model.ratings[2] - baseline.ratings[2] == pytest.approx(-bonus)
+    assert model.hero_mean[10] == pytest.approx(2.98)
+    assert model.hero_count[10] == count + 1
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"perf_stat": "rating"},
+        {"perf_k": -1},
+        {"perf_k": float("nan")},
+        {"perf_alpha": 0},
+        {"perf_min_count": True},
+    ],
+)
+def test_invalid_performance_options(options):
+    with pytest.raises(ValueError, match="performance"):
+        EloModel(**options)
+
+
+def test_missing_hero_uses_global_without_hero_bucket():
+    model = EloModel(
+        unit="player",
+        perf_k=20,
+        lineups={1: ((1, 2), (3,))},
+        performance={1: {1: (None, 2), 2: (None, 0)}},
+    )
+    for _ in range(21):
+        model.update(row())
+    assert model.hero_mean == model.hero_count == {}
+    assert model.global_mean is not None
+
+
+@pytest.mark.parametrize("rd", [False, True])
+def test_disabled_new_parameters_preserve_ratings(rd):
+    options = {"unit": "player", "rd": rd, "lineups": {1: ((1, 2), (3, 4))}}
+    original = EloModel(**options)
+    disabled = EloModel(
+        **options,
+        season_revert=0,
+        inactive_half_life=0,
+        perf_k=0,
+        performance={1: {1: (1, 99), 2: (2, -99)}},
+    )
+    for year in (2025, 2026, 2027):
+        game = row(start_utc=f"{year}-10-01T00:00:00Z")
+        assert original.predict(game) == disabled.predict(game)
+        original.update(game)
+        disabled.update(game)
+        assert original.ratings == disabled.ratings
+        assert original.rd_variance == disabled.rd_variance
+    assert disabled.last_played == disabled.hero_mean == disabled.hero_count == {}

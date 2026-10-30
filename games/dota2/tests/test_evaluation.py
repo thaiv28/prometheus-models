@@ -21,7 +21,7 @@ from promdota.evaluation import (
     series_probability,
 )
 from promdota.ratings.models import TeamEloModel
-from promdota.ratings.replay import load_lineups, load_maps, replay
+from promdota.ratings.replay import load_lineups, load_maps, load_performance, replay
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -1086,7 +1086,7 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
 
 
 def test_pinned_grid_and_full_grid(monkeypatch):
-    assert set(benchmark.PINNED) == {"player_glicko"}
+    assert set(benchmark.PINNED) == {"player_glicko", "player_glicko_rookie_weights"}
     assert benchmark.ADOPTED == "player_glicko"
     full = benchmark.parameter_grid("player_glicko", full=True)
     assert len(full) == 300
@@ -1109,6 +1109,7 @@ def test_pinned_grid_and_full_grid(monkeypatch):
 def test_ladder_grid_requires_pin_or_full_grid(monkeypatch, variant, count):
     name = f"player_glicko_{variant}"
     monkeypatch.delitem(benchmark.PINNED, "player_glicko")
+    monkeypatch.delitem(benchmark.PINNED, name, raising=False)
     with pytest.raises(ValueError, match=r"pin the base first.*--full-grid"):
         benchmark.parameter_grid(name)
     assert len(benchmark.parameter_grid(name, full=True)) == 300 * count
@@ -1201,3 +1202,124 @@ def test_series_only_supported_odd_lengths_and_resolved_results():
     rows = benchmark.series_rows(frame)
     assert rows.match_id.tolist() == [0, 2, 3]
     assert rows.p.tolist() == pytest.approx([0.6, 0.648, 0.68256])
+
+
+@pytest.mark.parametrize(
+    "suffix,count", [("revert", 40), ("tier_revert", 8), ("perf", 8)]
+)
+def test_candidate_grids_and_pin(suffix, count):
+    from promdota.ratings.models import CANDIDATE
+
+    assert benchmark.parameter_grid("player_glicko_rookie_weights") == [CANDIDATE]
+    name = f"player_glicko_rw_{suffix}"
+    grid = benchmark.parameter_grid(name)
+    assert len(grid) == count
+    assert all(all(params[k] == v for k, v in CANDIDATE.items()) for params in grid)
+    assert benchmark.parameter_grid(name, full=True) == grid
+
+
+def test_performance_loader_and_causal_form(database):
+    from promdota.ratings.layers import HALF_LIVES, causal_form_features
+
+    with sqlite3.connect(database[0]) as conn:
+        conn.execute("UPDATE games SET duration_s=1200")
+        conn.execute("UPDATE player_games SET hero_id=1,kills=10,deaths=2,assists=8")
+        conn.execute(
+            "UPDATE player_games SET kills=NULL WHERE game_id=21 AND player_id=100"
+        )
+        conn.execute("UPDATE games SET duration_s=0 WHERE game_id=22")
+        conn.execute("UPDATE games SET duration_s=NULL WHERE game_id=23")
+        performance = load_performance(conn)
+        assert performance[11][100] == (1, 0.6)
+        assert 100 not in performance[21]
+        assert 22 not in performance and 23 not in performance
+        lineups = load_lineups(conn)
+        features = causal_form_features(conn, lineups, performance)
+        assert np.isnan(features.loc[11, "form1_3"])
+        assert features.loc[21, "form1_3"] == pytest.approx(0.6)
+        # Change current/later stats: the game's own form must remain unchanged.
+        changed = {g: values for g, values in performance.items() if g < 21}
+        pd.testing.assert_series_equal(
+            features.loc[21], causal_form_features(conn, lineups, changed).loc[21]
+        )
+        history = {
+            game: {p: (1, value) for side in lineups[game] for p in side}
+            for game, value in ((11, 1), (21, 3), (23, 5))
+        }
+        aged = causal_form_features(conn, lineups, history)
+        for h in HALF_LIVES:
+            decay = 0.5 ** (1 / h)
+            expected = (decay**3 + 3 * decay**2 + 5) / (decay**3 + decay**2 + 1)
+            assert aged.loc[31, f"form1_{h}"] == pytest.approx(expected)
+        del lineups[21]
+        missing = causal_form_features(conn, lineups, performance)
+        assert all(
+            np.isnan(missing.loc[21, f"form{side}_{h}"])
+            for side in (1, 2)
+            for h in HALF_LIVES
+        )
+
+
+def test_candidate_registry_exact_adjustments():
+    from promdota.ratings.models import CANDIDATE, PARAM_GRIDS
+
+    base = {k: (v,) for k, v in CANDIDATE.items()}
+    assert PARAM_GRIDS["player_glicko_rw_revert"] == base | {
+        "season_revert": (0, 0.1, 0.2, 0.35, 0.5),
+        "season_month": (1, 10),
+        "inactive_half_life": (0, 180, 365, 730),
+    }
+    assert PARAM_GRIDS["player_glicko_rw_tier_revert"] == base | {
+        "revert_target": ("tier",),
+        "season_revert": (0.1, 0.2, 0.35, 0.5),
+        "season_month": (1, 10),
+        "inactive_half_life": (0,),
+    }
+    assert PARAM_GRIDS["player_glicko_rw_perf"] == base | {
+        "perf_k": (1, 2, 3, 5, 7, 10, 15, 20)
+    }
+
+
+def test_performance_loaded_once_and_shared_with_candidates(
+    database, tmp_path, monkeypatch
+):
+    path, data = database
+    monkeypatch.setenv("PROMDOTA_DATA", str(data))
+    performance = {11: {100: (1, 0.6)}}
+    loads, received = [], []
+    factory = benchmark.MODELS["team_elo"]
+
+    def load(conn):
+        loads.append(conn)
+        return performance
+
+    def model(**kwargs):
+        assert kwargs["performance"] is performance
+        received.append(kwargs["performance"])
+        return factory(**kwargs)
+
+    monkeypatch.setattr(benchmark, "load_performance", load)
+    monkeypatch.setitem(benchmark.MODELS, "team_elo", model)
+    benchmark.main(
+        [
+            "--db",
+            str(path),
+            "--out",
+            str(tmp_path / "performance.md"),
+            "--validate-from",
+            "2026-07-01",
+            "--models",
+            "team_elo",
+            "--report-models",
+            "team_elo",
+            "--baseline",
+            "team_elo",
+            "--k-grid",
+            "16,32",
+            "--jobs",
+            "1",
+            "--no-series-temperature",
+        ]
+    )
+    assert len(loads) == 1
+    assert len(received) == 3  # Two tuning candidates and the final replay.

@@ -40,7 +40,7 @@ from promdota.quotes import QuoteRule, candle_quote
 from promdota.ratings.layers import LAYERS
 from promdota.ratings.models import ADOPTED, LADDER_BASE, MODELS, PARAM_GRIDS, PINNED
 from promdota.ratings.regions import macro_region
-from promdota.ratings.replay import load_lineups, load_maps, replay
+from promdota.ratings.replay import load_lineups, load_maps, load_performance, replay
 
 
 def candle_mid(candles, start_utc):
@@ -348,8 +348,10 @@ def parameter_grid(model, k_grid=None, full=False):
     return [dict(zip(grid, values)) for values in product(*grid.values())]
 
 
-def initialize_worker(maps, lineups, tune_from, tune_to):
+def initialize_worker(maps, lineups, tune_from, tune_to, performance=None):
     global _WORKER_MAPS, _WORKER_LINEUPS, _WORKER_TUNE_FROM, _WORKER_TUNE_TO
+    global _WORKER_PERFORMANCE
+    _WORKER_PERFORMANCE = performance
     _WORKER_MAPS, _WORKER_LINEUPS = maps, lineups
     _WORKER_TUNE_FROM, _WORKER_TUNE_TO = tune_from, tune_to
 
@@ -357,7 +359,12 @@ def initialize_worker(maps, lineups, tune_from, tune_to):
 def tune_candidate(task):
     """Return just a scalar score, avoiding retention of all candidate replays."""
     name, params = task
-    candidate = replay(_WORKER_MAPS, MODELS[name](lineups=_WORKER_LINEUPS, **params))
+    candidate = replay(
+        _WORKER_MAPS,
+        MODELS[name](
+            lineups=_WORKER_LINEUPS, performance=_WORKER_PERFORMANCE, **params
+        ),
+    )
     tuning = scored_rows(candidate, _WORKER_TUNE_FROM, _WORKER_TUNE_TO)
     return name, params, float(game_losses(tuning.p, tuning.won).log_loss.mean())
 
@@ -502,6 +509,7 @@ def main(argv=None):
         if tuning_maps.empty:
             parser.error("no tuning games in the requested scoring window")
         lineups = load_lineups(conn)
+        performance = load_performance(conn)
         tasks = [(name, params) for name in names for params in grids[name]]
         best_params, losses = {}, {}
         if args.jobs == 1:
@@ -510,6 +518,7 @@ def main(argv=None):
                 lineups,
                 args.tune_from,
                 args.tune_to,
+                performance,
             )
             for name, params, loss in map(tune_candidate, tasks):
                 if name not in losses or loss < losses[name]:
@@ -523,6 +532,7 @@ def main(argv=None):
                     lineups,
                     args.tune_from,
                     args.tune_to,
+                    performance,
                 ),
             ) as pool:
                 for name, params, loss in pool.map(tune_candidate, tasks, chunksize=1):
@@ -544,7 +554,12 @@ def main(argv=None):
             )
         )
         winners = {
-            name: replay(maps, MODELS[name](lineups=lineups, **best_params[name]))
+            name: replay(
+                maps,
+                MODELS[name](
+                    lineups=lineups, performance=performance, **best_params[name]
+                ),
+            )
             for name in names
         }
         temperatures = {}
@@ -559,7 +574,13 @@ def main(argv=None):
         base_detailed = detailed.copy()
         for name in base_detailed:
             for layer_name in layer_names:
-                layer = LAYERS[layer_name](context={"conn": conn, "lineups": lineups})
+                layer = LAYERS[layer_name](
+                    context={
+                        "conn": conn,
+                        "lineups": lineups,
+                        "performance": performance,
+                    }
+                )
                 layer.fit(scored_rows(winners[name], args.tune_from, args.tune_to))
                 adjusted = scored_rows(winners[name], args.validate_from, None)
                 adjusted["p"] = layer.apply(adjusted)

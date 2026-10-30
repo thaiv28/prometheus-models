@@ -8,9 +8,11 @@ import pandas as pd
 import pytest
 
 from promdota.ratings.layers import (
+    HALF_LIVES,
     LAYERS,
     REGIONS,
     CalibrationLayer,
+    FormLayer,
     RegionalLayer,
     causal_features,
 )
@@ -115,7 +117,7 @@ def test_causal_homes_and_excluded_events():
     assert features.index.tolist() == [1, 2, 3, 4, 6, 7]
     assert features.home1.tolist() == [None, "NA", "NA", "NA", "NA", "NA"]
     assert features.home1.tolist() == features.home2.tolist()
-    assert set(LAYERS) == {"none", "regional", "calibration"}
+    assert set(LAYERS) == {"none", "regional", "calibration", "form"}
     conn.close()
 
 
@@ -180,3 +182,26 @@ def test_calibration_identity_index_clipping_and_threshold():
     threshold = pd.concat([frame.iloc[:1]] * 300, ignore_index=True)
     layer.fit(threshold)
     assert layer.temperatures[("tier1", 0)] != 1
+
+
+def test_form_recovery_frozen_stage1_missing_and_empty():
+    rng, frame, features, logits, _ = planted(2000)
+    for h in HALF_LIVES:
+        features[f"form1_{h}"] = rng.normal(0, 1, len(frame))
+        features[f"form2_{h}"] = rng.normal(0, 1, len(frame))
+    frame["won"] = sample(rng, logits + 2.3 * (features.form1_3 - features.form2_3))
+    layer = FormLayer()
+    layer._features = features
+    layer.fit(frame.iloc[:1500])
+    assert layer.half_life == 3
+    assert layer.w == pytest.approx(2.3, abs=0.3)
+    prediction = layer.apply(frame.iloc[1500:])
+    description = layer.describe()
+    frame.loc[1500:, "won"] = 1 - frame.loc[1500:, "won"]
+    layer.fit(frame.iloc[:1500])
+    assert layer.describe() == description
+    pd.testing.assert_series_equal(prediction, layer.apply(frame.iloc[1500:]))
+    features.loc[1500, "form1_3"] = np.nan
+    assert layer.apply(frame.iloc[1500:]).iloc[0] == frame.p.iloc[1500]
+    layer.fit(frame.iloc[:0])
+    pd.testing.assert_series_equal(layer.apply(frame), frame.p)

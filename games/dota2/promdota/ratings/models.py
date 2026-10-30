@@ -75,3 +75,34 @@ for variant in ("rookie", "weights", "rookie_weights"):
     if "weights" in variant:
         grid.update(online_k=(0.5, 0.75, 1.0), tier3_k=(0.5, 0.75, 1.0))
     PARAM_GRIDS[name] = grid
+
+
+# Stage-1 rookie/weights winner; experimental base, not an adoption.
+CANDIDATE = {
+    "k": 24,
+    "new_player": "fixed",
+    "rd_info": 0.0625,
+    "rd_new": 280,
+    "rookie_penalty": 600,
+    "rookie_maps": 800,
+    "online_k": 0.75,
+    "tier3_k": 0.75,
+}
+PINNED["player_glicko_rookie_weights"] = CANDIDATE
+for suffix, adjustment in {
+    "revert": {
+        "season_revert": (0, 0.1, 0.2, 0.35, 0.5),
+        "season_month": (1, 10),
+        "inactive_half_life": (0, 180, 365, 730),
+    },
+    "tier_revert": {
+        "revert_target": ("tier",),
+        "season_revert": (0.1, 0.2, 0.35, 0.5),
+        "season_month": (1, 10),
+        "inactive_half_life": (0,),
+    },
+    "perf": {"perf_k": (1, 2, 3, 5, 7, 10, 15, 20)},
+}.items():
+    name = f"player_glicko_rw_{suffix}"
+    MODELS[name] = partial(EloModel, unit="player", credit="binary", rd=True)
+    PARAM_GRIDS[name] = {key: (value,) for key, value in CANDIDATE.items()} | adjustment

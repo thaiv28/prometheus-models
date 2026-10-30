@@ -38,6 +38,25 @@ def load_lineups(conn):
     }
 
 
+def load_performance(conn):
+    """Load hero and KDA per minute once, outside candidate replays.
+
+    Unusable stats or duration are absent, giving zero performance bonus.
+    """
+    performance = {}
+    for game, player, hero, kills, deaths, assists, duration in conn.execute(
+        """SELECT p.game_id, p.player_id, p.hero_id, p.kills, p.deaths,
+                  p.assists, g.duration_s
+           FROM player_games p JOIN games g USING (game_id)
+           ORDER BY p.game_id, p.player_id"""
+    ):
+        if duration is None or duration <= 0 or None in (kills, deaths, assists):
+            continue
+        value = (kills + 0.5 * assists - deaths) / (duration / 60)
+        performance.setdefault(game, {})[player] = (hero, value)
+    return performance
+
+
 def replay(maps, model) -> pd.DataFrame:
     keys = ["start_utc", "match_id", "order"]
     # load_maps already orders rows; avoid O(n log n) work on every candidate.

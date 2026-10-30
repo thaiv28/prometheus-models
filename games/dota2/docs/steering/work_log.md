@@ -1,3 +1,7 @@
+## 2026-10-30 — Reversion, KDA performance and starter form ladder
+
+Ported season/inactivity and tier-target reversion, within-side hero-adjusted KDA-per-minute bonuses, and causal starter form with stage-1-only fitting. Added three fixed-CANDIDATE ladder grids and pinned the rookie/weights stage-1 winner; adopted model unchanged. Performance loads once for worker and final replays. Tests cover boundaries, tier sums, prediction state, hero thresholds, missing stats/duration, causal form and fixed grids. Checks: `UV_NO_SYNC=1 uv run pytest -q`: 318 passed in 17.76 s (17.94 s wall), versus baseline 254 in 21.77 s (22.46 s wall); measured CI time did not increase. Ruff format/check passed with `UV_NO_SYNC=1`; plain uv hit a local system-configuration panic. Diff whitespace passed. Requested eight-worker real-DB smoke with `--validate-from 2026-07-01` passed in 26.83 s wall (script: 26.55 s), report `/tmp/smoke.md`. No stage-2 evaluation or adoption decision.
+
 ## 2026-10-30 — Ladder stage 1: rookie and tier/online K; per-section stage-1 tables
 
 Rookie grid widened to penalty 300–1,200, maps 200–1,600 (the first grid chose both maxima). Stage-1 baseline comparisons now split by section, as adoption needs (they showed only "all"). Stage 1 over the pinned base: `player_glicko_rookie_weights` (penalty 600, maps 800, online K 0.75, tier-3 K 0.75) −0.0122 [−0.0139, −0.0106], significant in every tier; weights alone chose 1.0. Ledger has the numbers. No stage-2 look. Checks: pytest, ruff, three stage-1 runs (~2 min each).

@@ -4,11 +4,13 @@ import numpy as np
 import pandas as pd
 
 from promdota.ratings.regions import REGION_CODES, macro_region
+from promdota.ratings.replay import load_performance
 
+HALF_LIVES = (3, 5, 8, 12, 20, 40, 80)
 REGIONS = tuple(REGION_CODES)
 
 
-def causal_features(conn, lineups):
+def causal_features(conn, lineups, performance=None):
     """Emit homes before each scored game, using earlier eligible event hosts."""
     maps = conn.execute('''SELECT g.game_id, m.team1_id, m.team2_id, e.region,
                   COALESCE(e.international, 0)
@@ -17,6 +19,7 @@ def causal_features(conn, lineups):
            WHERE g.winner IS NOT NULL AND e.excluded = 0
            ORDER BY m.start_utc, m.match_id, g."order"''')
     homes, counts, features = {}, {}, []
+    form = causal_form_features(conn, lineups, performance)
     for game, team1, team2, host, international in maps:
         features.append(
             {"game_id": game, "home1": homes.get(team1), "home2": homes.get(team2)}
@@ -31,7 +34,50 @@ def causal_features(conn, lineups):
     result = pd.DataFrame(features, columns=["game_id", "home1", "home2"])
     for column in ("home1", "home2"):
         result[column] = pd.Series([row[column] for row in features], dtype=object)
-    return result.set_index("game_id")
+    return result.set_index("game_id").join(form)
+
+
+def causal_form_features(conn, lineups, performance=None):
+    """Starter form before each game, with decay per earlier appearance.
+
+    Include unscored games as history; never use the current game's stats in its
+    own features. Incomplete lineups have no form adjustment on either side.
+    """
+    if performance is None:
+        performance = load_performance(conn)
+    maps = conn.execute(
+        '''SELECT g.game_id FROM games g JOIN matches m USING (match_id)
+           ORDER BY m.start_utc, m.match_id, g."order"'''
+    )
+    appearances = {}
+    for game, player in conn.execute("SELECT game_id, player_id FROM player_games"):
+        appearances.setdefault(game, []).append(player)
+    history, features = {}, []
+    decay = 0.5 ** (1 / np.array(HALF_LIVES, dtype=float))
+    for (game,) in maps:
+        sides = lineups.get(game, ((), ()))
+        complete = len(sides[0]) == len(sides[1]) == 5
+        row = {"game_id": game}
+        for side, players in enumerate(sides, 1):
+            known = [history[p] for p in players if p in history] if complete else []
+            for i, half_life in enumerate(HALF_LIVES):
+                values = [
+                    sums[i] / weights[i] for sums, weights in known if weights[i] > 0
+                ]
+                row[f"form{side}_{half_life}"] = np.mean(values) if values else np.nan
+        features.append(row)
+        for player in appearances.get(game, ()):
+            sums, weights = history.setdefault(
+                player, (np.zeros(len(HALF_LIVES)), np.zeros(len(HALF_LIVES)))
+            )
+            sums *= decay
+            weights *= decay
+            perf = performance.get(game, {}).get(player)
+            if perf is not None and perf[1] is not None and np.isfinite(perf[1]):
+                sums += perf[1]
+                weights += 1
+    columns = ["game_id"] + [f"form{side}_{h}" for side in (1, 2) for h in HALF_LIVES]
+    return pd.DataFrame(features, columns=columns).set_index("game_id")
 
 
 def _logit(p):
@@ -82,7 +128,9 @@ class Layer:
     def features(self, frame):
         if self._features is None:
             self._features = causal_features(
-                self.context["conn"], self.context["lineups"]
+                self.context["conn"],
+                self.context["lineups"],
+                self.context.get("performance"),
             )
         return self._features.reindex(frame.game_id)
 
@@ -168,6 +216,48 @@ class RegionalLayer(Layer):
         )
 
 
+class FormLayer(Layer):
+    name = "form"
+
+    def __init__(self, context=None):
+        super().__init__(context)
+        self.half_life, self.w, self.rows = HALF_LIVES[0], 0.0, 0
+
+    def _difference(self, frame, half_life):
+        features = self.features(frame)
+        return (
+            features[f"form1_{half_life}"] - features[f"form2_{half_life}"]
+        ).to_numpy()
+
+    def fit(self, frame) -> None:
+        self.half_life, self.w, self.rows = HALF_LIVES[0], 0.0, 0
+        best = np.inf
+        offset, y = _logit(frame.p), frame.won.to_numpy(dtype=float)
+        for half_life in HALF_LIVES:
+            difference = self._difference(frame, half_life)
+            mask = np.isfinite(difference)
+            x = difference[mask, None]
+            w = _fit_newton(x, y[mask], offset[mask], np.zeros((1, 1)))[0]
+            z = offset.copy()
+            z[mask] += w * difference[mask]
+            loss = np.sum(np.logaddexp(0, z) - y * z)
+            if loss < best:
+                best = loss
+                self.half_life, self.w, self.rows = half_life, float(w), int(mask.sum())
+
+    def apply(self, frame) -> pd.Series:
+        difference = self._difference(frame, self.half_life)
+        mask = np.isfinite(difference)
+        result = frame.p.copy()
+        result.iloc[np.flatnonzero(mask)] = np.clip(
+            _sigmoid(_logit(frame.p)[mask] + self.w * difference[mask]), 1e-6, 1 - 1e-6
+        )
+        return result
+
+    def describe(self) -> str:
+        return f"form: rows={self.rows}, H={self.half_life}, w={self.w:.6g}"
+
+
 class CalibrationLayer(Layer):
     name = "calibration"
 
@@ -217,6 +307,7 @@ class CalibrationLayer(Layer):
 
 LAYERS = {
     "none": IdentityLayer,
+    "form": FormLayer,
     "regional": RegionalLayer,
     "calibration": CalibrationLayer,
 }
