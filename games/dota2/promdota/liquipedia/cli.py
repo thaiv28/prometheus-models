@@ -1,5 +1,6 @@
 """Liquipedia collection and cache status commands."""
 
+from enum import StrEnum
 from typing import Annotated
 
 import typer
@@ -11,18 +12,29 @@ from promdota.liquipedia.http import Fetcher
 app = typer.Typer(no_args_is_help=True)
 
 
+class Listing(StrEnum):
+    full = "full"
+    none = "none"
+
+
 @app.command()
 def crawl(
     limit: Annotated[int | None, typer.Option(min=0)] = None,
     no_matches: Annotated[
         bool, typer.Option(help="Skip Match namespace pages.")
     ] = False,
+    listing: Annotated[
+        Listing,
+        typer.Option(help="Full namespace discovery, or category and tab links only."),
+    ] = Listing.full,
     full: Annotated[
         bool, typer.Option(help="Fetch content even for unchanged revisions.")
     ] = False,
 ):
     """Cache Dota 2 tournaments, tab subpages and Match pages."""
-    result = crawl_pages(Fetcher(), limit=limit, full=full, no_matches=no_matches)
+    result = crawl_pages(
+        Fetcher(), limit=limit, full=full, no_matches=no_matches, listing=listing.value
+    )
     typer.echo(
         f"listed={result.listed} new={result.new} changed={result.changed} unchanged={result.unchanged}"
     )

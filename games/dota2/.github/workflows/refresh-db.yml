@@ -1,0 +1,170 @@
+name: Refresh DB
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 * * * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: refresh-db
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --frozen --no-dev
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - uses: actions/cache/restore@v4
+        id: raw
+        with:
+          path: |
+            data/liquipedia
+            data/opendota
+            data/kalshi
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+      - name: Seed cold raw cache
+        if: steps.raw.outputs.cache-matched-key == ''
+        continue-on-error: true
+        run: |
+          aws s3 cp "s3://$BUCKET/dota2-model/seed/raw.tar.zst" - | tar -I zstd -xf -
+      - name: Seed and crawl
+        id: crawl
+        run: |
+          touch /tmp/raw-marker
+          mkdir -p data/liquipedia data/opendota data/kalshi
+          # S3 restores remote mtimes, so also compare inventories for top-ups.
+          find data/liquipedia data/opendota data/kalshi -type f -printf '%p %s %T@\n' | sort > /tmp/raw-before
+          # Only this workflow writes the Liquipedia objects, so a restored cache is current.
+          if [ -z "${{ steps.raw.outputs.cache-matched-key }}" ]; then
+            aws s3 sync "s3://$BUCKET/dota2-model/liquipedia" data/liquipedia --only-show-errors
+          fi
+          aws s3 sync "s3://$BUCKET/dota2-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
+          if [ "$(date -u +%H)" = "03" ]; then
+            uv run promdota liquipedia crawl --listing full | tee /tmp/crawl-summary
+          else
+            uv run promdota liquipedia crawl --listing none | tee /tmp/crawl-summary
+          fi
+          aws s3 sync data/liquipedia "s3://$BUCKET/dota2-model/liquipedia" --size-only --only-show-errors
+          changed=$(find data/liquipedia data/opendota data/kalshi -newer /tmp/raw-marker -type f -print -quit)
+          find data/liquipedia data/opendota data/kalshi -type f -printf '%p %s %T@\n' | sort > /tmp/raw-after
+          if ! cmp -s /tmp/raw-before /tmp/raw-after || [ -n "$changed" ] || [ "${{ steps.raw.outputs.cache-matched-key }}" = "" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          tail -1 /tmp/crawl-summary >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/cache/save@v4
+        id: raw-save
+        if: steps.crawl.outputs.changed == 'true'
+        with:
+          path: |
+            data/liquipedia
+            data/opendota
+            data/kalshi
+          key: raw-${{ github.run_id }}
+      - name: Refresh weekly seed
+        if: steps.raw-save.outcome == 'success'
+        continue-on-error: true
+        run: |
+          modified=$(aws s3api head-object --bucket "$BUCKET" --key dota2-model/seed/raw.tar.zst --query LastModified --output text 2>/dev/null || true)
+          if [ -z "$modified" ] || [ "$modified" = "None" ] || [ $(( $(date -u +%s) - $(date -u -d "$modified" +%s) )) -gt 604800 ]; then
+            tar -I 'zstd -T0 -3' -cf - --exclude='*/books/*' data/liquipedia data/opendota data/kalshi | aws s3 cp - "s3://$BUCKET/dota2-model/seed/raw.tar.zst" --expected-size 3000000000 --only-show-errors
+          fi
+      - name: OpenDota cache
+        env:
+          OPENDOTA_API_KEY: ${{ secrets.OPENDOTA_API_KEY }}
+        run: |
+          mkdir -p data/opendota
+          aws s3 sync "s3://$BUCKET/dota2-model/opendota" data/opendota --only-show-errors
+          # Monthly bulk refresh works without a key (six requests). Single-game
+          # top-ups are skipped without a key to preserve the daily free budget.
+          month=$(date -u -d "$(date -u +%Y-%m-01) -2 months" +%Y-%m)
+          uv run promdota opendota bulk --from "$month" | tee -a "$GITHUB_STEP_SUMMARY"
+          aws s3 sync data/opendota "s3://$BUCKET/dota2-model/opendota" --only-show-errors
+      - name: Hash database inputs
+        id: inputs
+        env:
+          CODE_HASH: ${{ hashFiles('scripts/**', 'promdota/**', 'uv.lock') }}
+        run: |
+          INPUTS=$({ { find data/liquipedia data/opendota data/kalshi -type f -not -path '*/books/*' -print0; } | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
+          echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: database
+        with:
+          path: db
+          key: db-${{ steps.inputs.outputs.hash }}
+      - name: Check published inputs
+        id: skip
+        env:
+          INPUTS: ${{ steps.inputs.outputs.hash }}
+          DB_HIT: ${{ steps.database.outputs.cache-hit }}
+          RAW_HIT: ${{ steps.raw.outputs.cache-matched-key }}
+        run: |
+          echo "Raw cache: $([ -n "$RAW_HIT" ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
+          echo "DB cache: $([ "$DB_HIT" = true ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
+          published=$(aws s3api head-object --bucket "$BUCKET" --key dota2-model/feed/state.pkl.gz --query Metadata.inputs --output text 2>/dev/null || true)
+          if [ "$DB_HIT" = true ] && [ "$published" = "$INPUTS" ]; then
+            echo "unchanged=true" >> "$GITHUB_OUTPUT"
+            echo "Unchanged inputs; skipped rebuild" >> "$GITHUB_STEP_SUMMARY"
+            echo "DB build: 0 seconds (skipped)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Artifact snapshots: 0 (skipped)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Rebuild database
+        env:
+          HAS_OPENDOTA: ${{ secrets.OPENDOTA_API_KEY != '' }}
+          OPENDOTA_API_KEY: ${{ secrets.OPENDOTA_API_KEY }}
+        if: steps.skip.outputs.unchanged != 'true'
+        run: |
+          started=$SECONDS
+          bash scripts/setup_db.sh
+          if [ "$HAS_OPENDOTA" = true ]; then
+            uv run promdota opendota games --limit 1800 | tee -a "$GITHUB_STEP_SUMMARY"
+            aws s3 sync data/opendota "s3://$BUCKET/dota2-model/opendota" --only-show-errors
+            bash scripts/setup_db.sh
+          fi
+          echo "Rebuilt database" >> "$GITHUB_STEP_SUMMARY"
+          echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
+      - name: Hash final database inputs
+        id: final-inputs
+        env:
+          CODE_HASH: ${{ hashFiles('scripts/**', 'promdota/**', 'uv.lock') }}
+        run: |
+          INPUTS=$({ { find data/liquipedia data/opendota data/kalshi -type f -not -path '*/books/*' -print0; } | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
+          echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
+      # Builds can outlast the hour-long OIDC session; log in again for the uploads.
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - name: Build and upload ratings snapshot
+        if: steps.skip.outputs.unchanged != 'true'
+        env:
+          INPUTS: ${{ steps.final-inputs.outputs.hash }}
+        run: |
+          uv run promdota feed-state | tee /tmp/state-summary
+          cat /tmp/state-summary >> "$GITHUB_STEP_SUMMARY"
+          aws s3 cp data/feed/state.pkl.gz "s3://$BUCKET/dota2-model/feed/state.pkl.gz" --metadata inputs="$INPUTS" --only-show-errors
+      - uses: actions/cache/save@v4
+        if: steps.skip.outputs.unchanged != 'true' && (steps.database.outputs.cache-hit != 'true' || steps.inputs.outputs.hash != steps.final-inputs.outputs.hash)
+        with:
+          path: db
+          key: db-${{ steps.final-inputs.outputs.hash }}
+      - name: Build and upload blend artifact
+        if: steps.skip.outputs.unchanged != 'true'
+        run: |
+          uv run promdota blend-artifact --out data/feed/blend_artifact.json
+          aws s3 cp data/feed/blend_artifact.json "s3://$BUCKET/dota2-model/feed/blend_artifact.json" --content-type application/json --only-show-errors
+          uv run python -c 'import json; print("Artifact snapshots:", len(json.load(open("data/feed/blend_artifact.json"))["snapshots"]))' >> "$GITHUB_STEP_SUMMARY"

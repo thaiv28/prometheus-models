@@ -496,3 +496,42 @@ def test_listed_subpages_are_crawled_under_their_nearest_root():
 def test_subpage_links_drop_fragments_and_double_spaces():
     text = "|link1=Root/Chinese  Qualifier|link2=Root#Weekly Matches"
     assert subpage_links("Root/Main", text) == {"Root/Chinese Qualifier", "Root"}
+
+
+@pytest.mark.parametrize("listing", ["full", "none"])
+def test_listing_modes_preserve_tab_discovery(listing):
+    get = FakeGet(
+        {
+            "Root": (1, "|link2=Root/Tabs"),
+            "Root/Tabs": (2, ""),
+            "Root/Unlinked": (3, ""),
+            "Match:ID abcdefghij 0001": (4, ""),
+        },
+        ["Root"],
+    )
+    get.listed = ["Root/Unlinked"]
+    result = crawl(fetcher(get), listing=listing)
+    assert "Root/Tabs" in cache.load_index()
+    full = listing == "full"
+    assert ("Root/Unlinked" in cache.load_index()) is full
+    assert result.match_pages == int(full)
+    assert any(c.get("list") == "allpages" for c in get.calls) is full
+    assert any(c.get("generator") == "allpages" for c in get.calls) is full
+
+
+@pytest.mark.parametrize("listing", ["full", "none"])
+def test_cli_listing_modes(monkeypatch, listing):
+    get = FakeGet()
+    monkeypatch.setattr(cli, "Fetcher", lambda: fetcher(get))
+    result = CliRunner().invoke(app, ["liquipedia", "crawl", "--listing", listing])
+    assert result.exit_code == 0, result.output
+    assert any(c.get("list") == "allpages" for c in get.calls) is (listing == "full")
+
+
+def test_invalid_listing_fails_before_queries():
+    get = FakeGet()
+    with pytest.raises(ValueError, match="listing"):
+        crawl(fetcher(get), listing="unexpected")
+    assert not get.calls
+    result = CliRunner().invoke(app, ["liquipedia", "crawl", "--listing", "unexpected"])
+    assert result.exit_code == 2

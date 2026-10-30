@@ -1,0 +1,745 @@
+"""Prediction feed, frozen calls and offline replay for the Prometheus site."""
+
+import copy
+import gzip
+import hashlib
+import json
+import math
+import os
+import pickle
+import sqlite3
+import tempfile
+import time
+from collections import Counter
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from types import SimpleNamespace
+from urllib.parse import quote
+
+from promdota.evaluation import series_probability
+from promdota.kalshi.api import Client
+from promdota.link import events_from_markets, link, market_row
+from promdota.liquipedia.http import Fetcher
+from promdota.liquipedia.parse import (
+    blocks,
+    bracket_ids,
+    params,
+    parse_scheduled,
+    positional,
+)
+from promdota.quotes import candle_quote
+from promdota.ratings.models import ADOPTED, ADOPTED_LAYER
+from promdota.ratings.replay import load_performance
+from promdota.trading import adopted_replay
+
+STATE_VERSION = 1
+# The adopted model; its weights and series temperatures come from
+# elo_weights.json (`evaluate_elo.py --write-weights`).
+MODEL = ADOPTED
+
+SECTIONS = [
+    ("INTL", "International"),
+    ("T1", "Tier 1"),
+    ("T2", "Tier 2"),
+    ("T3", "Tier 3"),
+    ("?", "Unknown"),
+]
+
+
+def instant(value):
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+def stamp(value):
+    return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%MZ")
+
+
+def atomic(path, value, compressed=False):
+    """Replace one complete JSON snapshot, preserving non-ASCII names."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw = json.dumps(
+        value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+    ).encode()
+    if compressed:
+        raw = gzip.compress(raw)
+    fd, temporary = tempfile.mkstemp(dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(raw)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def pages_in(responses):
+    if isinstance(responses, dict):
+        responses = [responses]
+    for response in responses:
+        pages = response.get("query", {}).get("pages", [])
+        yield from pages.values() if isinstance(pages, dict) else pages
+
+
+def page_text(page):
+    revisions = page.get("revisions", [])
+    if not revisions:
+        return ""
+    slot = revisions[0].get("slots", {}).get("main", revisions[0])
+    return slot.get("*", slot.get("content", ""))
+
+
+def section(event):
+    return (
+        "INTL"
+        if event["international"]
+        else {"tier1": "T1", "tier2": "T2", "tier3": "T3"}.get(event["section"], "?")
+    )
+
+
+def probabilities(p, best_of, temperatures):
+    length = best_of if best_of in (1, 3, 5) else None
+    series = series_probability(p, length or 3)
+    temperature = temperatures.get(str(length), 1.0)
+    if length != 1 and 0 < series < 1:
+        series = 1 / (1 + math.exp(-temperature * math.log(series / (1 - series))))
+    return {"p_game": p, "p_series": series, "best_of": length}
+
+
+def oriented(call, team1):
+    return {
+        k: call[k] if call["team1_id"] == team1 else 1 - call[k]
+        for k in ("p_game", "p_series")
+    }
+
+
+def join_calls(matches, calls, now):
+    """Globally closest eligible pair wins; each call/result is consumed once."""
+    pairs = []
+    by_pair = {}
+    for key, call in calls.items():
+        if instant(call["start"]) <= now:
+            by_pair.setdefault(
+                frozenset((call["team1_id"], call["team2_id"])), []
+            ).append((key, call))
+    for match in matches:
+        for key, call in by_pair.get(
+            frozenset((match["team1_id"], match["team2_id"])), []
+        ):
+            delta = abs(
+                (instant(call["start"]) - instant(match["start_utc"])).total_seconds()
+            )
+            if delta <= 36 * 3600:
+                pairs.append((delta, str(match["match_id"]), key))
+    joined, used = {}, set()
+    for _, mid, key in sorted(pairs):
+        if mid not in joined and key not in used:
+            joined[mid] = key
+            used.add(key)
+    return joined, used
+
+
+def market_url(ticker):
+    return "https://kalshi.com/markets/kxdota2game/" + ticker.lower()
+
+
+def linked_current_markets(raw, candidates, aliases):
+    """Retain raw linked contracts in our team order for prices and execution."""
+    events = events_from_markets([market_row(m, "KXDOTA2GAME") for m in raw])
+    linked = link(events, candidates, initial_aliases=aliases)
+    by_event = {e.event_ticker: e for e in events}
+    by_ticker = {m["ticker"]: m for m in raw}
+    by_id = {m["match_id"]: m for m in candidates}
+    pairs = {}
+    for result in linked.links:
+        if result.match_id is None or result.reason:
+            continue
+        match = by_id[result.match_id]
+        options = sorted(
+            zip(by_event[result.event_ticker].markets, result.team_ids),
+            key=lambda pair: pair[1] != match["team1_id"],
+        )
+        pairs[result.match_id] = [
+            by_ticker[market["ticker"]]
+            for market, tid in options
+            if tid in (match["team1_id"], match["team2_id"])
+        ]
+    return pairs
+
+
+def current_prices(raw, candidates, aliases, now, *, linked=None):
+    pairs = (
+        linked
+        if linked is not None
+        else linked_current_markets(raw, candidates, aliases)
+    )
+    prices = {}
+    for mid, pair in pairs.items():
+        for side, source in enumerate(pair):
+            try:
+                bid, ask = (
+                    float(source.get(k) or 0)
+                    for k in ("yes_bid_dollars", "yes_ask_dollars")
+                )
+            except (TypeError, ValueError):
+                continue
+            if not (0 < bid <= ask <= 1 and ask - bid <= 0.10 + 1e-9):
+                continue
+            price = (bid + ask) / 2
+            prices[mid] = {
+                "p": price if side == 0 else 1 - price,
+                "at": stamp(now),
+                "url": market_url(source["event_ticker"]),
+            }
+            break
+    return prices
+
+
+def closing_prices(conn, matches, root):
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master")}
+    if not {"kalshi_links", "kalshi_markets", "team_aliases"} <= tables:
+        return {}
+    by_id = {m["match_id"]: m for m in matches}
+    prices, preferred = {}, set()
+    rows = conn.execute("""SELECT l.match_id, l.event_ticker, k.ticker, a.liquipedia_team_id
+        FROM kalshi_links l JOIN kalshi_markets k USING(event_ticker)
+        JOIN team_aliases a USING(competitor_id)
+        WHERE l.kind='series' AND l.match_id IS NOT NULL ORDER BY k.ticker""")
+    for mid, event, ticker, tid in rows:
+        match = by_id.get(mid)
+        if (
+            match is None
+            or mid in preferred
+            or tid not in (match["team1_id"], match["team2_id"])
+        ):
+            continue
+        path = root / "kalshi" / "candles" / f"{ticker}.json.gz"
+        if not path.exists():
+            continue
+        with gzip.open(path, "rt") as handle:
+            value = candle_quote(
+                json.load(handle), match["start_utc"], with_timestamp=True
+            )
+        if value is None:
+            continue
+        bid, ask, ts = value
+        p = (bid + ask) / 2
+        first = tid == match["team1_id"]
+        prices[mid] = {
+            "p": p if first else 1 - p,
+            "at": stamp(datetime.fromtimestamp(ts, UTC)),
+            "url": market_url(event),
+        }
+        if first:
+            preferred.add(mid)
+    return prices
+
+
+def feed_row(
+    key, call, status, *, reconstructed=False, score1=None, score2=None, winner=None
+):
+    row = {
+        k: call[k]
+        for k in (
+            "start",
+            "section",
+            "event",
+            "best_of",
+            "name1",
+            "name2",
+            "p_game",
+            "p_series",
+        )
+    }
+    row.update(
+        match_id=str(key),
+        status=status,
+        reconstructed=reconstructed,
+        score1=score1,
+        score2=score2,
+        winner=winner,
+        url="https://liquipedia.net/dota2/" + quote(call["page"], safe="/"),
+        market=None,
+    )
+    return row
+
+
+def current_form(conn, half_life):
+    """Terminal history using the layer's appearance decay, including unscored games."""
+    performance = load_performance(conn)
+    appearances = {}
+    for game, player in conn.execute("SELECT game_id, player_id FROM player_games"):
+        appearances.setdefault(game, []).append(player)
+    history = {}
+    decay = 0.5 ** (1 / half_life)
+    for (game,) in conn.execute(
+        '''SELECT g.game_id FROM games g JOIN matches m USING(match_id)
+           ORDER BY m.start_utc, m.match_id, g."order"'''
+    ):
+        for player in appearances.get(game, ()):
+            total, weight = history.get(player, (0.0, 0.0))
+            total, weight = total * decay, weight * decay
+            perf = performance.get(game, {}).get(player)
+            if perf is not None and perf[1] is not None and math.isfinite(perf[1]):
+                total += perf[1]
+                weight += 1
+            history[player] = (total, weight)
+    return {
+        player: total / weight
+        for player, (total, weight) in history.items()
+        if weight > 0
+    }
+
+
+def upcoming_form(p, teams, state):
+    """Apply the frozen form coefficient to each team's latest rated starters."""
+    sides = [state["model"].last_lineups.get(team, ()) for team in teams]
+    if any(len(players) != 5 for players in sides):
+        return p
+    means = []
+    for players in sides:
+        values = [
+            state["form"][player] for player in players if player in state["form"]
+        ]
+        if not values:
+            return p
+        means.append(sum(values) / len(values))
+    clipped = min(1 - 1e-6, max(1e-6, p))
+    z = math.log(clipped / (1 - clipped)) + state["form_weight"] * (means[0] - means[1])
+    return min(
+        1 - 1e-6,
+        max(
+            1e-6,
+            (1 / (1 + math.exp(-z)) if z >= 0 else math.exp(z) / (1 + math.exp(z))),
+        ),
+    )
+
+
+def upcoming_pages(fetch, titles, events):
+    """Refresh active roots/subpages and only bracket-owned Match pages.
+
+    Prefix listings never enumerate the complete article or Match namespace.
+    Each returned page keeps its owning active event for inherited metadata.
+    """
+    roots = [
+        title
+        for title in titles
+        if not any(title.startswith(other + "/") for other in titles)
+    ]
+    owners = {title: title for title in titles}
+    for root in roots:
+        continuation = {}
+        while True:
+            result = fetch(
+                action="query",
+                list="allpages",
+                apprefix=root + "/",
+                apnamespace=0,
+                aplimit=500,
+                apfilterredir="nonredirects",
+                **continuation,
+            )
+            for page in result.get("query", {}).get("allpages", []):
+                title = page["title"]
+                owner = max(
+                    (t for t in titles if title == t or title.startswith(t + "/")),
+                    key=len,
+                )
+                owners.setdefault(title, owner)
+            continuation = result.get("continue", {})
+            if "apcontinue" not in continuation:
+                break
+    responses, fetched, brackets = [], 0, {}
+    names = sorted(owners)
+    for offset in range(0, len(names), 50):
+        batch = names[offset : offset + 50]
+        response = fetch(
+            action="query",
+            prop="revisions",
+            titles="|".join(batch),
+            rvprop="ids|timestamp|content",
+            rvslots="main",
+        )
+        responses.append(response)
+        fetched += len(batch)
+        for page in pages_in(response):
+            title = page["title"]
+            owner = owners.get(title)
+            if owner is None:
+                event = next(
+                    (e for e in events.values() if e["event_id"] == page.get("pageid")),
+                    None,
+                )
+                owner = event["title"] if event else None
+                if owner is not None:
+                    owners[title] = owner
+            if owner is not None:
+                for bracket in bracket_ids(page_text(page)):
+                    brackets.setdefault(bracket, owner)
+    for bracket, owner in sorted(brackets.items()):
+        continuation = {}
+        while True:
+            response = fetch(
+                action="query",
+                generator="allpages",
+                gapnamespace=130,
+                gapprefix="ID " + bracket + " ",
+                gaplimit=500,
+                prop="revisions",
+                rvprop="ids|timestamp|content",
+                rvslots="main",
+                **continuation,
+            )
+            responses.append(response)
+            for page in pages_in(response):
+                owners[page["title"]] = owner
+                fetched += 1
+            continuation = response.get("continue", {})
+            if "gapcontinue" not in continuation:
+                break
+    return responses, owners, fetched
+
+
+def build_state(conn, data_root=None) -> dict:
+    """Replay ratings and closing prices into a portable, versioned snapshot."""
+    root = Path(data_root or os.environ.get("PROMDOTA_DATA", "data"))
+    conn.row_factory = sqlite3.Row
+    events = {
+        r["title"]: dict(r)
+        for r in conn.execute("SELECT * FROM events WHERE excluded=0")
+    }
+    teams = {r["team_id"]: dict(r) for r in conn.execute("SELECT * FROM teams")}
+    model, replayed, layer, fitted_temperatures = adopted_replay(conn)
+    temperatures = {str(k): v for k, v in fitted_temperatures.items()}
+    first, seen, eligible = {}, set(), set()
+    for row in replayed.itertuples(index=False):
+        if row.match_id not in first:
+            first[row.match_id] = row.p
+            if row.team1_id in seen and row.team2_id in seen:
+                eligible.add(row.match_id)
+        seen.update((row.team1_id, row.team2_id))
+    form = current_form(conn, layer.half_life)
+    by_event_id = {e["event_id"]: e for e in events.values()}
+    matches = [
+        dict(r)
+        for r in conn.execute(
+            "SELECT * FROM matches WHERE start_utc >= '2026-01-01' ORDER BY start_utc, match_id"
+        )
+        if r["match_id"] in eligible and r["event_id"] in by_event_id
+    ]
+    close = closing_prices(conn, matches, root)
+    rows = []
+    for match in matches:
+        mid = str(match["match_id"])
+        event = by_event_id[match["event_id"]]
+        call = dict(
+            page=match["page"],
+            start=stamp(instant(match["start_utc"])),
+            section=section(event),
+            event=event["name"] or match["page"],
+            name1=teams[match["team1_id"]]["name"],
+            name2=teams[match["team2_id"]]["name"],
+            **probabilities(first[match["match_id"]], match["best_of"], temperatures),
+        )
+        row = feed_row(
+            mid,
+            call,
+            "final",
+            reconstructed=True,
+            score1=match["score1"],
+            score2=match["score2"],
+            winner=match["winner"],
+        )
+        row["market"] = close.get(match["match_id"])
+        rows.append(row)
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master")}
+    aliases = (
+        dict(conn.execute("SELECT competitor_id, liquipedia_team_id FROM team_aliases"))
+        if "team_aliases" in tables
+        else {}
+    )
+    newest = conn.execute(
+        "SELECT max(start_utc) FROM matches WHERE winner IN (1, 2)"
+    ).fetchone()[0]
+    return {
+        "version": STATE_VERSION,
+        "built": stamp(datetime.now(UTC)),
+        "model": model,
+        "model_name": MODEL,
+        "layer": ADOPTED_LAYER,
+        "form_half_life": layer.half_life,
+        "form_weight": layer.w,
+        "form": form,
+        "seen": seen,
+        "temperatures": temperatures,
+        "rows": rows,
+        "matches": matches,
+        "events": events,
+        "teams": teams,
+        "team_aliases": aliases,
+        "data_through": newest[:10] if newest else None,
+    }
+
+
+def save_state(state, path):
+    """Atomically save a gzip-compressed pickle snapshot."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw = gzip.compress(
+        pickle.dumps(state, protocol=pickle.HIGHEST_PROTOCOL), compresslevel=6
+    )
+    fd, temporary = tempfile.mkstemp(dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(raw)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def load_state(path):
+    """Load a trusted internal snapshot, rejecting incompatible versions."""
+    with gzip.open(path, "rb") as handle:
+        state = pickle.load(handle)
+    if state.get("version") != STATE_VERSION:
+        raise ValueError(
+            f"Unsupported feed state version {state.get('version')!r}; expected {STATE_VERSION}"
+        )
+    return state
+
+
+def export(
+    state=None,
+    *,
+    db=Path("db/dota2.db"),
+    out=None,
+    candidates_path=None,
+    data=None,
+    no_fetch=False,
+    now=None,
+    liquipedia_fetcher=None,
+    kalshi_fetcher=None,
+):
+    """Write a site feed. Fetchers accept query keyword arguments and return JSON.
+
+    Liquipedia receives MediaWiki parameters; Kalshi receives series/status/cursor.
+    No fetcher is called with ``no_fetch``. Return the written feed dictionary.
+    """
+    started = time.monotonic()
+    now = (now or datetime.now(UTC)).astimezone(UTC)
+    root = Path(data or os.environ.get("PROMDOTA_DATA", "data"))
+    out = Path(out) if out is not None else root / "feed/dota2.json"
+    cache = root / "feed/upcoming/latest.json.gz"
+    log_path = root / "feed/predictions.json"
+    calls = json.loads(log_path.read_text()) if log_path.exists() else {}
+    if state is None:
+        with sqlite3.connect(db) as conn:
+            state = build_state(conn, root)
+    events, teams = state["events"], state["teams"]
+    events_by_id = {event["event_id"]: event for event in events.values()}
+    model, seen = state["model"], state["seen"]
+    temperatures, matches = state["temperatures"], state["matches"]
+    aliases = state["team_aliases"]
+    titles = sorted(
+        t
+        for t, e in events.items()
+        if e["start_date"]
+        and e["end_date"]
+        and e["start_date"] <= (now + timedelta(days=7)).date().isoformat()
+        and e["end_date"] >= (now - timedelta(days=1)).date().isoformat()
+    )
+    responses, fetched, owners = [], 0, {}
+    if not no_fetch:
+        fetch = liquipedia_fetcher or Fetcher().query
+        responses, owners, fetched = upcoming_pages(fetch, titles, events)
+        atomic(cache, {"responses": responses, "owners": owners}, compressed=True)
+    elif cache.exists():
+        with gzip.open(cache, "rt") as handle:
+            cached = json.load(handle)
+            responses, owners = cached["responses"], cached["owners"]
+    skipped = Counter()
+    schedule = {}
+    for page in pages_in(responses):
+        title = page["title"]
+        if title not in events and page.get("pageid") in events_by_id:
+            title = events_by_id[page["pageid"]]["title"]
+        event_title = owners.get(title, title)
+        if event_title not in events:
+            continue
+        text = page_text(page)
+        for block in blocks(text, "MatchPage") or blocks(text, "Match"):
+            fields = params(block)
+            for side in (1, 2):
+                opponents = blocks(fields.get(f"opponent{side}", ""), "TeamOpponent")
+                pos = positional(opponents[0]) if len(opponents) == 1 else []
+                if not pos or pos[0].strip().lower() in ("", "tbd", "bye"):
+                    skipped["tbd"] += 1
+                    break
+        for match in parse_scheduled(title, text):
+            ids = [
+                int(hashlib.sha1(("team:" + key).encode()).hexdigest()[:12], 16)
+                for key in (match.team1_key, match.team2_key)
+            ]
+            key = f"{title}|{ids[0]}|{ids[1]}|{match.ordinal}"
+            s1 = sum(a > b for a, b in match.maps)
+            s2 = len(match.maps) - s1
+            final = (match.best_of and max(s1, s2) > match.best_of / 2) or (
+                match.finished and s1 != s2
+            )
+            status = (
+                "final"
+                if final
+                else "live"
+                if match.start_utc <= now or match.maps
+                else "upcoming"
+            )
+            if status == "upcoming" and match.start_utc > now + timedelta(days=7):
+                continue
+            event = events[event_title]
+            metadata = {
+                "page": title,
+                "team1_id": ids[0],
+                "team2_id": ids[1],
+                "name1": teams.get(ids[0], {}).get("name", match.team1_key),
+                "name2": teams.get(ids[1], {}).get("name", match.team2_key),
+                "start": stamp(match.start_utc),
+                "section": section(event),
+                "event": event["name"] or title,
+            }
+            if status == "upcoming" and (
+                key not in calls or instant(calls[key]["start"]) > now
+            ):
+                if not all(t in seen for t in ids):
+                    skipped["unrated"] += 1
+                    continue
+                prediction = model.predict(
+                    SimpleNamespace(
+                        team1_id=ids[0],
+                        team2_id=ids[1],
+                        start_utc=match.start_utc.isoformat(),
+                        section=event["section"],
+                        region=event["region"],
+                        international=event["international"],
+                        game_id=None,
+                    )
+                )
+                prediction = upcoming_form(prediction, ids, state)
+                calls[key] = dict(
+                    metadata,
+                    **probabilities(prediction, match.best_of, temperatures),
+                    saved_at=stamp(now),
+                )
+            schedule[key] = (metadata, status, s1, s2)
+    calls = {
+        k: v for k, v in calls.items() if instant(v["start"]) <= now or k in schedule
+    }
+    atomic(log_path, calls)
+    joined, used = join_calls(matches, calls, now)
+    # Suppress schedule duplicates of DB results even if no frozen call exists.
+    schedule_calls = {
+        k: dict(meta, p_game=0.5, p_series=0.5)
+        for k, (meta, _, _, _) in schedule.items()
+    }
+    _, represented = join_calls(matches, schedule_calls, now)
+    rows = copy.deepcopy(state["rows"])
+    by_id = {str(m["match_id"]): m for m in matches}
+    for row in rows:
+        mid = row["match_id"]
+        if mid in joined:
+            logged = calls[joined[mid]]
+            row.update(
+                oriented(logged, by_id[mid]["team1_id"]),
+                best_of=logged["best_of"],
+                reconstructed=False,
+            )
+    candidates = []
+    for key, call in calls.items():
+        if key in used or key in represented:
+            continue
+        if key in schedule:
+            _, status, s1, s2 = schedule[key]
+            if status != "upcoming" and instant(call["start"]) > now:
+                continue
+            if status == "upcoming":
+                s1 = s2 = None
+            winner = (1 if s1 > s2 else 2) if status == "final" and s1 != s2 else None
+        else:
+            age = now - instant(call["start"])
+            if age < timedelta(0) or age > timedelta(days=7):
+                continue
+            status = "live" if age < timedelta(hours=6) else "final"
+            s1 = s2 = winner = None
+        row = feed_row(key, call, status, score1=s1, score2=s2, winner=winner)
+        rows.append(row)
+        if status in ("upcoming", "live") and key in schedule:
+            candidates.append(
+                {
+                    "match_id": key,
+                    "start_utc": call["start"],
+                    "team1_id": call["team1_id"],
+                    "team2_id": call["team2_id"],
+                    "team1_name": call["name1"],
+                    "team2_name": call["name2"],
+                    "team1_key": teams.get(call["team1_id"], {}).get("key", ""),
+                    "team2_key": teams.get(call["team2_id"], {}).get("key", ""),
+                }
+            )
+    prices, linked = {}, {}
+    if not no_fetch:
+        client = Client()
+        fetch = kalshi_fetcher or (lambda **kw: client.json("/markets", **kw))
+        raw, cursor = [], None
+        while True:
+            response = fetch(
+                series_ticker="KXDOTA2GAME", status="open", limit=1000, cursor=cursor
+            )
+            raw.extend(response["markets"])
+            cursor = response.get("cursor")
+            if not cursor or not response["markets"]:
+                break
+        linked = linked_current_markets(raw, candidates, aliases)
+        prices = current_prices(raw, candidates, aliases, now, linked=linked)
+    from promdota.trading import candidates as execution_candidates
+
+    private = execution_candidates(
+        rows, linked, now, data_through=state["data_through"], skipped=skipped
+    )
+    atomic(
+        Path(candidates_path)
+        if candidates_path is not None
+        else root / "feed/candidates.json",
+        private,
+    )
+    for row in rows:
+        if row["match_id"] in prices:
+            row["market"] = prices[row["match_id"]]
+        for field in ("p_game", "p_series"):
+            row[field] = round(row[field], 4)
+        if row["market"]:
+            row["market"]["p"] = round(row["market"]["p"], 4)
+    present = {r["section"] for r in rows}
+    feed = {
+        "version": 1,
+        "game": "dota2",
+        "name": "Dota 2",
+        "model": "Player game Elo + form",
+        "generated": stamp(now),
+        "data_through": state["data_through"] or "",
+        "source": {
+            "name": "Liquipedia + OpenDota",
+            "url": "https://liquipedia.net/dota2/",
+            "license": "CC BY-SA 3.0",
+        },
+        "sections": [
+            {"key": k, "label": label, "major": k in ("INTL", "T1")}
+            for k, label in SECTIONS
+            if k in present
+        ],
+        "matches": rows,
+    }
+    atomic(out, feed)
+    counts = Counter(r["status"] for r in rows)
+    print(
+        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_fetched={fetched} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
+    )
+    return feed

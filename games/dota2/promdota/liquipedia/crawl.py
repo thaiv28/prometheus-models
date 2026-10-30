@@ -129,9 +129,13 @@ def subpage_links(title, wikitext) -> set[str]:
     }
 
 
-def crawl(fetcher, limit=None, full=False, now=utc_now, no_matches=False) -> Summary:
+def crawl(
+    fetcher, limit=None, full=False, now=utc_now, no_matches=False, listing="full"
+) -> Summary:
     if limit is not None and limit < 0:
         raise ValueError("limit must be nonnegative")
+    if listing not in {"full", "none"}:
+        raise ValueError("listing must be full or none")
     titles = list(dict.fromkeys(list_category(fetcher, CATEGORY)))
     cache.save_category(CATEGORY, titles)
     index = cache.load_index()
@@ -145,8 +149,9 @@ def crawl(fetcher, limit=None, full=False, now=utc_now, no_matches=False) -> Sum
         }
     )
     # Dota tabs live in per-series templates, so links alone miss stage pages.
-    for title, parent in list_subpages(fetcher, titles).items():
-        sources.setdefault(title, ("subpage", parent))
+    if listing == "full":
+        for title, parent in list_subpages(fetcher, titles).items():
+            sources.setdefault(title, ("subpage", parent))
     checked, missing = set(), set()
     attempted = 0
 
@@ -203,7 +208,7 @@ def crawl(fetcher, limit=None, full=False, now=utc_now, no_matches=False) -> Sum
         if not discovered:
             break
         refresh(discovered)
-    if not no_matches:
+    if not no_matches and listing == "full":
         match_revisions, continuation = {}, {}
         while True:
             result = fetcher.query(

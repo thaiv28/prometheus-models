@@ -1,3 +1,11 @@
+## 2026-10-30 — Live export check
+
+Ran `feed-state` (14 s, 4,993 finals, 6,639 teams) and a live `export` (212 s, mostly 64 Liquipedia fetches at 2 s spacing): 30 upcoming, 10 candidates, 186 TBD sides skipped, 1,212 Kalshi-priced. Through Prometheus's `saved_candidates` with the packaged blend: 20 proposals; read-only `PublicKalshi.resolve`: 6 of 10 events resolved, 4 had no two-sided quote, no identity failures. Limit: a 10-minute feed job spending ~3.5 min on Liquipedia is a large share of its CI budget; measure on GitHub.
+
+## 2026-10-30 — Dota site feed and private candidates
+
+Implemented adopted+form snapshots, DB-free public export, private series candidates, frozen blend artifact, listing modes and S3 workflows. Offline checks: 361 pytest tests passed in 13.59 s (initial 317 passed plus work-log guard failure, 21.36 s); CI test time decreased. Ruff format/check, YAML/shell parsing and diff whitespace passed. Real DB: state 13.69 s, 4,993 finals/6,639 rated teams; empty-cache no-fetch export 0.04 s, 4,993 finals, zero upcoming/candidates. Prometheus load_feeds accepted all 4,993 rows. Artifact: 11.55 s, eight snapshots; latest slopes 1.221800583/0.862891521, n=1,178. Checks used UV_NO_SYNC=1 because normal uv panics locally. No network, uploads, shared-cache writes or commits. Workflows not deployed; Dota disabled in execution. Requested Valorant schema file absent; validated against Prometheus directly.
+
 ## 2026-10-30 — Gate overridden by the user
 
 The user overrode the narrowly failed holdout gate (log-loss edge significant); Phase 6 starts with Dota disabled in execution. Docs only.
