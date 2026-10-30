@@ -1,5 +1,9 @@
 
 
+## 2026-10-30 — First GitHub runs; one DB build when the top-up saves nothing
+
+GitHub, first runs: `refresh-db` succeeded in 770 s (two DB builds, ~80 s each, plus crawl and top-up); feed cold 248 s (64 fetches), next run 39 s (1 fetched, 63 reused), 8 candidates and all feed objects in S3. The second DB build now runs only when `opendota games` saved games. Checks: pytest, ruff.
+
 ## 2026-10-30 — First GitHub refresh runs; macOS seed junk
 
 First `refresh-db` run: crawl 5 min, then the OpenDota loader failed on `._*.json.gz` files from a seed tarball built with macOS `tar` (they had also been synced to S3: 38,434 objects, deleted). Rebuilt the seed without Mac metadata (56,303 entries, no `._`), cleared Actions caches, and the OpenDota cache now skips dot-files (test added). Seed command in deployment.md. Checks: pytest, ruff.

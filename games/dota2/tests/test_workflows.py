@@ -200,3 +200,10 @@ def test_docs_only_ci_keeps_steering_check():
         assert required in text
     assert "paths-ignore" not in text
     assert "dorny/paths-filter" not in text
+
+
+def test_refresh_rebuilds_after_top_up_only_when_games_were_saved():
+    text = (ROOT / ".github/workflows/refresh-db.yml").read_text()
+    top_up = text.index("promdota opendota games --limit 1800")
+    assert "grep -qE 'saved=[1-9]' /tmp/games-summary" in text[top_up:]
+    assert text[top_up:].index("saved=[1-9]") < text[top_up:].index("setup_db.sh")

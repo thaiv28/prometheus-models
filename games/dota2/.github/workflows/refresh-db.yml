@@ -134,9 +134,12 @@ jobs:
           started=$SECONDS
           bash scripts/setup_db.sh
           if [ "$HAS_OPENDOTA" = true ]; then
-            uv run promdota opendota games --limit 1800 | tee -a "$GITHUB_STEP_SUMMARY"
-            aws s3 sync data/opendota "s3://$BUCKET/dota2-model/opendota" --only-show-errors
-            bash scripts/setup_db.sh
+            uv run promdota opendota games --limit 1800 | tee /tmp/games-summary | tee -a "$GITHUB_STEP_SUMMARY"
+            # Rebuild only when the top-up saved games (a build is ~80 s).
+            if grep -qE 'saved=[1-9]' /tmp/games-summary; then
+              aws s3 sync data/opendota "s3://$BUCKET/dota2-model/opendota" --only-show-errors
+              bash scripts/setup_db.sh
+            fi
           fi
           echo "Rebuilt database" >> "$GITHUB_STEP_SUMMARY"
           echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
