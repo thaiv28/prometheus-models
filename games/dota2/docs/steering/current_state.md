@@ -2,7 +2,7 @@
 
 ## Status
 
-Playbook phase: **3 (baseline)**, waiting on data. 2026-10-29: 45,645 series and 91,503 games built from Liquipedia + OpenDota; Kalshi links series 1,380/1,869, games 1,882/2,564. OpenDota per-game top-up (~15,000 games without players, 1,800/day free) started 2026-10-29, newest first; ~8 days. Stage-1 baseline on partial data: player_glicko 0.6294 vs team_elo 0.6501 game log loss (ledger). No stage-2 look yet: the first waits for the top-up and the Kalshi backfill.
+Playbook phase: **4 (refinement ladder)**. 2026-10-30: 45,645 series, 91,503 games (84,091 with players). Kalshi links: series 1,380/1,870, games 1,882/2,564. Base pinned: player_glicko (k 24, rd_new 280, rd_info 0.0625, fixed); stage-2 look 1 is level with Kalshi (ledger). Stage-2 looks: 1.
 
 ## Known limits
 

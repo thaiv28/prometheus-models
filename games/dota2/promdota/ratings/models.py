@@ -45,15 +45,18 @@ for region in (False, True):
     )
     PARAM_GRIDS[name] = {
         "k": (16, 24, 32, 48, 64),
-        "rd_new": (280, 350, 450, 600),
-        "rd_info": (0.125, 0.25, 0.5, 1.0),
+        "rd_new": (160, 200, 240, 280, 350, 450),
+        "rd_info": (0.03125, 0.0625, 0.125, 0.25, 0.5),
         "new_player": ("fixed", "teammates"),
     }
     if region:
         PARAM_GRIDS[name]["region_k"] = (2, 4)
 
-# Phase 3 pins the stage-1 winner after evaluating the real Dota 2 database.
-PINNED = {}
+# Stage-1 winner of the widened base grid (2026-10-30, full OpenDota top-up).
+# Benchmarks score these by default; --full-grid re-searches PARAM_GRIDS.
+PINNED = {
+    "player_glicko": {"k": 24, "new_player": "fixed", "rd_info": 0.0625, "rd_new": 280},
+}
 ADOPTED = "player_glicko"
 
 # Only adjustment grids live here. The benchmark anchors these to the current

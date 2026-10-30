@@ -1,3 +1,7 @@
+## 2026-10-30 — Base pinned; first stage-2 run
+
+OpenDota top-up with the API key: 24,690 games saved (392 missing, 187 errors); players on 84,091 of 91,503 games; Liquipedia/OpenDota winner conflicts 177 (Liquipedia kept). Widened player_glicko RD grids (rd_new 160–450, rd_info 0.03125–0.5); pinned k 24, rd_new 280, rd_info 0.0625, fixed. First stage-2 look: level with Kalshi (blended series −0.0042 n.s., +11.8% flat); numbers in the ledger, report in `docs/elo_backtest.md`, weights in `elo_weights.json`. Checks: rebuild, benchmark (stage 1 131 s; pinned run 24 s), pytest, ruff.
+
 ## 2026-10-29 — OpenDota API key
 
 The OpenDota fetcher reads `OPENDOTA_API_KEY`: requests carry it, spacing drops to 0.1 s and the per-run cap rises from 1,800 to 100,000 (default `--limit` follows). Without a key nothing changes. Typer tracebacks no longer print locals, so the key can't reach a log. Key stored in the main checkout's gitignored `.env`. Checks: pytest, ruff.
