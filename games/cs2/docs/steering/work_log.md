@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Kaggle fetch in refresh-db
+
+Branch `player-stats`, base `9466aea`. `promcs kaggle fetch` now checks at most once per UTC day (`last_checked` marker) and stores a new dated zip only when the bytes changed (the dataset updates weekly). refresh-db syncs `cs2-model/kaggle/` from S3, fetches, syncs back, then rebuilds; a failed download warns and uses the cached archive. Checks: pytest 345, ruff, workflow YAML parse (ruby). Limits: not yet run on GitHub; Kaggle's anonymous download from runners is unverified; seed S3 with `aws s3 sync data/kaggle s3://$BUCKET/cs2-model/kaggle`.
+
 ## 2026-10-29 — Player identity splits
 
 Branch `player-stats`, base `f22f6ef`. Bare Liquipedia keys move to a unique disambiguated sibling seen on the same team within 365 days (8,729 map/roster rows, 60 players; e.g. lucky → lucky (french player)). Kaggle sides pair unmatched slots with similarly spelled roster players (containment, same-initial subsequence, or difflib ≥0.6), fall back to a unique existing player by team then globally, and unify each Kaggle ID onto one player. New Kaggle players 31→3 (ruggah, gatsby: not in Liquipedia; nbl: two Liquipedia players); split Kaggle IDs 16→5, only on retained conflicting sides. Adopted model vs f22f6ef DB: stage 1 +0.00003 (n.s.; tier1 −0.0010 significant, tier3 +0.00016 significant, within +0.0005), stage 2 −0.00017 (n.s.). Checks: pytest 345 (11.3 s), ruff, rebuild; foreign keys clean, all game IDs kept.

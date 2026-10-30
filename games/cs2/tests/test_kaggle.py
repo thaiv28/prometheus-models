@@ -24,8 +24,18 @@ def test_fetch_bytes_cache_and_order(tmp_path):
         return b"unchanged\x00zip\xff"
 
     old = fetch(tmp_path, get=get, today=date(2026, 9, 30))
-    newest = fetch(tmp_path, get=get, today=date(2026, 10, 29))
-    assert newest.read_bytes() == b"unchanged\x00zip\xff"
+    # Identical bytes on a later day keep the old archive and mark the day checked.
+    assert fetch(tmp_path, get=get, today=date(2026, 10, 1)) == old
+    assert (
+        fetch(
+            tmp_path,
+            get=lambda _: pytest.fail("checked twice"),
+            today=date(2026, 10, 1),
+        )
+        == old
+    )
+    newest = fetch(tmp_path, get=lambda _: b"changed", today=date(2026, 10, 29))
+    assert newest.read_bytes() == b"changed" and len(calls) == 2
     assert (
         fetch(
             tmp_path,

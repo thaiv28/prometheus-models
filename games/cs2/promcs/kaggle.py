@@ -47,16 +47,22 @@ def _get(url):
         return response.read()
 
 
-def fetch(root, get=None, today=None) -> Path:
-    """Save today's unchanged archive once, using UTC dates."""
+def fetch(root, get=None, today=None) -> Path | None:
+    """Check once per UTC day; save the unchanged archive only when it differs."""
     date = today if today is not None else datetime.now(UTC).date()
     if isinstance(date, datetime):
         date = date.astimezone(UTC).date()
-    path = Path(root) / "kaggle/counter-strike-pro-matches" / f"{date.isoformat()}.zip"
-    if path.exists():
-        return path
+    folder = Path(root) / "kaggle/counter-strike-pro-matches"
+    path = folder / f"{date.isoformat()}.zip"
+    checked = folder / "last_checked"
+    latest = latest_zip(root)
+    if path.exists() or (checked.exists() and checked.read_text() == date.isoformat()):
+        return latest
     raw = (get or _get)(URL)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    folder.mkdir(parents=True, exist_ok=True)
+    if latest is not None and latest.read_bytes() == raw:
+        checked.write_text(date.isoformat())
+        return latest
     fd, name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         with os.fdopen(fd, "wb") as handle:
@@ -64,6 +70,7 @@ def fetch(root, get=None, today=None) -> Path:
         os.replace(name, path)
     finally:
         Path(name).unlink(missing_ok=True)
+    checked.write_text(date.isoformat())
     return path
 
 
@@ -78,7 +85,9 @@ def latest_zip(root) -> Path | None:
 def fetch_command():
     """Cache today's raw Kaggle dataset archive."""
     path = fetch(data_root())
-    typer.echo(f"kaggle: {path} bytes={path.stat().st_size}")
+    typer.echo(
+        f"kaggle: {path} bytes={path.stat().st_size}" if path else "kaggle: none"
+    )
 
 
 def map_key(name):

@@ -53,6 +53,14 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
           tail -1 /tmp/crawl-summary >> "$GITHUB_STEP_SUMMARY"
+      - name: Kaggle player stats
+        run: |
+          # At most one download per UTC day; a new zip is stored only when it changed.
+          mkdir -p data/kaggle
+          aws s3 sync "s3://$BUCKET/cs2-model/kaggle" data/kaggle --only-show-errors
+          uv run promcs kaggle fetch | tee -a "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning::Kaggle fetch failed; using the cached archive"
+          aws s3 sync data/kaggle "s3://$BUCKET/cs2-model/kaggle" --only-show-errors
       - name: Rebuild database
         run: |
           started=$SECONDS
