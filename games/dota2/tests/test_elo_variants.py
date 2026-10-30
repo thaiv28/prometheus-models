@@ -266,8 +266,8 @@ def test_glicko_registry_and_exact_grids():
         name = "player_region_glicko" if region else "player_glicko"
         grid = {
             "k": (16, 24, 32, 48, 64),
-            "rd_new": (280, 350, 450, 600),
-            "rd_info": (0.125, 0.25, 0.5, 1.0),
+            "rd_new": (160, 200, 240, 280, 350, 450),
+            "rd_info": (0.03125, 0.0625, 0.125, 0.25, 0.5),
             "new_player": ("fixed", "teammates"),
         }
         if region:

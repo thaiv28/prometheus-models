@@ -1086,10 +1086,11 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
 
 
 def test_pinned_grid_and_full_grid(monkeypatch):
-    assert benchmark.PINNED == {}
+    assert set(benchmark.PINNED) == {"player_glicko"}
     assert benchmark.ADOPTED == "player_glicko"
     full = benchmark.parameter_grid("player_glicko", full=True)
-    assert len(full) == 160
+    assert len(full) == 300
+    monkeypatch.delitem(benchmark.PINNED, "player_glicko")
     assert benchmark.parameter_grid("player_glicko") == full
     pinned = {"k": 24, "rd_new": 450, "rd_info": 0.5, "new_player": "fixed"}
     monkeypatch.setitem(benchmark.PINNED, "player_glicko", pinned)
@@ -1107,9 +1108,10 @@ def test_pinned_grid_and_full_grid(monkeypatch):
 )
 def test_ladder_grid_requires_pin_or_full_grid(monkeypatch, variant, count):
     name = f"player_glicko_{variant}"
+    monkeypatch.delitem(benchmark.PINNED, "player_glicko")
     with pytest.raises(ValueError, match=r"pin the base first.*--full-grid"):
         benchmark.parameter_grid(name)
-    assert len(benchmark.parameter_grid(name, full=True)) == 160 * count
+    assert len(benchmark.parameter_grid(name, full=True)) == 300 * count
     pinned = {"k": 64, "rd_new": 600, "rd_info": 1.0, "new_player": "teammates"}
     monkeypatch.setitem(benchmark.PINNED, "player_glicko", pinned)
     for full in (False, True):
@@ -1121,7 +1123,8 @@ def test_ladder_grid_requires_pin_or_full_grid(monkeypatch, variant, count):
         )
 
 
-def test_ladder_cli_error_before_database_access(tmp_path, capsys):
+def test_ladder_cli_error_before_database_access(tmp_path, capsys, monkeypatch):
+    monkeypatch.delitem(benchmark.PINNED, "player_glicko")
     with pytest.raises(SystemExit) as error:
         benchmark.main(
             ["--db", str(tmp_path / "absent.db"), "--models", "player_glicko_rookie"]
