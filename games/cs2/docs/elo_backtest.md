@@ -5,13 +5,13 @@
 | Model | Series Δ log loss | Series flat ROI | Series Kelly (LoL caps) $ | Series flat ROI depth-capped | Series Kelly depth-capped $ | Map Δ log loss | Map flat ROI | Map Kelly (LoL caps) $ | Map flat ROI depth-capped | Map Kelly depth-capped $ | Series blended Δ log loss | Series blended flat ROI | Series blended Kelly (LoL caps) $ | Series blended flat ROI depth-capped | Series blended Kelly depth-capped $ | Map blended Δ log loss | Map blended flat ROI | Map blended Kelly (LoL caps) $ | Map blended flat ROI depth-capped | Map blended Kelly depth-capped $ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | team_elo | 0.020181 | -6.01% | $0.09 | -5.04% | $0.07 | 0.023144 | -6.49% | $0.09 | -13.47% | $0.09 | -0.001482 | 2.74% | $19.26 | 5.21% | $101.79 | 0.001097 | -2.31% | $27.38 | -5.97% | $28.26 |
-| player_round_glicko | -0.000053 | 2.00% | $0.03 | 0.02% | $0.09 | 0.006237 | -5.59% | $0.09 | -13.93% | $0.09 | -0.011511 | 7.71% | $9760.38 | 5.18% | $709.30 | -0.002393 | 1.90% | $283.51 | -6.48% | $16.17 |
-| player_round_glicko_rookie_weights | -0.005361 | 2.73% | $0.09 | -0.02% | $0.08 | 0.004293 | -4.83% | $0.09 | -17.08% | $0.09 | -0.014581 | 8.41% | $13532.46 | 5.32% | $769.27 | -0.003210 | 4.36% | $667.99 | -6.80% | $13.69 |
+| player_round_glicko | -0.000027 | 2.99% | $0.04 | 0.74% | $0.08 | 0.005952 | -5.22% | $0.08 | -15.32% | $0.08 | -0.011444 | 8.32% | $11754.34 | 5.42% | $922.50 | -0.002606 | 2.34% | $458.93 | -6.20% | $19.97 |
+| player_round_glicko_rookie_weights | -0.005690 | 3.25% | $0.07 | 0.65% | $0.07 | 0.004238 | -4.69% | $0.09 | -17.41% | $0.07 | -0.014685 | 9.35% | $11021.94 | 5.93% | $911.00 | -0.003129 | 4.14% | $389.66 | -6.21% | $12.70 |
 | team_elo+none | 0.020181 | -6.01% | $0.09 | -5.04% | $0.07 | 0.023144 | -6.49% | $0.09 | -13.47% | $0.09 | -0.001482 | 2.74% | $19.26 | 5.21% | $101.79 | 0.001097 | -2.31% | $27.38 | -5.97% | $28.26 |
-| player_round_glicko+none | -0.000053 | 2.00% | $0.03 | 0.02% | $0.09 | 0.006237 | -5.59% | $0.09 | -13.93% | $0.09 | -0.011511 | 7.71% | $9760.38 | 5.18% | $709.30 | -0.002393 | 1.90% | $283.51 | -6.48% | $16.17 |
-| player_round_glicko_rookie_weights+none | -0.005361 | 2.73% | $0.09 | -0.02% | $0.08 | 0.004293 | -4.83% | $0.09 | -17.08% | $0.09 | -0.014581 | 8.41% | $13532.46 | 5.32% | $769.27 | -0.003210 | 4.36% | $667.99 | -6.80% | $13.69 |
+| player_round_glicko+none | -0.000027 | 2.99% | $0.04 | 0.74% | $0.08 | 0.005952 | -5.22% | $0.08 | -15.32% | $0.08 | -0.011444 | 8.32% | $11754.34 | 5.42% | $922.50 | -0.002606 | 2.34% | $458.93 | -6.20% | $19.97 |
+| player_round_glicko_rookie_weights+none | -0.005690 | 3.25% | $0.07 | 0.65% | $0.07 | 0.004238 | -4.69% | $0.09 | -17.41% | $0.07 | -0.014685 | 9.35% | $11021.94 | 5.93% | $911.00 | -0.003129 | 4.14% | $389.66 | -6.21% | $12.70 |
 
-Series temperatures (stage 1; p′ = σ(T·logit p), T < 1 pulls odds toward 50%): team_elo Bo3 0.71, Bo5 0.63; player_round_glicko_rookie_weights Bo3 0.88, Bo5 0.66; player_round_glicko Bo3 0.83, Bo5 0.59; team_elo+none Bo3 0.71, Bo5 0.63; player_round_glicko+none Bo3 0.83, Bo5 0.59; player_round_glicko_rookie_weights+none Bo3 0.88, Bo5 0.66
+Series temperatures (stage 1; p′ = σ(T·logit p), T < 1 pulls odds toward 50%): team_elo Bo3 0.71, Bo5 0.63; player_round_glicko_rookie_weights Bo3 0.88, Bo5 0.67; player_round_glicko Bo3 0.83, Bo5 0.60; team_elo+none Bo3 0.71, Bo5 0.63; player_round_glicko+none Bo3 0.83, Bo5 0.60; player_round_glicko_rookie_weights+none Bo3 0.88, Bo5 0.67
 
 Parameters minimize tuning map log loss across all sections. Replay predicts before update; Replay starts at the first map. Tuning: [2024-01-01, 2026-01-01); validation: [2026-01-01, 2026-11-01). Holdout is scored only with --holdout and never selects parameters. Series use the first map prediction and independent maps in an odd best-of; missing/even best-of or unknown results are skipped. Accuracy gives 0.5 predictions half credit; ECE uses 10 equal-width bins. Log loss clips probabilities at 1e-6. Paired bootstrap uses 2,000 resamples, seed 0, clustered by match_id. Differences are the named model minus its comparator; negative favors the model. Significance requires a 95% percentile interval excluding zero. Tuning scores are selection diagnostics, not independent evidence of improvement.
 
@@ -23,8 +23,8 @@ Fit through 2025-12-31. Unknown host-region map rows: 911 (including missing/un)
 
 | Model | Best params | Map log loss | Series log loss | Rows |
 |---|---|---:|---:|---:|
-| player_round_glicko_rookie_weights | {"k": 32, "new_player": "teammates", "online_k": 1.0, "rd_info": 0.125, "rd_new": 350, "rookie_maps": 400, "rookie_penalty": 200, "tau": 0.5, "tier3_k": 0.75} | 0.629692 | 0.598834 | 73819 |
-| player_round_glicko | {"k": 32, "new_player": "teammates", "rd_info": 0.125, "rd_new": 350, "tau": 0.5} | 0.639856 | 0.618358 | 73819 |
+| player_round_glicko_rookie_weights | {"k": 32, "new_player": "teammates", "online_k": 1.0, "rd_info": 0.125, "rd_new": 350, "rookie_maps": 400, "rookie_penalty": 200, "tau": 0.5, "tier3_k": 0.75} | 0.629726 | 0.598899 | 73819 |
+| player_round_glicko | {"k": 32, "new_player": "teammates", "rd_info": 0.125, "rd_new": 350, "tau": 0.5} | 0.639912 | 0.618440 | 73819 |
 | team_elo | {"k": 32} | 0.660656 | 0.645151 | 73819 |
 
 Kalshi uses the first hourly bid/ask (midpoint for log loss, ask/bid for bets) ending ≥30 min after the market opened and ≥2 h before the scheduled start, with a spread ≤ 0.06: a price a bot could trade before any veto. Markets without such a quote are skipped. oriented to team1 using aliases. One contract per event, preferring team1. Compare identical rows; map predictions use the first map's pre-match chance. Missing links, aliases or candles are skipped; unplayed maps are not in the rows. Returns use frozen stage-1 parameters. Each bet buys $1 of contracts, fees extra; order fees ceil to a cent (0.07 × contracts × price × (1−price)). Edge selection uses unrounded per-contract fees. ROI divides profit by stake plus fees; intervals resample matches 2,000 times. Unlimited depth and depth-capped returns are shown together. Depth uses 0.5 of acceptable-price tape volume in the 6 hours after the quote, missing tapes give zero fills. Partial Kelly fills are allowed; flat bets require the full $1 stake. Kelly uses LoL caps and rounded-fee affordability, from a $50 seed. Each slice runs independently. Tape volume is a fill proxy; no slippage is modeled.
@@ -59,53 +59,53 @@ team_elo − coin (paired log loss):
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko | all | 73819 | 0.639856 | 0.224858 | 0.627203 | 0.020776 |
-| player_round_glicko | tier1 | 4470 | 0.665034 | 0.236102 | 0.596868 | 0.017341 |
-| player_round_glicko | tier2 | 18909 | 0.647966 | 0.228640 | 0.614654 | 0.016128 |
-| player_round_glicko | tier3 | 50234 | 0.634554 | 0.222423 | 0.634809 | 0.023255 |
-| player_round_glicko | unknown | 206 | 0.641926 | 0.227528 | 0.582524 | 0.068982 |
-| player_round_glicko | international=1 | 2557 | 0.660852 | 0.234453 | 0.602659 | 0.020152 |
-| player_round_glicko | international=0 | 71262 | 0.639102 | 0.224513 | 0.628084 | 0.021255 |
+| player_round_glicko | all | 73819 | 0.639912 | 0.224880 | 0.626993 | 0.020898 |
+| player_round_glicko | tier1 | 4470 | 0.664719 | 0.235945 | 0.596532 | 0.016189 |
+| player_round_glicko | tier2 | 18909 | 0.648033 | 0.228670 | 0.614549 | 0.016297 |
+| player_round_glicko | tier3 | 50234 | 0.634639 | 0.222458 | 0.634570 | 0.023351 |
+| player_round_glicko | unknown | 206 | 0.642020 | 0.227562 | 0.582524 | 0.068986 |
+| player_round_glicko | international=1 | 2557 | 0.660377 | 0.234218 | 0.602464 | 0.020095 |
+| player_round_glicko | international=0 | 71262 | 0.639178 | 0.224545 | 0.627873 | 0.021382 |
 
 player_round_glicko − coin (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 73819 | 0.639856 | 0.693147 | -0.053292 | [-0.055684, -0.050854] | yes |
+| all | 73819 | 0.639912 | 0.693147 | -0.053235 | [-0.055649, -0.050830] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko_rookie_weights | all | 73819 | 0.629692 | 0.220367 | 0.639124 | 0.016500 |
-| player_round_glicko_rookie_weights | tier1 | 4470 | 0.662370 | 0.234520 | 0.605593 | 0.020120 |
-| player_round_glicko_rookie_weights | tier2 | 18909 | 0.645525 | 0.227406 | 0.619097 | 0.014102 |
-| player_round_glicko_rookie_weights | tier3 | 50234 | 0.620837 | 0.216458 | 0.649679 | 0.018351 |
-| player_round_glicko_rookie_weights | unknown | 206 | 0.626510 | 0.220413 | 0.631068 | 0.071909 |
-| player_round_glicko_rookie_weights | international=1 | 2557 | 0.657558 | 0.232896 | 0.614392 | 0.025462 |
-| player_round_glicko_rookie_weights | international=0 | 71262 | 0.628692 | 0.219918 | 0.640012 | 0.016938 |
+| player_round_glicko_rookie_weights | all | 73819 | 0.629726 | 0.220381 | 0.639199 | 0.016483 |
+| player_round_glicko_rookie_weights | tier1 | 4470 | 0.661394 | 0.234129 | 0.609060 | 0.021726 |
+| player_round_glicko_rookie_weights | tier2 | 18909 | 0.645455 | 0.227376 | 0.619520 | 0.014379 |
+| player_round_glicko_rookie_weights | tier3 | 50234 | 0.620999 | 0.216524 | 0.649321 | 0.017969 |
+| player_round_glicko_rookie_weights | unknown | 206 | 0.626999 | 0.220618 | 0.631068 | 0.070928 |
+| player_round_glicko_rookie_weights | international=1 | 2557 | 0.656234 | 0.232395 | 0.615761 | 0.025392 |
+| player_round_glicko_rookie_weights | international=0 | 71262 | 0.628775 | 0.219950 | 0.640040 | 0.016919 |
 
 player_round_glicko_rookie_weights − coin (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 73819 | 0.629692 | 0.693147 | -0.063456 | [-0.066033, -0.060980] | yes |
+| all | 73819 | 0.629726 | 0.693147 | -0.063421 | [-0.065995, -0.060907] | yes |
 
 player_round_glicko_rookie_weights − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 73819 | 0.629692 | 0.660656 | -0.030964 | [-0.032900, -0.029105] | yes |
+| all | 73819 | 0.629726 | 0.660656 | -0.030930 | [-0.032890, -0.029053] | yes |
 
 player_round_glicko − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 73819 | 0.639856 | 0.660656 | -0.020800 | [-0.022565, -0.019081] | yes |
+| all | 73819 | 0.639912 | 0.660656 | -0.020744 | [-0.022501, -0.019061] | yes |
 
 player_round_glicko − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 73819 | 0.639856 | 0.629692 | 0.010164 | [0.009212, 0.011137] | yes |
+| all | 73819 | 0.639912 | 0.629726 | 0.010186 | [0.009240, 0.011171] | yes |
 
 ### Series
 
@@ -137,53 +137,53 @@ team_elo − coin (paired log loss):
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko | all | 35914 | 0.618358 | 0.214857 | 0.655134 | 0.028540 |
-| player_round_glicko | tier1 | 2047 | 0.650154 | 0.228637 | 0.624084 | 0.025984 |
-| player_round_glicko | tier2 | 8853 | 0.622921 | 0.217361 | 0.645939 | 0.027796 |
-| player_round_glicko | tier3 | 24957 | 0.613902 | 0.212731 | 0.661358 | 0.030934 |
-| player_round_glicko | unknown | 57 | 0.719010 | 0.261977 | 0.473684 | 0.160496 |
-| player_round_glicko | international=1 | 1101 | 0.640461 | 0.225357 | 0.625341 | 0.023509 |
-| player_round_glicko | international=0 | 34813 | 0.617659 | 0.214525 | 0.656077 | 0.029184 |
+| player_round_glicko | all | 35914 | 0.618440 | 0.214885 | 0.654745 | 0.028789 |
+| player_round_glicko | tier1 | 2047 | 0.649243 | 0.228182 | 0.624573 | 0.024761 |
+| player_round_glicko | tier2 | 8853 | 0.623148 | 0.217463 | 0.645996 | 0.028937 |
+| player_round_glicko | tier3 | 24957 | 0.614013 | 0.212771 | 0.660736 | 0.031273 |
+| player_round_glicko | unknown | 57 | 0.719439 | 0.262146 | 0.473684 | 0.160827 |
+| player_round_glicko | international=1 | 1101 | 0.639511 | 0.224860 | 0.626249 | 0.019786 |
+| player_round_glicko | international=0 | 34813 | 0.617774 | 0.214569 | 0.655646 | 0.029477 |
 
 player_round_glicko − coin (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 35914 | 0.618358 | 0.693147 | -0.074789 | [-0.078602, -0.070917] | yes |
+| all | 35914 | 0.618440 | 0.693147 | -0.074707 | [-0.078501, -0.070858] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko_rookie_weights | all | 35914 | 0.598834 | 0.206175 | 0.675113 | 0.022633 |
-| player_round_glicko_rookie_weights | tier1 | 2047 | 0.648019 | 0.225951 | 0.635564 | 0.024807 |
-| player_round_glicko_rookie_weights | tier2 | 8853 | 0.618462 | 0.214924 | 0.649384 | 0.021894 |
-| player_round_glicko_rookie_weights | tier3 | 24957 | 0.587650 | 0.201365 | 0.687703 | 0.024203 |
-| player_round_glicko_rookie_weights | unknown | 57 | 0.680625 | 0.243377 | 0.578947 | 0.128965 |
-| player_round_glicko_rookie_weights | international=1 | 1101 | 0.635993 | 0.222675 | 0.645322 | 0.031294 |
-| player_round_glicko_rookie_weights | international=0 | 34813 | 0.597658 | 0.205653 | 0.676055 | 0.023566 |
+| player_round_glicko_rookie_weights | all | 35914 | 0.598899 | 0.206204 | 0.674862 | 0.022402 |
+| player_round_glicko_rookie_weights | tier1 | 2047 | 0.645500 | 0.225097 | 0.637030 | 0.025680 |
+| player_round_glicko_rookie_weights | tier2 | 8853 | 0.618569 | 0.214969 | 0.649667 | 0.022081 |
+| player_round_glicko_rookie_weights | tier3 | 24957 | 0.587908 | 0.201458 | 0.687122 | 0.023886 |
+| player_round_glicko_rookie_weights | unknown | 57 | 0.682427 | 0.244180 | 0.578947 | 0.104153 |
+| player_round_glicko_rookie_weights | international=1 | 1101 | 0.633005 | 0.221803 | 0.645777 | 0.028229 |
+| player_round_glicko_rookie_weights | international=0 | 34813 | 0.597820 | 0.205710 | 0.675782 | 0.023459 |
 
 player_round_glicko_rookie_weights − coin (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 35914 | 0.598834 | 0.693147 | -0.094314 | [-0.098482, -0.089918] | yes |
+| all | 35914 | 0.598899 | 0.693147 | -0.094248 | [-0.098398, -0.089793] | yes |
 
 player_round_glicko_rookie_weights − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 35914 | 0.598834 | 0.645151 | -0.046318 | [-0.049726, -0.042902] | yes |
+| all | 35914 | 0.598899 | 0.645151 | -0.046252 | [-0.049631, -0.042863] | yes |
 
 player_round_glicko − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 35914 | 0.618358 | 0.645151 | -0.026793 | [-0.029732, -0.023875] | yes |
+| all | 35914 | 0.618440 | 0.645151 | -0.026711 | [-0.029653, -0.023797] | yes |
 
 player_round_glicko − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 35914 | 0.618358 | 0.598834 | 0.019525 | [0.017538, 0.021432] | yes |
+| all | 35914 | 0.618440 | 0.598899 | 0.019541 | [0.017528, 0.021440] | yes |
 
 ## Stage 2 — validation (outcomes)
 
@@ -191,10 +191,10 @@ player_round_glicko − player_round_glicko_rookie_weights (paired log loss):
 
 | Model | Best params | Map log loss | Series log loss | Rows |
 |---|---|---:|---:|---:|
-| player_round_glicko_rookie_weights | {"k": 32, "new_player": "teammates", "online_k": 1.0, "rd_info": 0.125, "rd_new": 350, "rookie_maps": 400, "rookie_penalty": 200, "tau": 0.5, "tier3_k": 0.75} | 0.618139 | 0.578887 | 36077 |
-| player_round_glicko_rookie_weights+none | {"k": 32, "new_player": "teammates", "online_k": 1.0, "rd_info": 0.125, "rd_new": 350, "rookie_maps": 400, "rookie_penalty": 200, "tau": 0.5, "tier3_k": 0.75} | 0.618139 | 0.578887 | 36077 |
-| player_round_glicko | {"k": 32, "new_player": "teammates", "rd_info": 0.125, "rd_new": 350, "tau": 0.5} | 0.625617 | 0.594345 | 36077 |
-| player_round_glicko+none | {"k": 32, "new_player": "teammates", "rd_info": 0.125, "rd_new": 350, "tau": 0.5} | 0.625617 | 0.594345 | 36077 |
+| player_round_glicko_rookie_weights | {"k": 32, "new_player": "teammates", "online_k": 1.0, "rd_info": 0.125, "rd_new": 350, "rookie_maps": 400, "rookie_penalty": 200, "tau": 0.5, "tier3_k": 0.75} | 0.617970 | 0.578513 | 36077 |
+| player_round_glicko_rookie_weights+none | {"k": 32, "new_player": "teammates", "online_k": 1.0, "rd_info": 0.125, "rd_new": 350, "rookie_maps": 400, "rookie_penalty": 200, "tau": 0.5, "tier3_k": 0.75} | 0.617970 | 0.578513 | 36077 |
+| player_round_glicko | {"k": 32, "new_player": "teammates", "rd_info": 0.125, "rd_new": 350, "tau": 0.5} | 0.625535 | 0.593884 | 36077 |
+| player_round_glicko+none | {"k": 32, "new_player": "teammates", "rd_info": 0.125, "rd_new": 350, "tau": 0.5} | 0.625535 | 0.593884 | 36077 |
 | team_elo | {"k": 32} | 0.650234 | 0.626402 | 36077 |
 | team_elo+none | {"k": 32} | 0.650234 | 0.626402 | 36077 |
 
@@ -234,47 +234,47 @@ team_elo − coin (paired log loss):
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko | all | 36077 | 0.625617 | 0.218804 | 0.641891 | 0.017991 |
-| player_round_glicko | tier1 | 2097 | 0.661497 | 0.234357 | 0.604435 | 0.021142 |
-| player_round_glicko | tier2 | 9801 | 0.631168 | 0.221527 | 0.634119 | 0.014267 |
-| player_round_glicko | tier3 | 23489 | 0.621076 | 0.216693 | 0.647793 | 0.019824 |
-| player_round_glicko | unknown | 690 | 0.592301 | 0.204709 | 0.665217 | 0.056666 |
-| player_round_glicko | international=1 | 1194 | 0.642351 | 0.225679 | 0.640704 | 0.038688 |
-| player_round_glicko | international=0 | 34883 | 0.625044 | 0.218569 | 0.641932 | 0.018515 |
+| player_round_glicko | all | 36077 | 0.625535 | 0.218761 | 0.641946 | 0.018002 |
+| player_round_glicko | tier1 | 2097 | 0.661062 | 0.234130 | 0.607773 | 0.021601 |
+| player_round_glicko | tier2 | 9801 | 0.631050 | 0.221465 | 0.634680 | 0.015619 |
+| player_round_glicko | tier3 | 23489 | 0.620963 | 0.216650 | 0.647495 | 0.019786 |
+| player_round_glicko | unknown | 690 | 0.594881 | 0.205542 | 0.660145 | 0.055222 |
+| player_round_glicko | international=1 | 1194 | 0.642367 | 0.225686 | 0.645310 | 0.041031 |
+| player_round_glicko | international=0 | 34883 | 0.624959 | 0.218524 | 0.641831 | 0.018506 |
 
 player_round_glicko − coin (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.625617 | 0.693147 | -0.067530 | [-0.071173, -0.063777] | yes |
-| tier1 | 2097 | 0.661497 | 0.693147 | -0.031650 | [-0.043698, -0.019410] | yes |
-| tier2 | 9801 | 0.631168 | 0.693147 | -0.061979 | [-0.068398, -0.055804] | yes |
-| tier3 | 23489 | 0.621076 | 0.693147 | -0.072071 | [-0.076689, -0.067466] | yes |
-| unknown | 690 | 0.592301 | 0.693147 | -0.100846 | [-0.127713, -0.073188] | yes |
-| international=1 | 1194 | 0.642351 | 0.693147 | -0.050796 | [-0.066895, -0.035179] | yes |
-| international=0 | 34883 | 0.625044 | 0.693147 | -0.068103 | [-0.071894, -0.064246] | yes |
+| all | 36077 | 0.625535 | 0.693147 | -0.067612 | [-0.071297, -0.063872] | yes |
+| tier1 | 2097 | 0.661062 | 0.693147 | -0.032086 | [-0.043949, -0.020124] | yes |
+| tier2 | 9801 | 0.631050 | 0.693147 | -0.062097 | [-0.068451, -0.055953] | yes |
+| tier3 | 23489 | 0.620963 | 0.693147 | -0.072184 | [-0.076771, -0.067602] | yes |
+| unknown | 690 | 0.594881 | 0.693147 | -0.098267 | [-0.125420, -0.070397] | yes |
+| international=1 | 1194 | 0.642367 | 0.693147 | -0.050780 | [-0.066566, -0.035291] | yes |
+| international=0 | 34883 | 0.624959 | 0.693147 | -0.068188 | [-0.072020, -0.064359] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko_rookie_weights | all | 36077 | 0.618139 | 0.215549 | 0.650179 | 0.017006 |
-| player_round_glicko_rookie_weights | tier1 | 2097 | 0.658988 | 0.233212 | 0.605627 | 0.019746 |
-| player_round_glicko_rookie_weights | tier2 | 9801 | 0.630205 | 0.220980 | 0.638965 | 0.023920 |
-| player_round_glicko_rookie_weights | tier3 | 23489 | 0.610359 | 0.212083 | 0.658585 | 0.016958 |
-| player_round_glicko_rookie_weights | unknown | 690 | 0.587431 | 0.202752 | 0.658696 | 0.070602 |
-| player_round_glicko_rookie_weights | international=1 | 1194 | 0.639645 | 0.224305 | 0.641541 | 0.035878 |
-| player_round_glicko_rookie_weights | international=0 | 34883 | 0.617402 | 0.215250 | 0.650474 | 0.017659 |
+| player_round_glicko_rookie_weights | all | 36077 | 0.617970 | 0.215465 | 0.650969 | 0.016879 |
+| player_round_glicko_rookie_weights | tier1 | 2097 | 0.658267 | 0.232960 | 0.608011 | 0.020642 |
+| player_round_glicko_rookie_weights | tier2 | 9801 | 0.630059 | 0.220891 | 0.639731 | 0.024035 |
+| player_round_glicko_rookie_weights | tier3 | 23489 | 0.610177 | 0.211993 | 0.659245 | 0.017335 |
+| player_round_glicko_rookie_weights | unknown | 690 | 0.589089 | 0.203407 | 0.659420 | 0.061521 |
+| player_round_glicko_rookie_weights | international=1 | 1194 | 0.639370 | 0.224329 | 0.641541 | 0.036332 |
+| player_round_glicko_rookie_weights | international=0 | 34883 | 0.617237 | 0.215162 | 0.651291 | 0.017460 |
 
 player_round_glicko_rookie_weights − coin (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.618139 | 0.693147 | -0.075009 | [-0.078810, -0.071011] | yes |
-| tier1 | 2097 | 0.658988 | 0.693147 | -0.034159 | [-0.045851, -0.021635] | yes |
-| tier2 | 9801 | 0.630205 | 0.693147 | -0.062942 | [-0.069511, -0.056688] | yes |
-| tier3 | 23489 | 0.610359 | 0.693147 | -0.082788 | [-0.087761, -0.078029] | yes |
-| unknown | 690 | 0.587431 | 0.693147 | -0.105716 | [-0.133868, -0.077545] | yes |
-| international=1 | 1194 | 0.639645 | 0.693147 | -0.053502 | [-0.069754, -0.036951] | yes |
-| international=0 | 34883 | 0.617402 | 0.693147 | -0.075745 | [-0.079407, -0.071781] | yes |
+| all | 36077 | 0.617970 | 0.693147 | -0.075177 | [-0.078988, -0.071249] | yes |
+| tier1 | 2097 | 0.658267 | 0.693147 | -0.034880 | [-0.046669, -0.022883] | yes |
+| tier2 | 9801 | 0.630059 | 0.693147 | -0.063088 | [-0.069578, -0.056883] | yes |
+| tier3 | 23489 | 0.610177 | 0.693147 | -0.082971 | [-0.087831, -0.078232] | yes |
+| unknown | 690 | 0.589089 | 0.693147 | -0.104058 | [-0.132340, -0.075507] | yes |
+| international=1 | 1194 | 0.639370 | 0.693147 | -0.053777 | [-0.069783, -0.037306] | yes |
+| international=0 | 34883 | 0.617237 | 0.693147 | -0.075910 | [-0.079627, -0.072014] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
@@ -300,59 +300,59 @@ team_elo+none − coin (paired log loss):
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko+none | all | 36077 | 0.625617 | 0.218804 | 0.641891 | 0.017991 |
-| player_round_glicko+none | tier1 | 2097 | 0.661497 | 0.234357 | 0.604435 | 0.021142 |
-| player_round_glicko+none | tier2 | 9801 | 0.631168 | 0.221527 | 0.634119 | 0.014267 |
-| player_round_glicko+none | tier3 | 23489 | 0.621076 | 0.216693 | 0.647793 | 0.019824 |
-| player_round_glicko+none | unknown | 690 | 0.592301 | 0.204709 | 0.665217 | 0.056666 |
-| player_round_glicko+none | international=1 | 1194 | 0.642351 | 0.225679 | 0.640704 | 0.038688 |
-| player_round_glicko+none | international=0 | 34883 | 0.625044 | 0.218569 | 0.641932 | 0.018515 |
+| player_round_glicko+none | all | 36077 | 0.625535 | 0.218761 | 0.641946 | 0.018002 |
+| player_round_glicko+none | tier1 | 2097 | 0.661062 | 0.234130 | 0.607773 | 0.021601 |
+| player_round_glicko+none | tier2 | 9801 | 0.631050 | 0.221465 | 0.634680 | 0.015619 |
+| player_round_glicko+none | tier3 | 23489 | 0.620963 | 0.216650 | 0.647495 | 0.019786 |
+| player_round_glicko+none | unknown | 690 | 0.594881 | 0.205542 | 0.660145 | 0.055222 |
+| player_round_glicko+none | international=1 | 1194 | 0.642367 | 0.225686 | 0.645310 | 0.041031 |
+| player_round_glicko+none | international=0 | 34883 | 0.624959 | 0.218524 | 0.641831 | 0.018506 |
 
 player_round_glicko+none − coin (paired log loss):
 
 | Section | Rows | player_round_glicko+none log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.625617 | 0.693147 | -0.067530 | [-0.071173, -0.063777] | yes |
-| tier1 | 2097 | 0.661497 | 0.693147 | -0.031650 | [-0.043698, -0.019410] | yes |
-| tier2 | 9801 | 0.631168 | 0.693147 | -0.061979 | [-0.068398, -0.055804] | yes |
-| tier3 | 23489 | 0.621076 | 0.693147 | -0.072071 | [-0.076689, -0.067466] | yes |
-| unknown | 690 | 0.592301 | 0.693147 | -0.100846 | [-0.127713, -0.073188] | yes |
-| international=1 | 1194 | 0.642351 | 0.693147 | -0.050796 | [-0.066895, -0.035179] | yes |
-| international=0 | 34883 | 0.625044 | 0.693147 | -0.068103 | [-0.071894, -0.064246] | yes |
+| all | 36077 | 0.625535 | 0.693147 | -0.067612 | [-0.071297, -0.063872] | yes |
+| tier1 | 2097 | 0.661062 | 0.693147 | -0.032086 | [-0.043949, -0.020124] | yes |
+| tier2 | 9801 | 0.631050 | 0.693147 | -0.062097 | [-0.068451, -0.055953] | yes |
+| tier3 | 23489 | 0.620963 | 0.693147 | -0.072184 | [-0.076771, -0.067602] | yes |
+| unknown | 690 | 0.594881 | 0.693147 | -0.098267 | [-0.125420, -0.070397] | yes |
+| international=1 | 1194 | 0.642367 | 0.693147 | -0.050780 | [-0.066566, -0.035291] | yes |
+| international=0 | 34883 | 0.624959 | 0.693147 | -0.068188 | [-0.072020, -0.064359] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko_rookie_weights+none | all | 36077 | 0.618139 | 0.215549 | 0.650179 | 0.017006 |
-| player_round_glicko_rookie_weights+none | tier1 | 2097 | 0.658988 | 0.233212 | 0.605627 | 0.019746 |
-| player_round_glicko_rookie_weights+none | tier2 | 9801 | 0.630205 | 0.220980 | 0.638965 | 0.023920 |
-| player_round_glicko_rookie_weights+none | tier3 | 23489 | 0.610359 | 0.212083 | 0.658585 | 0.016958 |
-| player_round_glicko_rookie_weights+none | unknown | 690 | 0.587431 | 0.202752 | 0.658696 | 0.070602 |
-| player_round_glicko_rookie_weights+none | international=1 | 1194 | 0.639645 | 0.224305 | 0.641541 | 0.035878 |
-| player_round_glicko_rookie_weights+none | international=0 | 34883 | 0.617402 | 0.215250 | 0.650474 | 0.017659 |
+| player_round_glicko_rookie_weights+none | all | 36077 | 0.617970 | 0.215465 | 0.650969 | 0.016879 |
+| player_round_glicko_rookie_weights+none | tier1 | 2097 | 0.658267 | 0.232960 | 0.608011 | 0.020642 |
+| player_round_glicko_rookie_weights+none | tier2 | 9801 | 0.630059 | 0.220891 | 0.639731 | 0.024035 |
+| player_round_glicko_rookie_weights+none | tier3 | 23489 | 0.610177 | 0.211993 | 0.659245 | 0.017335 |
+| player_round_glicko_rookie_weights+none | unknown | 690 | 0.589089 | 0.203407 | 0.659420 | 0.061521 |
+| player_round_glicko_rookie_weights+none | international=1 | 1194 | 0.639370 | 0.224329 | 0.641541 | 0.036332 |
+| player_round_glicko_rookie_weights+none | international=0 | 34883 | 0.617237 | 0.215162 | 0.651291 | 0.017460 |
 
 player_round_glicko_rookie_weights+none − coin (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights+none log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.618139 | 0.693147 | -0.075009 | [-0.078810, -0.071011] | yes |
-| tier1 | 2097 | 0.658988 | 0.693147 | -0.034159 | [-0.045851, -0.021635] | yes |
-| tier2 | 9801 | 0.630205 | 0.693147 | -0.062942 | [-0.069511, -0.056688] | yes |
-| tier3 | 23489 | 0.610359 | 0.693147 | -0.082788 | [-0.087761, -0.078029] | yes |
-| unknown | 690 | 0.587431 | 0.693147 | -0.105716 | [-0.133868, -0.077545] | yes |
-| international=1 | 1194 | 0.639645 | 0.693147 | -0.053502 | [-0.069754, -0.036951] | yes |
-| international=0 | 34883 | 0.617402 | 0.693147 | -0.075745 | [-0.079407, -0.071781] | yes |
+| all | 36077 | 0.617970 | 0.693147 | -0.075177 | [-0.078988, -0.071249] | yes |
+| tier1 | 2097 | 0.658267 | 0.693147 | -0.034880 | [-0.046669, -0.022883] | yes |
+| tier2 | 9801 | 0.630059 | 0.693147 | -0.063088 | [-0.069578, -0.056883] | yes |
+| tier3 | 23489 | 0.610177 | 0.693147 | -0.082971 | [-0.087831, -0.078232] | yes |
+| unknown | 690 | 0.589089 | 0.693147 | -0.104058 | [-0.132340, -0.075507] | yes |
+| international=1 | 1194 | 0.639370 | 0.693147 | -0.053777 | [-0.069783, -0.037306] | yes |
+| international=0 | 34883 | 0.617237 | 0.693147 | -0.075910 | [-0.079627, -0.072014] | yes |
 
 player_round_glicko − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.625617 | 0.650234 | -0.024617 | [-0.027266, -0.022060] | yes |
+| all | 36077 | 0.625535 | 0.650234 | -0.024698 | [-0.027319, -0.022143] | yes |
 
 player_round_glicko_rookie_weights − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.618139 | 0.650234 | -0.032095 | [-0.034942, -0.029293] | yes |
+| all | 36077 | 0.617970 | 0.650234 | -0.032264 | [-0.035030, -0.029415] | yes |
 
 team_elo+none − team_elo (paired log loss):
 
@@ -364,61 +364,61 @@ player_round_glicko+none − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko+none log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.625617 | 0.650234 | -0.024617 | [-0.027266, -0.022060] | yes |
+| all | 36077 | 0.625535 | 0.650234 | -0.024698 | [-0.027319, -0.022143] | yes |
 
 player_round_glicko_rookie_weights+none − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights+none log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.618139 | 0.650234 | -0.032095 | [-0.034942, -0.029293] | yes |
+| all | 36077 | 0.617970 | 0.650234 | -0.032264 | [-0.035030, -0.029415] | yes |
 
 player_round_glicko − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.625617 | 0.618139 | 0.007478 | [0.006128, 0.008773] | yes |
-| tier1 | 2097 | 0.661497 | 0.658988 | 0.002509 | [0.000562, 0.004564] | yes |
-| tier2 | 9801 | 0.631168 | 0.630205 | 0.000963 | [-0.000576, 0.002314] | no |
-| tier3 | 23489 | 0.621076 | 0.610359 | 0.010718 | [0.008760, 0.012585] | yes |
-| unknown | 690 | 0.592301 | 0.587431 | 0.004870 | [-0.000403, 0.010745] | no |
-| international=1 | 1194 | 0.642351 | 0.639645 | 0.002706 | [-0.000001, 0.005659] | no |
-| international=0 | 34883 | 0.625044 | 0.617402 | 0.007642 | [0.006314, 0.008968] | yes |
+| all | 36077 | 0.625535 | 0.617970 | 0.007565 | [0.006255, 0.008865] | yes |
+| tier1 | 2097 | 0.661062 | 0.658267 | 0.002795 | [0.000890, 0.004862] | yes |
+| tier2 | 9801 | 0.631050 | 0.630059 | 0.000992 | [-0.000524, 0.002275] | no |
+| tier3 | 23489 | 0.620963 | 0.610177 | 0.010786 | [0.008816, 0.012636] | yes |
+| unknown | 690 | 0.594881 | 0.589089 | 0.005791 | [0.000926, 0.011293] | yes |
+| international=1 | 1194 | 0.642367 | 0.639370 | 0.002997 | [0.000546, 0.005837] | yes |
+| international=0 | 34883 | 0.624959 | 0.617237 | 0.007722 | [0.006397, 0.009012] | yes |
 
 team_elo+none − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | team_elo+none log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.650234 | 0.618139 | 0.032095 | [0.029293, 0.034942] | yes |
-| tier1 | 2097 | 0.671551 | 0.658988 | 0.012563 | [0.003205, 0.022627] | yes |
-| tier2 | 9801 | 0.656685 | 0.630205 | 0.026479 | [0.021597, 0.031484] | yes |
-| tier3 | 23489 | 0.646743 | 0.610359 | 0.036384 | [0.032628, 0.040097] | yes |
-| unknown | 690 | 0.612645 | 0.587431 | 0.025214 | [0.007994, 0.042822] | yes |
-| international=1 | 1194 | 0.642206 | 0.639645 | 0.002561 | [-0.009300, 0.013969] | no |
-| international=0 | 34883 | 0.650508 | 0.617402 | 0.033106 | [0.030119, 0.035958] | yes |
+| all | 36077 | 0.650234 | 0.617970 | 0.032264 | [0.029415, 0.035030] | yes |
+| tier1 | 2097 | 0.671551 | 0.658267 | 0.013285 | [0.003996, 0.023168] | yes |
+| tier2 | 9801 | 0.656685 | 0.630059 | 0.026626 | [0.021810, 0.031527] | yes |
+| tier3 | 23489 | 0.646743 | 0.610177 | 0.036566 | [0.032797, 0.040194] | yes |
+| unknown | 690 | 0.612645 | 0.589089 | 0.023555 | [0.006583, 0.040913] | yes |
+| international=1 | 1194 | 0.642206 | 0.639370 | 0.002836 | [-0.008680, 0.014083] | no |
+| international=0 | 34883 | 0.650508 | 0.617237 | 0.033271 | [0.030315, 0.036131] | yes |
 
 player_round_glicko+none − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko+none log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.625617 | 0.618139 | 0.007478 | [0.006128, 0.008773] | yes |
-| tier1 | 2097 | 0.661497 | 0.658988 | 0.002509 | [0.000562, 0.004564] | yes |
-| tier2 | 9801 | 0.631168 | 0.630205 | 0.000963 | [-0.000576, 0.002314] | no |
-| tier3 | 23489 | 0.621076 | 0.610359 | 0.010718 | [0.008760, 0.012585] | yes |
-| unknown | 690 | 0.592301 | 0.587431 | 0.004870 | [-0.000403, 0.010745] | no |
-| international=1 | 1194 | 0.642351 | 0.639645 | 0.002706 | [-0.000001, 0.005659] | no |
-| international=0 | 34883 | 0.625044 | 0.617402 | 0.007642 | [0.006314, 0.008968] | yes |
+| all | 36077 | 0.625535 | 0.617970 | 0.007565 | [0.006255, 0.008865] | yes |
+| tier1 | 2097 | 0.661062 | 0.658267 | 0.002795 | [0.000890, 0.004862] | yes |
+| tier2 | 9801 | 0.631050 | 0.630059 | 0.000992 | [-0.000524, 0.002275] | no |
+| tier3 | 23489 | 0.620963 | 0.610177 | 0.010786 | [0.008816, 0.012636] | yes |
+| unknown | 690 | 0.594881 | 0.589089 | 0.005791 | [0.000926, 0.011293] | yes |
+| international=1 | 1194 | 0.642367 | 0.639370 | 0.002997 | [0.000546, 0.005837] | yes |
+| international=0 | 34883 | 0.624959 | 0.617237 | 0.007722 | [0.006397, 0.009012] | yes |
 
 player_round_glicko_rookie_weights+none − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights+none log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 36077 | 0.618139 | 0.618139 | 0.000000 | [0.000000, 0.000000] | no |
-| tier1 | 2097 | 0.658988 | 0.658988 | 0.000000 | [0.000000, 0.000000] | no |
-| tier2 | 9801 | 0.630205 | 0.630205 | 0.000000 | [0.000000, 0.000000] | no |
-| tier3 | 23489 | 0.610359 | 0.610359 | 0.000000 | [0.000000, 0.000000] | no |
-| unknown | 690 | 0.587431 | 0.587431 | 0.000000 | [0.000000, 0.000000] | no |
-| international=1 | 1194 | 0.639645 | 0.639645 | 0.000000 | [0.000000, 0.000000] | no |
-| international=0 | 34883 | 0.617402 | 0.617402 | 0.000000 | [0.000000, 0.000000] | no |
+| all | 36077 | 0.617970 | 0.617970 | 0.000000 | [0.000000, 0.000000] | no |
+| tier1 | 2097 | 0.658267 | 0.658267 | 0.000000 | [0.000000, 0.000000] | no |
+| tier2 | 9801 | 0.630059 | 0.630059 | 0.000000 | [0.000000, 0.000000] | no |
+| tier3 | 23489 | 0.610177 | 0.610177 | 0.000000 | [0.000000, 0.000000] | no |
+| unknown | 690 | 0.589089 | 0.589089 | 0.000000 | [0.000000, 0.000000] | no |
+| international=1 | 1194 | 0.639370 | 0.639370 | 0.000000 | [0.000000, 0.000000] | no |
+| international=0 | 34883 | 0.617237 | 0.617237 | 0.000000 | [0.000000, 0.000000] | no |
 
 ### Series
 
@@ -456,47 +456,47 @@ team_elo − coin (paired log loss):
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko | all | 16918 | 0.594345 | 0.204656 | 0.677621 | 0.025638 |
-| player_round_glicko | tier1 | 897 | 0.643332 | 0.225663 | 0.629877 | 0.032790 |
-| player_round_glicko | tier2 | 4498 | 0.596977 | 0.206358 | 0.672076 | 0.022926 |
-| player_round_glicko | tier3 | 11240 | 0.590857 | 0.202834 | 0.682607 | 0.027825 |
-| player_round_glicko | unknown | 283 | 0.535797 | 0.183378 | 0.719081 | 0.072738 |
-| player_round_glicko | international=1 | 503 | 0.613594 | 0.212822 | 0.667992 | 0.055328 |
-| player_round_glicko | international=0 | 16415 | 0.593755 | 0.204406 | 0.677917 | 0.026457 |
+| player_round_glicko | all | 16918 | 0.593884 | 0.204562 | 0.678449 | 0.025728 |
+| player_round_glicko | tier1 | 897 | 0.641465 | 0.224830 | 0.639353 | 0.048380 |
+| player_round_glicko | tier2 | 4498 | 0.596690 | 0.206207 | 0.674744 | 0.024515 |
+| player_round_glicko | tier3 | 11240 | 0.590349 | 0.202790 | 0.682206 | 0.027831 |
+| player_round_glicko | unknown | 283 | 0.538855 | 0.184548 | 0.712014 | 0.092923 |
+| player_round_glicko | international=1 | 503 | 0.612139 | 0.212267 | 0.676938 | 0.063564 |
+| player_round_glicko | international=0 | 16415 | 0.593324 | 0.204326 | 0.678495 | 0.026517 |
 
 player_round_glicko − coin (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.594345 | 0.693147 | -0.098802 | [-0.104825, -0.092726] | yes |
-| tier1 | 897 | 0.643332 | 0.693147 | -0.049815 | [-0.069739, -0.027690] | yes |
-| tier2 | 4498 | 0.596977 | 0.693147 | -0.096170 | [-0.106972, -0.085692] | yes |
-| tier3 | 11240 | 0.590857 | 0.693147 | -0.102291 | [-0.109809, -0.094583] | yes |
-| unknown | 283 | 0.535797 | 0.693147 | -0.157350 | [-0.197578, -0.115163] | yes |
-| international=1 | 503 | 0.613594 | 0.693147 | -0.079553 | [-0.107462, -0.051578] | yes |
-| international=0 | 16415 | 0.593755 | 0.693147 | -0.099392 | [-0.105432, -0.092906] | yes |
+| all | 16918 | 0.593884 | 0.693147 | -0.099263 | [-0.105071, -0.093252] | yes |
+| tier1 | 897 | 0.641465 | 0.693147 | -0.051682 | [-0.071615, -0.029722] | yes |
+| tier2 | 4498 | 0.596690 | 0.693147 | -0.096457 | [-0.107072, -0.086037] | yes |
+| tier3 | 11240 | 0.590349 | 0.693147 | -0.102798 | [-0.110324, -0.095206] | yes |
+| unknown | 283 | 0.538855 | 0.693147 | -0.154292 | [-0.195252, -0.111238] | yes |
+| international=1 | 503 | 0.612139 | 0.693147 | -0.081008 | [-0.107593, -0.053916] | yes |
+| international=0 | 16415 | 0.593324 | 0.693147 | -0.099823 | [-0.105855, -0.093565] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko_rookie_weights | all | 16918 | 0.578887 | 0.198120 | 0.694379 | 0.023510 |
-| player_round_glicko_rookie_weights | tier1 | 897 | 0.640079 | 0.224276 | 0.636009 | 0.029518 |
-| player_round_glicko_rookie_weights | tier2 | 4498 | 0.593395 | 0.204916 | 0.680747 | 0.029785 |
-| player_round_glicko_rookie_weights | tier3 | 11240 | 0.569607 | 0.193797 | 0.704226 | 0.021625 |
-| player_round_glicko_rookie_weights | unknown | 283 | 0.522908 | 0.178942 | 0.704947 | 0.082707 |
-| player_round_glicko_rookie_weights | international=1 | 503 | 0.609161 | 0.210921 | 0.671968 | 0.047260 |
-| player_round_glicko_rookie_weights | international=0 | 16415 | 0.577959 | 0.197728 | 0.695065 | 0.023589 |
+| player_round_glicko_rookie_weights | all | 16918 | 0.578513 | 0.197952 | 0.694172 | 0.022368 |
+| player_round_glicko_rookie_weights | tier1 | 897 | 0.637813 | 0.223243 | 0.643255 | 0.037363 |
+| player_round_glicko_rookie_weights | tier2 | 4498 | 0.592976 | 0.204689 | 0.681859 | 0.030145 |
+| player_round_glicko_rookie_weights | tier3 | 11240 | 0.569292 | 0.193679 | 0.702980 | 0.021657 |
+| player_round_glicko_rookie_weights | unknown | 283 | 0.526917 | 0.180399 | 0.701413 | 0.085049 |
+| player_round_glicko_rookie_weights | international=1 | 503 | 0.607853 | 0.210378 | 0.679920 | 0.056016 |
+| player_round_glicko_rookie_weights | international=0 | 16415 | 0.577614 | 0.197571 | 0.694609 | 0.022375 |
 
 player_round_glicko_rookie_weights − coin (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.578887 | 0.693147 | -0.114260 | [-0.120782, -0.107800] | yes |
-| tier1 | 897 | 0.640079 | 0.693147 | -0.053068 | [-0.073649, -0.029745] | yes |
-| tier2 | 4498 | 0.593395 | 0.693147 | -0.099752 | [-0.110605, -0.088694] | yes |
-| tier3 | 11240 | 0.569607 | 0.693147 | -0.123540 | [-0.131524, -0.115063] | yes |
-| unknown | 283 | 0.522908 | 0.693147 | -0.170239 | [-0.211716, -0.126429] | yes |
-| international=1 | 503 | 0.609161 | 0.693147 | -0.083986 | [-0.113008, -0.053947] | yes |
-| international=0 | 16415 | 0.577959 | 0.693147 | -0.115188 | [-0.121840, -0.108290] | yes |
+| all | 16918 | 0.578513 | 0.693147 | -0.114634 | [-0.121108, -0.108188] | yes |
+| tier1 | 897 | 0.637813 | 0.693147 | -0.055334 | [-0.075993, -0.031737] | yes |
+| tier2 | 4498 | 0.592976 | 0.693147 | -0.100171 | [-0.111271, -0.089117] | yes |
+| tier3 | 11240 | 0.569292 | 0.693147 | -0.123855 | [-0.131835, -0.115551] | yes |
+| unknown | 283 | 0.526917 | 0.693147 | -0.166230 | [-0.208570, -0.122726] | yes |
+| international=1 | 503 | 0.607853 | 0.693147 | -0.085295 | [-0.113644, -0.056001] | yes |
+| international=0 | 16415 | 0.577614 | 0.693147 | -0.115533 | [-0.122006, -0.108685] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
@@ -522,59 +522,59 @@ team_elo+none − coin (paired log loss):
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko+none | all | 16918 | 0.594345 | 0.204656 | 0.677621 | 0.025638 |
-| player_round_glicko+none | tier1 | 897 | 0.643332 | 0.225663 | 0.629877 | 0.032790 |
-| player_round_glicko+none | tier2 | 4498 | 0.596977 | 0.206358 | 0.672076 | 0.022926 |
-| player_round_glicko+none | tier3 | 11240 | 0.590857 | 0.202834 | 0.682607 | 0.027825 |
-| player_round_glicko+none | unknown | 283 | 0.535797 | 0.183378 | 0.719081 | 0.072738 |
-| player_round_glicko+none | international=1 | 503 | 0.613594 | 0.212822 | 0.667992 | 0.055328 |
-| player_round_glicko+none | international=0 | 16415 | 0.593755 | 0.204406 | 0.677917 | 0.026457 |
+| player_round_glicko+none | all | 16918 | 0.593884 | 0.204562 | 0.678449 | 0.025728 |
+| player_round_glicko+none | tier1 | 897 | 0.641465 | 0.224830 | 0.639353 | 0.048380 |
+| player_round_glicko+none | tier2 | 4498 | 0.596690 | 0.206207 | 0.674744 | 0.024515 |
+| player_round_glicko+none | tier3 | 11240 | 0.590349 | 0.202790 | 0.682206 | 0.027831 |
+| player_round_glicko+none | unknown | 283 | 0.538855 | 0.184548 | 0.712014 | 0.092923 |
+| player_round_glicko+none | international=1 | 503 | 0.612139 | 0.212267 | 0.676938 | 0.063564 |
+| player_round_glicko+none | international=0 | 16415 | 0.593324 | 0.204326 | 0.678495 | 0.026517 |
 
 player_round_glicko+none − coin (paired log loss):
 
 | Section | Rows | player_round_glicko+none log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.594345 | 0.693147 | -0.098802 | [-0.104825, -0.092726] | yes |
-| tier1 | 897 | 0.643332 | 0.693147 | -0.049815 | [-0.069739, -0.027690] | yes |
-| tier2 | 4498 | 0.596977 | 0.693147 | -0.096170 | [-0.106972, -0.085692] | yes |
-| tier3 | 11240 | 0.590857 | 0.693147 | -0.102291 | [-0.109809, -0.094583] | yes |
-| unknown | 283 | 0.535797 | 0.693147 | -0.157350 | [-0.197578, -0.115163] | yes |
-| international=1 | 503 | 0.613594 | 0.693147 | -0.079553 | [-0.107462, -0.051578] | yes |
-| international=0 | 16415 | 0.593755 | 0.693147 | -0.099392 | [-0.105432, -0.092906] | yes |
+| all | 16918 | 0.593884 | 0.693147 | -0.099263 | [-0.105071, -0.093252] | yes |
+| tier1 | 897 | 0.641465 | 0.693147 | -0.051682 | [-0.071615, -0.029722] | yes |
+| tier2 | 4498 | 0.596690 | 0.693147 | -0.096457 | [-0.107072, -0.086037] | yes |
+| tier3 | 11240 | 0.590349 | 0.693147 | -0.102798 | [-0.110324, -0.095206] | yes |
+| unknown | 283 | 0.538855 | 0.693147 | -0.154292 | [-0.195252, -0.111238] | yes |
+| international=1 | 503 | 0.612139 | 0.693147 | -0.081008 | [-0.107593, -0.053916] | yes |
+| international=0 | 16415 | 0.593324 | 0.693147 | -0.099823 | [-0.105855, -0.093565] | yes |
 
 | Model | Section | Rows | Log loss | Brier | Accuracy | ECE |
 |---|---|---:|---:|---:|---:|---:|
-| player_round_glicko_rookie_weights+none | all | 16918 | 0.578887 | 0.198120 | 0.694379 | 0.023510 |
-| player_round_glicko_rookie_weights+none | tier1 | 897 | 0.640079 | 0.224276 | 0.636009 | 0.029518 |
-| player_round_glicko_rookie_weights+none | tier2 | 4498 | 0.593395 | 0.204916 | 0.680747 | 0.029785 |
-| player_round_glicko_rookie_weights+none | tier3 | 11240 | 0.569607 | 0.193797 | 0.704226 | 0.021625 |
-| player_round_glicko_rookie_weights+none | unknown | 283 | 0.522908 | 0.178942 | 0.704947 | 0.082707 |
-| player_round_glicko_rookie_weights+none | international=1 | 503 | 0.609161 | 0.210921 | 0.671968 | 0.047260 |
-| player_round_glicko_rookie_weights+none | international=0 | 16415 | 0.577959 | 0.197728 | 0.695065 | 0.023589 |
+| player_round_glicko_rookie_weights+none | all | 16918 | 0.578513 | 0.197952 | 0.694172 | 0.022368 |
+| player_round_glicko_rookie_weights+none | tier1 | 897 | 0.637813 | 0.223243 | 0.643255 | 0.037363 |
+| player_round_glicko_rookie_weights+none | tier2 | 4498 | 0.592976 | 0.204689 | 0.681859 | 0.030145 |
+| player_round_glicko_rookie_weights+none | tier3 | 11240 | 0.569292 | 0.193679 | 0.702980 | 0.021657 |
+| player_round_glicko_rookie_weights+none | unknown | 283 | 0.526917 | 0.180399 | 0.701413 | 0.085049 |
+| player_round_glicko_rookie_weights+none | international=1 | 503 | 0.607853 | 0.210378 | 0.679920 | 0.056016 |
+| player_round_glicko_rookie_weights+none | international=0 | 16415 | 0.577614 | 0.197571 | 0.694609 | 0.022375 |
 
 player_round_glicko_rookie_weights+none − coin (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights+none log loss | coin log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.578887 | 0.693147 | -0.114260 | [-0.120782, -0.107800] | yes |
-| tier1 | 897 | 0.640079 | 0.693147 | -0.053068 | [-0.073649, -0.029745] | yes |
-| tier2 | 4498 | 0.593395 | 0.693147 | -0.099752 | [-0.110605, -0.088694] | yes |
-| tier3 | 11240 | 0.569607 | 0.693147 | -0.123540 | [-0.131524, -0.115063] | yes |
-| unknown | 283 | 0.522908 | 0.693147 | -0.170239 | [-0.211716, -0.126429] | yes |
-| international=1 | 503 | 0.609161 | 0.693147 | -0.083986 | [-0.113008, -0.053947] | yes |
-| international=0 | 16415 | 0.577959 | 0.693147 | -0.115188 | [-0.121840, -0.108290] | yes |
+| all | 16918 | 0.578513 | 0.693147 | -0.114634 | [-0.121108, -0.108188] | yes |
+| tier1 | 897 | 0.637813 | 0.693147 | -0.055334 | [-0.075993, -0.031737] | yes |
+| tier2 | 4498 | 0.592976 | 0.693147 | -0.100171 | [-0.111271, -0.089117] | yes |
+| tier3 | 11240 | 0.569292 | 0.693147 | -0.123855 | [-0.131835, -0.115551] | yes |
+| unknown | 283 | 0.526917 | 0.693147 | -0.166230 | [-0.208570, -0.122726] | yes |
+| international=1 | 503 | 0.607853 | 0.693147 | -0.085295 | [-0.113644, -0.056001] | yes |
+| international=0 | 16415 | 0.577614 | 0.693147 | -0.115533 | [-0.122006, -0.108685] | yes |
 
 player_round_glicko − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.594345 | 0.626402 | -0.032057 | [-0.036641, -0.027590] | yes |
+| all | 16918 | 0.593884 | 0.626402 | -0.032518 | [-0.036985, -0.028192] | yes |
 
 player_round_glicko_rookie_weights − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.578887 | 0.626402 | -0.047515 | [-0.052375, -0.042687] | yes |
+| all | 16918 | 0.578513 | 0.626402 | -0.047889 | [-0.052704, -0.043136] | yes |
 
 team_elo+none − team_elo (paired log loss):
 
@@ -586,61 +586,61 @@ player_round_glicko+none − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko+none log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.594345 | 0.626402 | -0.032057 | [-0.036641, -0.027590] | yes |
+| all | 16918 | 0.593884 | 0.626402 | -0.032518 | [-0.036985, -0.028192] | yes |
 
 player_round_glicko_rookie_weights+none − team_elo (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights+none log loss | team_elo log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.578887 | 0.626402 | -0.047515 | [-0.052375, -0.042687] | yes |
+| all | 16918 | 0.578513 | 0.626402 | -0.047889 | [-0.052704, -0.043136] | yes |
 
 player_round_glicko − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.594345 | 0.578887 | 0.015458 | [0.012670, 0.018281] | yes |
-| tier1 | 897 | 0.643332 | 0.640079 | 0.003253 | [-0.000256, 0.006580] | no |
-| tier2 | 4498 | 0.596977 | 0.593395 | 0.003582 | [0.000690, 0.006415] | yes |
-| tier3 | 11240 | 0.590857 | 0.569607 | 0.021249 | [0.017139, 0.025227] | yes |
-| unknown | 283 | 0.535797 | 0.522908 | 0.012889 | [0.000712, 0.024956] | yes |
-| international=1 | 503 | 0.613594 | 0.609161 | 0.004433 | [-0.000057, 0.008689] | no |
-| international=0 | 16415 | 0.593755 | 0.577959 | 0.015796 | [0.012965, 0.018885] | yes |
+| all | 16918 | 0.593884 | 0.578513 | 0.015371 | [0.012591, 0.018221] | yes |
+| tier1 | 897 | 0.641465 | 0.637813 | 0.003652 | [0.000223, 0.006788] | yes |
+| tier2 | 4498 | 0.596690 | 0.592976 | 0.003714 | [0.000874, 0.006511] | yes |
+| tier3 | 11240 | 0.590349 | 0.569292 | 0.021057 | [0.017007, 0.024963] | yes |
+| unknown | 283 | 0.538855 | 0.526917 | 0.011938 | [0.000319, 0.023591] | yes |
+| international=1 | 503 | 0.612139 | 0.607853 | 0.004287 | [-0.000308, 0.008606] | no |
+| international=0 | 16415 | 0.593324 | 0.577614 | 0.015710 | [0.012941, 0.018802] | yes |
 
 team_elo+none − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | team_elo+none log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.626402 | 0.578887 | 0.047515 | [0.042687, 0.052375] | yes |
-| tier1 | 897 | 0.645834 | 0.640079 | 0.005754 | [-0.011366, 0.022747] | no |
-| tier2 | 4498 | 0.633288 | 0.593395 | 0.039894 | [0.032039, 0.048575] | yes |
-| tier3 | 11240 | 0.623778 | 0.569607 | 0.054171 | [0.047526, 0.060630] | yes |
-| unknown | 283 | 0.559580 | 0.522908 | 0.036672 | [0.009233, 0.064805] | yes |
-| international=1 | 503 | 0.606870 | 0.609161 | -0.002291 | [-0.020659, 0.015238] | no |
-| international=0 | 16415 | 0.627000 | 0.577959 | 0.049041 | [0.043998, 0.054112] | yes |
+| all | 16918 | 0.626402 | 0.578513 | 0.047889 | [0.043136, 0.052704] | yes |
+| tier1 | 897 | 0.645834 | 0.637813 | 0.008021 | [-0.008940, 0.024655] | no |
+| tier2 | 4498 | 0.633288 | 0.592976 | 0.040312 | [0.032486, 0.048833] | yes |
+| tier3 | 11240 | 0.623778 | 0.569292 | 0.054486 | [0.047732, 0.060864] | yes |
+| unknown | 283 | 0.559580 | 0.526917 | 0.032663 | [0.005823, 0.060436] | yes |
+| international=1 | 503 | 0.606870 | 0.607853 | -0.000982 | [-0.018607, 0.016099] | no |
+| international=0 | 16415 | 0.627000 | 0.577614 | 0.049386 | [0.044264, 0.054453] | yes |
 
 player_round_glicko+none − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko+none log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.594345 | 0.578887 | 0.015458 | [0.012670, 0.018281] | yes |
-| tier1 | 897 | 0.643332 | 0.640079 | 0.003253 | [-0.000256, 0.006580] | no |
-| tier2 | 4498 | 0.596977 | 0.593395 | 0.003582 | [0.000690, 0.006415] | yes |
-| tier3 | 11240 | 0.590857 | 0.569607 | 0.021249 | [0.017139, 0.025227] | yes |
-| unknown | 283 | 0.535797 | 0.522908 | 0.012889 | [0.000712, 0.024956] | yes |
-| international=1 | 503 | 0.613594 | 0.609161 | 0.004433 | [-0.000057, 0.008689] | no |
-| international=0 | 16415 | 0.593755 | 0.577959 | 0.015796 | [0.012965, 0.018885] | yes |
+| all | 16918 | 0.593884 | 0.578513 | 0.015371 | [0.012591, 0.018221] | yes |
+| tier1 | 897 | 0.641465 | 0.637813 | 0.003652 | [0.000223, 0.006788] | yes |
+| tier2 | 4498 | 0.596690 | 0.592976 | 0.003714 | [0.000874, 0.006511] | yes |
+| tier3 | 11240 | 0.590349 | 0.569292 | 0.021057 | [0.017007, 0.024963] | yes |
+| unknown | 283 | 0.538855 | 0.526917 | 0.011938 | [0.000319, 0.023591] | yes |
+| international=1 | 503 | 0.612139 | 0.607853 | 0.004287 | [-0.000308, 0.008606] | no |
+| international=0 | 16415 | 0.593324 | 0.577614 | 0.015710 | [0.012941, 0.018802] | yes |
 
 player_round_glicko_rookie_weights+none − player_round_glicko_rookie_weights (paired log loss):
 
 | Section | Rows | player_round_glicko_rookie_weights+none log loss | player_round_glicko_rookie_weights log loss | Difference | 95% interval | Significant |
 |---|---:|---:|---:|---:|---|---|
-| all | 16918 | 0.578887 | 0.578887 | 0.000000 | [0.000000, 0.000000] | no |
-| tier1 | 897 | 0.640079 | 0.640079 | 0.000000 | [0.000000, 0.000000] | no |
-| tier2 | 4498 | 0.593395 | 0.593395 | 0.000000 | [0.000000, 0.000000] | no |
-| tier3 | 11240 | 0.569607 | 0.569607 | 0.000000 | [0.000000, 0.000000] | no |
-| unknown | 283 | 0.522908 | 0.522908 | 0.000000 | [0.000000, 0.000000] | no |
-| international=1 | 503 | 0.609161 | 0.609161 | 0.000000 | [0.000000, 0.000000] | no |
-| international=0 | 16415 | 0.577959 | 0.577959 | 0.000000 | [0.000000, 0.000000] | no |
+| all | 16918 | 0.578513 | 0.578513 | 0.000000 | [0.000000, 0.000000] | no |
+| tier1 | 897 | 0.637813 | 0.637813 | 0.000000 | [0.000000, 0.000000] | no |
+| tier2 | 4498 | 0.592976 | 0.592976 | 0.000000 | [0.000000, 0.000000] | no |
+| tier3 | 11240 | 0.569292 | 0.569292 | 0.000000 | [0.000000, 0.000000] | no |
+| unknown | 283 | 0.526917 | 0.526917 | 0.000000 | [0.000000, 0.000000] | no |
+| international=1 | 503 | 0.607853 | 0.607853 | 0.000000 | [0.000000, 0.000000] | no |
+| international=0 | 16415 | 0.577614 | 0.577614 | 0.000000 | [0.000000, 0.000000] | no |
 
 ## Stage 2 — validation vs Kalshi
 
@@ -788,40 +788,40 @@ All metrics use identical linked rows within each kind/month. Unfitted blend mon
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4456 | 0.600306 | 0.600358 | -0.000053 [-0.008150, 0.007996] | no |
-| series | tier1 | 725 | 0.634196 | 0.616830 | 0.017366 [-0.000104, 0.034578] | no |
-| series | tier2 | 1962 | 0.597202 | 0.590722 | 0.006480 [-0.003845, 0.017065] | no |
-| series | tier3 | 1727 | 0.592254 | 0.607536 | -0.015282 [-0.029514, -0.000721] | yes |
-| series | unknown | 42 | 0.491357 | 0.471027 | 0.020329 [-0.038591, 0.078661] | no |
-| series | international=1 | 448 | 0.607693 | 0.591446 | 0.016248 [-0.006945, 0.037620] | no |
-| series | international=0 | 4008 | 0.599480 | 0.601354 | -0.001875 [-0.010319, 0.006261] | no |
-| map | all | 4477 | 0.641027 | 0.634789 | 0.006237 [0.000224, 0.012190] | yes |
-| map | tier1 | 1176 | 0.657301 | 0.646419 | 0.010882 [-0.001220, 0.022426] | no |
-| map | tier2 | 1968 | 0.637418 | 0.631291 | 0.006126 [-0.002066, 0.014388] | no |
-| map | tier3 | 1279 | 0.634187 | 0.632601 | 0.001586 [-0.011520, 0.014496] | no |
-| map | unknown | 54 | 0.580145 | 0.560856 | 0.019289 [-0.012097, 0.053023] | no |
-| map | international=1 | 788 | 0.636734 | 0.630059 | 0.006675 [-0.007771, 0.020655] | no |
-| map | international=0 | 3689 | 0.641944 | 0.635800 | 0.006144 [-0.000259, 0.012618] | no |
+| series | all | 4456 | 0.600331 | 0.600358 | -0.000027 [-0.008019, 0.007842] | no |
+| series | tier1 | 725 | 0.632427 | 0.616830 | 0.015597 [-0.001403, 0.032254] | no |
+| series | tier2 | 1962 | 0.597128 | 0.590722 | 0.006406 [-0.003882, 0.017192] | no |
+| series | tier3 | 1727 | 0.593099 | 0.607536 | -0.014437 [-0.028553, 0.000194] | no |
+| series | unknown | 42 | 0.493300 | 0.471027 | 0.022272 [-0.038790, 0.082968] | no |
+| series | international=1 | 448 | 0.604953 | 0.591446 | 0.013507 [-0.009687, 0.034181] | no |
+| series | international=0 | 4008 | 0.599815 | 0.601354 | -0.001540 [-0.010026, 0.006759] | no |
+| map | all | 4477 | 0.640741 | 0.634789 | 0.005952 [0.000085, 0.011944] | yes |
+| map | tier1 | 1176 | 0.656614 | 0.646419 | 0.010195 [-0.001834, 0.021495] | no |
+| map | tier2 | 1968 | 0.637327 | 0.631291 | 0.006036 [-0.002158, 0.014120] | no |
+| map | tier3 | 1279 | 0.633805 | 0.632601 | 0.001205 [-0.011508, 0.014028] | no |
+| map | unknown | 54 | 0.583784 | 0.560856 | 0.022928 [-0.011339, 0.059749] | no |
+| map | international=1 | 788 | 0.636177 | 0.630059 | 0.006118 [-0.008416, 0.019902] | no |
+| map | international=0 | 3689 | 0.641717 | 0.635800 | 0.005917 [-0.000212, 0.012186] | no |
 
 #### Full-Kelly returns
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 3316 | 3311 | 0.0819 | 2.00% [-2.29%, 6.57%] | $0.03 | 0.001× | 99.97% | $9.61 | 2108 (1208 unfilled) | 0.02% [-5.35%, 5.35%] | $0.09 |
-| series | tier1 | 536 | 536 | 0.0780 | 0.03% [-11.36%, 12.19%] | $0.10 | 0.002× | 99.92% | $12.56 | 432 (104 unfilled) | -4.05% [-15.88%, 8.62%] | $0.09 |
-| series | tier2 | 1406 | 1403 | 0.0716 | -2.58% [-9.12%, 3.98%] | $0.08 | 0.002× | 99.95% | $16.00 | 884 (522 unfilled) | -3.44% [-10.86%, 4.95%] | $0.05 |
-| series | tier3 | 1341 | 1339 | 0.0945 | 8.13% [1.35%, 15.21%] | $5297.53 | 105.951× | 86.78% | $249.12 | 769 (572 unfilled) | 6.65% [-2.33%, 15.58%] | $105.61 |
-| series | unknown | 33 | 33 | 0.0729 | -19.63% [-49.59%, 13.36%] | $32.55 | 0.651× | 38.66% | $5.10 | 23 (10 unfilled) | -11.86% [-49.11%, 31.13%] | $37.63 |
-| series | international=1 | 338 | 338 | 0.0790 | 0.67% [-15.46%, 17.32%] | $0.72 | 0.014× | 99.50% | $11.49 | 290 (48 unfilled) | -5.45% [-20.57%, 10.36%] | $0.51 |
-| series | international=0 | 2978 | 2973 | 0.0822 | 2.15% [-2.29%, 6.54%] | $0.08 | 0.002× | 99.87% | $6.32 | 1818 (1160 unfilled) | 0.89% [-4.89%, 6.71%] | $0.08 |
-| map | all | 2876 | 1825 | 0.0593 | -5.59% [-10.02%, -1.07%] | $0.09 | 0.002× | 99.98% | $36.65 | 834 (2042 unfilled) | -13.93% [-21.51%, -6.28%] | $0.09 |
-| map | tier1 | 754 | 513 | 0.0603 | -4.58% [-13.26%, 4.66%] | $4.14 | 0.083× | 95.75% | $8.27 | 227 (527 unfilled) | -5.50% [-21.78%, 12.10%] | $11.73 |
-| map | tier2 | 1239 | 769 | 0.0528 | -5.94% [-12.33%, 0.75%] | $0.10 | 0.002× | 99.93% | $13.37 | 356 (883 unfilled) | -16.59% [-26.63%, -5.97%] | $0.32 |
-| map | tier3 | 851 | 521 | 0.0686 | -5.68% [-13.50%, 2.34%] | $5.59 | 0.112× | 98.41% | $19.13 | 239 (612 unfilled) | -17.99% [-32.50%, -3.35%] | $6.00 |
-| map | unknown | 32 | 22 | 0.0441 | -14.08% [-42.90%, 15.39%] | $37.95 | 0.759× | 26.08% | $4.78 | 12 (20 unfilled) | -13.86% [-51.82%, 16.78%] | $46.29 |
-| map | international=1 | 500 | 344 | 0.0636 | -4.27% [-15.95%, 7.45%] | $30.11 | 0.602× | 88.18% | $24.78 | 157 (343 unfilled) | -4.70% [-25.35%, 17.56%] | $35.04 |
-| map | international=0 | 2376 | 1481 | 0.0585 | -5.88% [-10.57%, -1.18%] | $0.08 | 0.002× | 99.92% | $9.48 | 677 (1699 unfilled) | -16.08% [-23.60%, -8.43%] | $0.10 |
-| series+map | all | 6192 | 3642 | 0.0714 | -1.53% [-5.10%, 2.10%] | $0.07 | 0.001× | 99.92% | $6.83 | 2942 (3250 unfilled) | -3.93% [-8.69%, 1.06%] | $0.09 |
+| series | all | 3288 | 3283 | 0.0817 | 2.99% [-1.33%, 7.16%] | $0.04 | 0.001× | 99.95% | $8.90 | 2083 (1205 unfilled) | 0.74% [-4.73%, 6.11%] | $0.08 |
+| series | tier1 | 532 | 532 | 0.0769 | 0.49% [-11.73%, 12.73%] | $0.09 | 0.002× | 99.92% | $11.52 | 434 (98 unfilled) | -2.33% [-15.95%, 10.12%] | $0.10 |
+| series | tier2 | 1387 | 1384 | 0.0720 | -1.66% [-7.84%, 4.80%] | $0.05 | 0.001× | 99.97% | $18.18 | 863 (524 unfilled) | -3.50% [-11.28%, 4.31%] | $0.09 |
+| series | tier3 | 1336 | 1334 | 0.0940 | 9.30% [2.65%, 16.53%] | $5246.83 | 104.937× | 85.25% | $249.12 | 764 (572 unfilled) | 7.69% [-1.34%, 16.51%] | $78.44 |
+| series | unknown | 33 | 33 | 0.0757 | -16.68% [-47.60%, 16.01%] | $31.32 | 0.626× | 41.12% | $5.10 | 22 (11 unfilled) | -13.08% [-54.22%, 30.96%] | $36.40 |
+| series | international=1 | 335 | 335 | 0.0776 | 2.13% [-13.50%, 18.96%] | $1.07 | 0.021× | 99.31% | $10.43 | 292 (43 unfilled) | -2.27% [-17.85%, 13.89%] | $0.75 |
+| series | international=0 | 2953 | 2948 | 0.0822 | 3.08% [-1.38%, 7.71%] | $0.03 | 0.001× | 99.96% | $6.25 | 1791 (1162 unfilled) | 1.24% [-4.43%, 6.97%] | $0.07 |
+| map | all | 2852 | 1806 | 0.0592 | -5.22% [-9.44%, -0.75%] | $0.08 | 0.002× | 99.97% | $27.75 | 831 (2021 unfilled) | -15.32% [-22.68%, -7.88%] | $0.08 |
+| map | tier1 | 753 | 512 | 0.0586 | -5.60% [-14.51%, 3.59%] | $3.42 | 0.068× | 96.05% | $6.47 | 231 (522 unfilled) | -8.11% [-24.17%, 8.53%] | $12.13 |
+| map | tier2 | 1213 | 750 | 0.0535 | -4.30% [-10.95%, 2.85%] | $0.08 | 0.002× | 99.95% | $14.50 | 344 (869 unfilled) | -17.84% [-28.61%, -7.07%] | $0.17 |
+| map | tier3 | 856 | 524 | 0.0683 | -5.94% [-13.84%, 2.07%] | $5.15 | 0.103× | 98.40% | $17.61 | 244 (612 unfilled) | -18.70% [-32.45%, -3.84%] | $6.17 |
+| map | unknown | 30 | 20 | 0.0481 | -12.93% [-43.17%, 18.88%] | $38.22 | 0.764× | 27.55% | $4.78 | 12 (18 unfilled) | -13.86% [-51.82%, 16.78%] | $46.31 |
+| map | international=1 | 501 | 345 | 0.0618 | -5.66% [-17.09%, 5.95%] | $20.10 | 0.402× | 88.61% | $17.01 | 161 (340 unfilled) | -4.68% [-26.39%, 16.27%] | $31.97 |
+| map | international=0 | 2351 | 1461 | 0.0587 | -5.13% [-9.86%, -0.31%] | $0.09 | 0.002× | 99.92% | $11.11 | 670 (1681 unfilled) | -17.89% [-25.38%, -9.95%] | $0.07 |
+| series+map | all | 6140 | 3615 | 0.0713 | -0.82% [-4.38%, 2.86%] | $0.06 | 0.001× | 99.90% | $6.19 | 2914 (3226 unfilled) | -3.84% [-8.60%, 1.27%] | $0.07 |
 
 #### Monthly market blend fits
 
@@ -833,61 +833,61 @@ UTC monthly fits use earlier rows of the same kind from 2026-01-01, excluding ho
 | 2026-01 | map | 0 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | series | 51 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | map | 63 | 1.000000 | 0.000000 | unfitted |
-| 2026-03 | series | 206 | 1.453867 | 0.659498 | fitted |
-| 2026-03 | map | 165 | 1.268993 | 0.229978 | fitted |
-| 2026-04 | series | 510 | 1.467817 | 0.856730 | fitted |
-| 2026-04 | map | 309 | 1.196905 | 0.201954 | fitted |
-| 2026-05 | series | 832 | 1.407610 | 0.781346 | fitted |
-| 2026-05 | map | 582 | 1.336306 | 0.806289 | fitted |
-| 2026-06 | series | 1192 | 1.399653 | 0.688576 | fitted |
-| 2026-06 | map | 1034 | 1.356820 | 0.730843 | fitted |
-| 2026-07 | series | 1540 | 1.309316 | 0.674754 | fitted |
-| 2026-07 | map | 1448 | 1.301925 | 0.709868 | fitted |
-| 2026-08 | series | 2053 | 1.244676 | 0.565525 | fitted |
-| 2026-08 | map | 2066 | 1.164405 | 0.515103 | fitted |
-| 2026-09 | series | 2770 | 1.237907 | 0.610315 | fitted |
-| 2026-09 | map | 2939 | 1.224941 | 0.581191 | fitted |
-| 2026-10 | series | 3684 | 1.241803 | 0.635053 | fitted |
-| 2026-10 | map | 3818 | 1.204383 | 0.481869 | fitted |
+| 2026-03 | series | 206 | 1.457683 | 0.670061 | fitted |
+| 2026-03 | map | 165 | 1.268874 | 0.236759 | fitted |
+| 2026-04 | series | 510 | 1.460757 | 0.822807 | fitted |
+| 2026-04 | map | 309 | 1.201377 | 0.214366 | fitted |
+| 2026-05 | series | 832 | 1.398567 | 0.750781 | fitted |
+| 2026-05 | map | 582 | 1.323494 | 0.778151 | fitted |
+| 2026-06 | series | 1192 | 1.401278 | 0.687585 | fitted |
+| 2026-06 | map | 1034 | 1.361163 | 0.739254 | fitted |
+| 2026-07 | series | 1540 | 1.310734 | 0.677269 | fitted |
+| 2026-07 | map | 1448 | 1.300132 | 0.704951 | fitted |
+| 2026-08 | series | 2053 | 1.244600 | 0.568115 | fitted |
+| 2026-08 | map | 2066 | 1.163563 | 0.514510 | fitted |
+| 2026-09 | series | 2770 | 1.238726 | 0.617065 | fitted |
+| 2026-09 | map | 2939 | 1.226798 | 0.590978 | fitted |
+| 2026-10 | series | 3684 | 1.241658 | 0.636202 | fitted |
+| 2026-10 | map | 3818 | 1.209386 | 0.500274 | fitted |
 
 #### Log loss vs Kalshi (blended)
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4250 | 0.590082 | 0.601593 | -0.011511 [-0.016603, -0.006458] | yes |
-| series | tier1 | 614 | 0.620491 | 0.616540 | 0.003951 [-0.006460, 0.014324] | no |
-| series | tier2 | 1873 | 0.584326 | 0.593752 | -0.009426 [-0.016237, -0.002622] | yes |
-| series | tier3 | 1721 | 0.588975 | 0.607981 | -0.019005 [-0.028643, -0.009594] | yes |
-| series | unknown | 42 | 0.447581 | 0.471027 | -0.023446 [-0.054151, 0.009416] | no |
-| series | international=1 | 370 | 0.588395 | 0.589385 | -0.000990 [-0.013239, 0.012145] | no |
-| series | international=0 | 3880 | 0.590243 | 0.602757 | -0.012514 [-0.017887, -0.007064] | yes |
-| map | all | 4312 | 0.632876 | 0.635269 | -0.002393 [-0.005975, 0.001192] | no |
-| map | tier1 | 1046 | 0.653502 | 0.649504 | 0.003998 [-0.002805, 0.010258] | no |
-| map | tier2 | 1936 | 0.626311 | 0.631140 | -0.004830 [-0.009495, -0.000002] | yes |
-| map | tier3 | 1276 | 0.629480 | 0.633014 | -0.003534 [-0.011344, 0.005077] | no |
-| map | unknown | 54 | 0.548987 | 0.560856 | -0.011869 [-0.031342, 0.007291] | no |
-| map | international=1 | 686 | 0.627847 | 0.629473 | -0.001626 [-0.008455, 0.005624] | no |
-| map | international=0 | 3626 | 0.633828 | 0.636366 | -0.002538 [-0.006614, 0.001553] | no |
+| series | all | 4250 | 0.590150 | 0.601593 | -0.011444 [-0.016587, -0.006502] | yes |
+| series | tier1 | 614 | 0.619079 | 0.616540 | 0.002539 [-0.007325, 0.012628] | no |
+| series | tier2 | 1873 | 0.584260 | 0.593752 | -0.009491 [-0.016147, -0.002917] | yes |
+| series | tier3 | 1721 | 0.589715 | 0.607981 | -0.018266 [-0.027801, -0.008953] | yes |
+| series | unknown | 42 | 0.447665 | 0.471027 | -0.023362 [-0.054518, 0.008630] | no |
+| series | international=1 | 370 | 0.585804 | 0.589385 | -0.003581 [-0.015200, 0.008417] | no |
+| series | international=0 | 3880 | 0.590564 | 0.602757 | -0.012193 [-0.017534, -0.006768] | yes |
+| map | all | 4312 | 0.632663 | 0.635269 | -0.002606 [-0.006224, 0.000974] | no |
+| map | tier1 | 1046 | 0.652946 | 0.649504 | 0.003442 [-0.003219, 0.009729] | no |
+| map | tier2 | 1936 | 0.626251 | 0.631140 | -0.004889 [-0.009714, 0.000001] | no |
+| map | tier3 | 1276 | 0.629250 | 0.633014 | -0.003764 [-0.011538, 0.004686] | no |
+| map | unknown | 54 | 0.550291 | 0.560856 | -0.010565 [-0.030483, 0.009099] | no |
+| map | international=1 | 686 | 0.627415 | 0.629473 | -0.002058 [-0.008821, 0.005069] | no |
+| map | international=0 | 3626 | 0.633656 | 0.636366 | -0.002710 [-0.006783, 0.001233] | no |
 
 #### Full-Kelly returns (blended)
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 2515 | 2511 | 0.0477 | 7.71% [3.75%, 11.73%] | $9760.38 | 195.208× | 85.42% | $249.12 | 1572 (943 unfilled) | 5.18% [0.28%, 10.52%] | $709.30 |
-| series | tier1 | 314 | 314 | 0.0363 | -1.69% [-14.05%, 10.65%] | $10.23 | 0.205× | 90.45% | $6.60 | 243 (71 unfilled) | -2.20% [-15.81%, 11.31%] | $22.91 |
-| series | tier2 | 1096 | 1095 | 0.0424 | 5.49% [0.06%, 10.76%] | $3909.68 | 78.194× | 62.73% | $249.12 | 669 (427 unfilled) | 2.09% [-4.58%, 9.13%] | $126.07 |
-| series | tier3 | 1075 | 1072 | 0.0567 | 12.95% [6.77%, 19.89%] | $11775.79 | 235.516× | 60.73% | $249.12 | 639 (436 unfilled) | 11.46% [2.51%, 20.53%] | $1103.77 |
-| series | unknown | 30 | 30 | 0.0392 | -0.48% [-26.76%, 26.08%] | $67.23 | 1.345× | 9.34% | $6.33 | 21 (9 unfilled) | -1.48% [-35.68%, 33.44%] | $57.73 |
-| series | international=1 | 188 | 188 | 0.0336 | 2.54% [-14.22%, 20.28%] | $78.92 | 1.578× | 46.01% | $10.83 | 152 (36 unfilled) | 2.17% [-16.14%, 21.90%] | $82.69 |
-| series | international=0 | 2327 | 2323 | 0.0488 | 8.13% [3.96%, 12.27%] | $10938.88 | 218.778× | 85.13% | $249.12 | 1420 (907 unfilled) | 5.51% [0.44%, 10.73%] | $594.35 |
-| map | all | 1762 | 1092 | 0.0332 | 1.90% [-2.67%, 6.57%] | $283.51 | 5.670× | 79.13% | $41.89 | 510 (1252 unfilled) | -6.48% [-14.87%, 2.23%] | $16.17 |
-| map | tier1 | 338 | 218 | 0.0312 | -3.85% [-15.75%, 8.80%] | $22.13 | 0.443× | 80.17% | $7.36 | 108 (230 unfilled) | -6.89% [-29.23%, 18.93%] | $46.98 |
-| map | tier2 | 780 | 479 | 0.0288 | 2.29% [-4.74%, 9.55%] | $186.10 | 3.722× | 49.25% | $28.47 | 211 (569 unfilled) | -9.64% [-20.07%, 0.95%] | $20.14 |
-| map | tier3 | 624 | 382 | 0.0400 | 4.12% [-3.73%, 11.78%] | $201.42 | 4.028× | 65.83% | $30.09 | 182 (442 unfilled) | -3.99% [-17.51%, 9.51%] | $37.91 |
-| map | unknown | 20 | 13 | 0.0262 | 15.16% [-9.30%, 40.33%] | $52.68 | 1.054× | 3.66% | $4.86 | 9 (11 unfilled) | 22.60% [-1.92%, 51.23%] | $54.59 |
-| map | international=1 | 223 | 144 | 0.0311 | 4.09% [-11.38%, 20.02%] | $81.47 | 1.629× | 35.84% | $8.39 | 79 (144 unfilled) | 5.06% [-24.53%, 35.46%] | $74.98 |
-| map | international=0 | 1539 | 948 | 0.0335 | 1.58% [-3.41%, 6.52%] | $193.06 | 3.861× | 77.51% | $25.05 | 431 (1108 unfilled) | -8.60% [-16.96%, 0.11%] | $10.49 |
-| series+map | all | 4277 | 2639 | 0.0417 | 5.32% [1.79%, 8.74%] | $11937.46 | 238.749× | 63.99% | $249.30 | 2082 (2195 unfilled) | 2.33% [-2.39%, 7.03%] | $455.75 |
+| series | all | 2489 | 2485 | 0.0475 | 8.32% [4.22%, 12.26%] | $11754.34 | 235.087× | 78.81% | $249.12 | 1558 (931 unfilled) | 5.42% [0.34%, 10.39%] | $922.50 |
+| series | tier1 | 310 | 310 | 0.0346 | 2.19% [-10.21%, 15.21%] | $16.76 | 0.335× | 85.15% | $6.96 | 240 (70 unfilled) | 1.67% [-12.25%, 15.39%] | $27.72 |
+| series | tier2 | 1079 | 1078 | 0.0423 | 6.61% [1.13%, 11.97%] | $4705.22 | 94.104× | 64.57% | $249.12 | 662 (417 unfilled) | 2.46% [-4.37%, 9.46%] | $120.60 |
+| series | tier3 | 1070 | 1067 | 0.0567 | 11.92% [5.64%, 18.24%] | $11840.44 | 236.809× | 61.01% | $249.12 | 635 (435 unfilled) | 10.15% [1.62%, 18.89%] | $1154.78 |
+| series | unknown | 30 | 30 | 0.0410 | 4.88% [-21.18%, 30.63%] | $65.01 | 1.300× | 10.87% | $6.17 | 21 (9 unfilled) | -1.53% [-34.48%, 34.52%] | $55.91 |
+| series | international=1 | 181 | 181 | 0.0319 | 6.95% [-10.95%, 26.25%] | $92.01 | 1.840× | 43.85% | $11.04 | 148 (33 unfilled) | 6.24% [-12.00%, 25.74%] | $94.84 |
+| series | international=0 | 2308 | 2304 | 0.0487 | 8.43% [4.39%, 12.53%] | $12357.45 | 247.149× | 77.84% | $249.12 | 1410 (898 unfilled) | 5.33% [0.37%, 10.54%] | $724.55 |
+| map | all | 1757 | 1088 | 0.0328 | 2.34% [-2.67%, 7.68%] | $458.93 | 9.179× | 75.31% | $72.95 | 502 (1255 unfilled) | -6.20% [-14.42%, 2.99%] | $19.97 |
+| map | tier1 | 334 | 218 | 0.0280 | -0.61% [-13.84%, 13.43%] | $32.27 | 0.645× | 75.98% | $8.18 | 109 (225 unfilled) | -5.07% [-28.02%, 19.81%] | $55.20 |
+| map | tier2 | 770 | 474 | 0.0292 | 2.09% [-5.21%, 9.71%] | $176.82 | 3.536× | 48.19% | $29.04 | 203 (567 unfilled) | -10.63% [-22.22%, 0.42%] | $15.92 |
+| map | tier3 | 633 | 383 | 0.0400 | 4.03% [-3.86%, 11.84%] | $230.02 | 4.600× | 66.85% | $36.25 | 181 (452 unfilled) | -2.57% [-16.04%, 11.38%] | $47.67 |
+| map | unknown | 20 | 13 | 0.0257 | 8.29% [-18.89%, 34.91%] | $54.78 | 1.096× | 3.27% | $4.89 | 9 (11 unfilled) | 7.30% [-29.98%, 45.18%] | $55.53 |
+| map | international=1 | 221 | 146 | 0.0273 | 8.70% [-8.77%, 28.20%] | $97.17 | 1.943× | 39.33% | $9.55 | 78 (143 unfilled) | 8.41% [-21.39%, 41.32%] | $86.05 |
+| map | international=0 | 1536 | 942 | 0.0336 | 1.43% [-3.60%, 6.61%] | $266.26 | 5.325× | 75.35% | $37.57 | 424 (1112 unfilled) | -8.89% [-17.46%, -0.36%] | $10.54 |
+| series+map | all | 4246 | 2614 | 0.0414 | 5.85% [2.13%, 9.35%] | $14190.61 | 283.812× | 65.22% | $249.47 | 2060 (2186 unfilled) | 2.59% [-2.15%, 7.63%] | $580.93 |
 
 #### Monthly breakdown
 
@@ -895,26 +895,26 @@ All metrics use identical linked rows within each kind/month. Unfitted blend mon
 
 | Kind | Month | Rows | Model log loss | Blended log loss | Kalshi log loss | Raw flat ROI (bets), unlimited Kelly final | Blended flat ROI (bets), unlimited Kelly final | Raw bets filled | Raw Flat ROI depth-capped [95% interval] | Raw Kelly depth-capped final | Blended bets filled | Blended Flat ROI depth-capped [95% interval] | Blended Kelly depth-capped final |
 |---|---|---:|---:|---:|---:|---|---|---:|---|---:|---:|---|---:|
-| map | 2026-01 | 63 | 0.634559 | — | 0.638920 | 0.71% (42), $58.19 | — | 5 (37 unfilled) | 11.19% [-66.65%, 89.92%] | $50.98 | — | — | — |
-| map | 2026-02 | 102 | 0.642663 | — | 0.611955 | -16.79% (59), $28.27 | — | 18 (41 unfilled) | -48.65% [-83.20%, -10.86%] | $28.60 | — | — | — |
-| map | 2026-03 | 144 | 0.656733 | 0.643151 | 0.642845 | -2.78% (81), $47.71 | 12.33% (35), $59.80 | 42 (39 unfilled) | 0.10% [-37.81%, 38.93%] | $45.27 | 15 (20 unfilled) | -0.93% [-36.71%, 24.55%] | $49.44 |
-| map | 2026-04 | 273 | 0.624606 | 0.639455 | 0.647894 | 15.90% (166), $252.50 | 35.18% (30), $60.87 | 50 (116 unfilled) | -12.03% [-40.47%, 16.39%] | $30.51 | 9 (21 unfilled) | -27.47% [-80.10%, 8.21%] | $48.34 |
-| map | 2026-05 | 452 | 0.643603 | 0.631681 | 0.636432 | -4.81% (280), $31.69 | 6.20% (233), $85.20 | 89 (191 unfilled) | -5.28% [-28.73%, 18.47%] | $30.96 | 89 (144 unfilled) | 1.24% [-19.67%, 20.24%] | $45.53 |
-| map | 2026-06 | 414 | 0.643189 | 0.642528 | 0.650163 | 2.08% (246), $80.80 | 4.92% (224), $93.53 | 50 (196 unfilled) | 9.65% [-19.31%, 37.75%] | $61.24 | 46 (178 unfilled) | 3.70% [-23.08%, 31.01%] | $58.17 |
-| map | 2026-07 | 618 | 0.658813 | 0.654574 | 0.647047 | -6.68% (396), $6.44 | -5.20% (344), $13.47 | 98 (298 unfilled) | -11.37% [-32.50%, 10.74%] | $28.69 | 75 (269 unfilled) | -7.66% [-26.37%, 12.02%] | $41.40 |
-| map | 2026-08 | 873 | 0.620008 | 0.613011 | 0.623251 | -3.47% (604), $6.23 | 8.16% (339), $320.01 | 112 (492 unfilled) | -8.75% [-30.61%, 13.49%] | $33.57 | 69 (270 unfilled) | 0.56% [-22.95%, 25.56%] | $45.16 |
-| map | 2026-09 | 879 | 0.648612 | 0.634161 | 0.631507 | -11.74% (605), $0.05 | -5.41% (360), $34.89 | 224 (381 unfilled) | -18.80% [-34.50%, -2.35%] | $2.83 | 143 (217 unfilled) | -9.49% [-26.14%, 10.13%] | $47.32 |
-| map | 2026-10 | 659 | 0.642685 | 0.626917 | 0.628124 | -12.25% (397), $0.29 | 1.45% (197), $44.75 | 146 (251 unfilled) | -26.71% [-42.77%, -10.35%] | $3.85 | 64 (133 unfilled) | -22.33% [-42.80%, -1.12%] | $23.69 |
-| series | 2026-01 | 51 | 0.581275 | — | 0.602759 | 25.16% (37), $78.76 | — | 31 (6 unfilled) | 38.44% [-8.42%, 87.10%] | $85.01 | — | — | — |
-| series | 2026-02 | 155 | 0.584314 | — | 0.565710 | -14.52% (116), $11.90 | — | 104 (12 unfilled) | -15.93% [-35.06%, 3.62%] | $11.80 | — | — | — |
-| series | 2026-03 | 304 | 0.583521 | 0.571284 | 0.590480 | -0.71% (225), $33.67 | 11.03% (198), $274.34 | 172 (53 unfilled) | -1.55% [-18.67%, 15.86%] | $52.07 | 148 (50 unfilled) | 6.83% [-5.78%, 19.59%] | $140.60 |
-| series | 2026-04 | 322 | 0.584297 | 0.568843 | 0.580957 | -0.07% (240), $12.89 | 7.45% (222), $155.01 | 180 (60 unfilled) | 2.24% [-15.82%, 24.04%] | $37.33 | 162 (60 unfilled) | 12.32% [-3.24%, 28.96%] | $177.09 |
-| series | 2026-05 | 360 | 0.603914 | 0.580706 | 0.584764 | -7.39% (261), $2.19 | 0.31% (236), $45.12 | 213 (48 unfilled) | -8.17% [-24.62%, 7.54%] | $2.37 | 185 (51 unfilled) | -1.03% [-13.90%, 12.66%] | $39.59 |
-| series | 2026-06 | 348 | 0.619820 | 0.625813 | 0.633931 | 7.32% (248), $193.65 | 7.63% (213), $72.62 | 164 (84 unfilled) | 15.94% [-2.69%, 35.25%] | $420.27 | 140 (73 unfilled) | 7.37% [-6.87%, 21.50%] | $71.51 |
-| series | 2026-07 | 513 | 0.627545 | 0.614287 | 0.614447 | 2.06% (386), $0.93 | -1.23% (324), $16.46 | 244 (142 unfilled) | -0.58% [-17.28%, 17.91%] | $19.46 | 198 (126 unfilled) | -3.72% [-19.73%, 15.79%] | $13.23 |
-| series | 2026-08 | 717 | 0.604422 | 0.596721 | 0.614837 | 5.93% (562), $32.26 | 12.12% (422), $620.18 | 273 (289 unfilled) | -0.10% [-15.53%, 16.22%] | $21.97 | 206 (216 unfilled) | 15.41% [-1.68%, 33.83%] | $325.04 |
-| series | 2026-09 | 914 | 0.596996 | 0.586579 | 0.602664 | 1.57% (690), $10.25 | 12.98% (496), $1432.83 | 386 (304 unfilled) | -4.55% [-16.27%, 7.01%] | $0.81 | 286 (210 unfilled) | 4.14% [-8.04%, 15.83%] | $127.29 |
-| series | 2026-10 | 772 | 0.589575 | 0.576507 | 0.585736 | 4.47% (551), $2.94 | 6.67% (404), $137.57 | 341 (210 unfilled) | 4.13% [-8.10%, 17.57%] | $31.19 | 247 (157 unfilled) | 2.76% [-8.16%, 13.70%] | $83.39 |
+| map | 2026-01 | 63 | 0.633585 | — | 0.638920 | 3.22% (41), $54.84 | — | 5 (36 unfilled) | -25.03% [-100.00%, 58.85%] | $49.65 | — | — | — |
+| map | 2026-02 | 102 | 0.641808 | — | 0.611955 | -17.83% (58), $28.31 | — | 18 (40 unfilled) | -47.80% [-83.47%, -8.95%] | $28.98 | — | — | — |
+| map | 2026-03 | 144 | 0.657710 | 0.642971 | 0.642845 | 1.52% (75), $42.01 | 14.98% (32), $63.94 | 39 (36 unfilled) | 1.15% [-40.11%, 44.68%] | $42.63 | 14 (18 unfilled) | 6.12% [-26.77%, 28.96%] | $52.60 |
+| map | 2026-04 | 273 | 0.626009 | 0.639056 | 0.647894 | 11.72% (168), $236.70 | 61.15% (36), $66.70 | 52 (116 unfilled) | -13.61% [-40.22%, 14.08%] | $34.04 | 11 (25 unfilled) | -25.94% [-75.30%, 11.17%] | $48.39 |
+| map | 2026-05 | 452 | 0.642149 | 0.630445 | 0.636432 | -2.19% (275), $35.93 | 7.26% (230), $88.24 | 91 (184 unfilled) | -0.37% [-23.96%, 22.88%] | $35.64 | 87 (143 unfilled) | 3.54% [-16.54%, 23.57%] | $46.28 |
+| map | 2026-06 | 414 | 0.644375 | 0.643558 | 0.650163 | 1.83% (239), $68.71 | 3.05% (225), $96.76 | 45 (194 unfilled) | 5.31% [-24.98%, 36.10%] | $57.10 | 45 (180 unfilled) | 1.96% [-24.62%, 28.90%] | $59.07 |
+| map | 2026-07 | 618 | 0.658436 | 0.654324 | 0.647047 | -7.53% (390), $5.14 | -5.37% (338), $16.23 | 94 (296 unfilled) | -13.22% [-34.71%, 8.41%] | $25.85 | 69 (269 unfilled) | -8.15% [-27.01%, 12.11%] | $46.44 |
+| map | 2026-08 | 873 | 0.618828 | 0.612466 | 0.623251 | -2.89% (602), $9.37 | 7.79% (349), $344.21 | 117 (485 unfilled) | -9.16% [-29.49%, 11.96%] | $32.70 | 73 (276 unfilled) | 5.22% [-17.26%, 28.93%] | $49.68 |
+| map | 2026-09 | 879 | 0.647175 | 0.633400 | 0.631507 | -9.29% (608), $0.29 | -5.94% (353), $37.68 | 222 (386 unfilled) | -19.20% [-34.76%, -2.57%] | $3.42 | 142 (211 unfilled) | -13.06% [-29.96%, 6.62%] | $39.68 |
+| map | 2026-10 | 659 | 0.644262 | 0.627898 | 0.628124 | -14.10% (396), $0.10 | 1.50% (194), $40.93 | 148 (248 unfilled) | -31.80% [-48.11%, -15.70%] | $2.04 | 61 (133 unfilled) | -20.84% [-41.39%, -0.81%] | $24.62 |
+| series | 2026-01 | 51 | 0.580685 | — | 0.602759 | 15.85% (43), $77.32 | — | 36 (7 unfilled) | 29.00% [-14.57%, 72.84%] | $82.93 | — | — | — |
+| series | 2026-02 | 155 | 0.584041 | — | 0.565710 | -10.80% (114), $11.51 | — | 103 (11 unfilled) | -12.71% [-32.33%, 6.54%] | $11.55 | — | — | — |
+| series | 2026-03 | 304 | 0.586470 | 0.572541 | 0.590480 | 2.51% (215), $36.70 | 10.96% (197), $298.87 | 163 (52 unfilled) | 2.03% [-15.73%, 20.61%] | $55.38 | 148 (49 unfilled) | 6.84% [-5.26%, 18.87%] | $142.46 |
+| series | 2026-04 | 322 | 0.585328 | 0.569443 | 0.580957 | 2.57% (233), $11.81 | 8.11% (222), $160.14 | 175 (58 unfilled) | 4.11% [-15.12%, 26.07%] | $34.37 | 161 (61 unfilled) | 12.62% [-3.98%, 30.60%] | $130.88 |
+| series | 2026-05 | 360 | 0.601616 | 0.578633 | 0.584764 | -7.90% (257), $3.26 | 3.55% (224), $41.72 | 210 (47 unfilled) | -8.82% [-25.57%, 7.16%] | $2.91 | 175 (49 unfilled) | 0.69% [-13.07%, 14.54%] | $37.31 |
+| series | 2026-06 | 348 | 0.618771 | 0.625520 | 0.633931 | 9.29% (251), $241.58 | 9.77% (214), $75.82 | 166 (85 unfilled) | 17.16% [-2.58%, 36.87%] | $434.47 | 142 (72 unfilled) | 12.63% [-1.56%, 26.43%] | $71.01 |
+| series | 2026-07 | 513 | 0.627085 | 0.614589 | 0.614447 | 3.61% (374), $0.90 | 0.06% (328), $20.19 | 237 (137 unfilled) | 0.22% [-16.39%, 18.92%] | $28.64 | 201 (127 unfilled) | -3.38% [-18.82%, 15.88%] | $20.31 |
+| series | 2026-08 | 717 | 0.603501 | 0.596392 | 0.614837 | 7.45% (561), $42.07 | 10.94% (421), $696.51 | 272 (289 unfilled) | 1.04% [-13.89%, 17.26%] | $22.27 | 202 (219 unfilled) | 13.16% [-3.72%, 31.90%] | $335.97 |
+| series | 2026-09 | 914 | 0.598134 | 0.587240 | 0.602664 | 2.35% (684), $2.46 | 11.78% (489), $1835.00 | 378 (306 unfilled) | -4.61% [-16.30%, 7.06%] | $0.01 | 287 (202 unfilled) | 1.74% [-9.41%, 13.78%] | $137.75 |
+| series | 2026-10 | 772 | 0.589584 | 0.576552 | 0.585736 | 3.24% (556), $4.11 | 8.82% (394), $244.03 | 343 (213 unfilled) | 3.42% [-8.44%, 15.49%] | $30.80 | 242 (152 unfilled) | 4.17% [-7.07%, 15.01%] | $101.38 |
 
 ### player_round_glicko_rookie_weights: Kalshi comparison and returns
 
@@ -924,40 +924,40 @@ All metrics use identical linked rows within each kind/month. Unfitted blend mon
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4456 | 0.594997 | 0.600358 | -0.005361 [-0.013206, 0.002268] | no |
-| series | tier1 | 725 | 0.630703 | 0.616830 | 0.013872 [-0.002584, 0.029938] | no |
-| series | tier2 | 1962 | 0.594171 | 0.590722 | 0.003449 [-0.006705, 0.013790] | no |
-| series | tier3 | 1727 | 0.583516 | 0.607536 | -0.024020 [-0.038017, -0.010329] | yes |
-| series | unknown | 42 | 0.489338 | 0.471027 | 0.018311 [-0.044404, 0.079300] | no |
-| series | international=1 | 448 | 0.603206 | 0.591446 | 0.011760 [-0.009762, 0.031669] | no |
-| series | international=0 | 4008 | 0.594079 | 0.601354 | -0.007275 [-0.015439, 0.000505] | no |
-| map | all | 4477 | 0.639083 | 0.634789 | 0.004293 [-0.001658, 0.009869] | no |
-| map | tier1 | 1176 | 0.655445 | 0.646419 | 0.009026 [-0.002478, 0.019755] | no |
-| map | tier2 | 1968 | 0.635944 | 0.631291 | 0.004652 [-0.002996, 0.012632] | no |
-| map | tier3 | 1279 | 0.631309 | 0.632601 | -0.001292 [-0.013629, 0.011091] | no |
-| map | unknown | 54 | 0.581280 | 0.560856 | 0.020423 [-0.010986, 0.054196] | no |
-| map | international=1 | 788 | 0.634694 | 0.630059 | 0.004635 [-0.009042, 0.017801] | no |
-| map | international=0 | 3689 | 0.640020 | 0.635800 | 0.004220 [-0.001983, 0.010677] | no |
+| series | all | 4456 | 0.594668 | 0.600358 | -0.005690 [-0.013363, 0.002082] | no |
+| series | tier1 | 725 | 0.628922 | 0.616830 | 0.012092 [-0.003900, 0.028033] | no |
+| series | tier2 | 1962 | 0.594077 | 0.590722 | 0.003355 [-0.006731, 0.013978] | no |
+| series | tier3 | 1727 | 0.583493 | 0.607536 | -0.024043 [-0.037968, -0.010048] | yes |
+| series | unknown | 42 | 0.490548 | 0.471027 | 0.019521 [-0.044998, 0.082868] | no |
+| series | international=1 | 448 | 0.600867 | 0.591446 | 0.009421 [-0.011559, 0.028817] | no |
+| series | international=0 | 4008 | 0.593975 | 0.601354 | -0.007379 [-0.015579, 0.000557] | no |
+| map | all | 4477 | 0.639028 | 0.634789 | 0.004238 [-0.001561, 0.009878] | no |
+| map | tier1 | 1176 | 0.654442 | 0.646419 | 0.008023 [-0.003125, 0.018611] | no |
+| map | tier2 | 1968 | 0.635842 | 0.631291 | 0.004551 [-0.003417, 0.012349] | no |
+| map | tier3 | 1279 | 0.632071 | 0.632601 | -0.000530 [-0.012795, 0.011852] | no |
+| map | unknown | 54 | 0.584221 | 0.560856 | 0.023365 [-0.010524, 0.059012] | no |
+| map | international=1 | 788 | 0.633669 | 0.630059 | 0.003609 [-0.009543, 0.016984] | no |
+| map | international=0 | 3689 | 0.640173 | 0.635800 | 0.004373 [-0.001764, 0.010770] | no |
 
 #### Full-Kelly returns
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 3270 | 3265 | 0.0825 | 2.73% [-1.63%, 6.92%] | $0.09 | 0.002× | 99.93% | $12.48 | 2077 (1193 unfilled) | -0.02% [-5.21%, 5.71%] | $0.08 |
-| series | tier1 | 526 | 526 | 0.0732 | -2.28% [-14.01%, 9.69%] | $0.06 | 0.001× | 99.96% | $16.35 | 426 (100 unfilled) | -4.94% [-17.42%, 7.81%] | $0.36 |
-| series | tier2 | 1374 | 1371 | 0.0728 | -1.48% [-7.89%, 4.92%] | $0.02 | 0.000× | 99.99% | $17.25 | 863 (511 unfilled) | -3.72% [-11.00%, 4.24%] | $0.09 |
-| series | tier3 | 1337 | 1335 | 0.0964 | 9.52% [2.35%, 16.57%] | $10973.44 | 219.469× | 80.48% | $249.12 | 766 (571 unfilled) | 7.28% [-1.08%, 16.74%] | $316.90 |
-| series | unknown | 33 | 33 | 0.0763 | -16.71% [-48.28%, 16.01%] | $41.47 | 0.829× | 32.38% | $5.89 | 22 (11 unfilled) | -13.08% [-54.22%, 30.96%] | $42.04 |
-| series | international=1 | 320 | 320 | 0.0746 | -3.38% [-17.98%, 12.76%] | $2.25 | 0.045× | 99.04% | $13.41 | 275 (45 unfilled) | -7.77% [-22.86%, 7.68%] | $1.03 |
-| series | international=0 | 2950 | 2945 | 0.0834 | 3.39% [-1.08%, 8.14%] | $0.04 | 0.001× | 99.94% | $5.92 | 1802 (1148 unfilled) | 1.17% [-4.44%, 6.78%] | $21.68 |
-| map | all | 2828 | 1810 | 0.0575 | -4.83% [-9.47%, -0.22%] | $0.09 | 0.002× | 99.98% | $46.16 | 821 (2007 unfilled) | -17.08% [-25.31%, -9.25%] | $0.09 |
-| map | tier1 | 745 | 510 | 0.0562 | -4.51% [-13.36%, 4.52%] | $4.70 | 0.094× | 95.55% | $9.25 | 225 (520 unfilled) | -8.48% [-24.83%, 9.10%] | $10.26 |
-| map | tier2 | 1210 | 759 | 0.0520 | -4.42% [-10.92%, 2.24%] | $0.08 | 0.002× | 99.95% | $14.99 | 345 (865 unfilled) | -18.63% [-28.71%, -7.80%] | $0.28 |
-| map | tier3 | 843 | 520 | 0.0667 | -5.29% [-13.05%, 2.37%] | $2.18 | 0.044× | 99.28% | $16.07 | 240 (603 unfilled) | -22.93% [-36.55%, -8.98%] | $2.32 |
-| map | unknown | 30 | 21 | 0.0475 | -16.90% [-48.08%, 13.49%] | $36.25 | 0.725× | 31.58% | $4.78 | 11 (19 unfilled) | -16.99% [-56.80%, 17.05%] | $46.36 |
-| map | international=1 | 507 | 347 | 0.0575 | -2.93% [-14.78%, 8.76%] | $40.55 | 0.811× | 85.54% | $26.91 | 160 (347 unfilled) | -6.35% [-27.22%, 14.91%] | $32.62 |
-| map | international=0 | 2321 | 1463 | 0.0575 | -5.25% [-9.93%, -0.34%] | $0.09 | 0.002× | 99.92% | $11.90 | 661 (1660 unfilled) | -19.69% [-27.21%, -11.83%] | $0.10 |
-| series+map | all | 6098 | 3584 | 0.0709 | -0.78% [-4.50%, 2.69%] | $0.05 | 0.001× | 99.97% | $15.97 | 2898 (3200 unfilled) | -4.85% [-9.52%, -0.06%] | $0.03 |
+| series | all | 3263 | 3258 | 0.0815 | 3.25% [-1.08%, 7.71%] | $0.07 | 0.001× | 99.94% | $12.17 | 2068 (1195 unfilled) | 0.65% [-4.71%, 5.91%] | $0.07 |
+| series | tier1 | 527 | 527 | 0.0707 | -0.42% [-11.99%, 11.78%] | $0.09 | 0.002× | 99.94% | $15.55 | 428 (99 unfilled) | -2.47% [-15.20%, 9.51%] | $0.16 |
+| series | tier2 | 1379 | 1376 | 0.0718 | -2.01% [-8.31%, 4.46%] | $0.08 | 0.002× | 99.96% | $21.31 | 857 (522 unfilled) | -3.90% [-11.60%, 3.95%] | $0.20 |
+| series | tier3 | 1325 | 1323 | 0.0958 | 10.61% [3.78%, 17.20%] | $10891.33 | 217.827× | 79.33% | $249.12 | 761 (564 unfilled) | 7.96% [-0.62%, 17.05%] | $374.89 |
+| series | unknown | 32 | 32 | 0.0821 | -14.10% [-45.28%, 20.91%] | $42.64 | 0.853× | 30.66% | $5.91 | 22 (10 unfilled) | -13.08% [-54.22%, 30.96%] | $41.56 |
+| series | international=1 | 323 | 323 | 0.0714 | 0.45% [-16.07%, 16.60%] | $2.38 | 0.048× | 98.95% | $13.02 | 279 (44 unfilled) | -2.63% [-17.98%, 13.46%] | $1.06 |
+| series | international=0 | 2940 | 2935 | 0.0826 | 3.56% [-0.78%, 8.44%] | $0.07 | 0.001× | 99.89% | $6.56 | 1789 (1151 unfilled) | 1.17% [-4.31%, 6.87%] | $18.47 |
+| map | all | 2807 | 1791 | 0.0569 | -4.69% [-9.11%, 0.00%] | $0.09 | 0.002× | 99.97% | $32.46 | 813 (1994 unfilled) | -17.41% [-24.91%, -10.03%] | $0.07 |
+| map | tier1 | 747 | 513 | 0.0541 | -4.55% [-13.26%, 4.66%] | $5.60 | 0.112× | 94.34% | $8.04 | 227 (520 unfilled) | -9.08% [-25.64%, 8.32%] | $9.75 |
+| map | tier2 | 1182 | 741 | 0.0525 | -3.94% [-10.77%, 3.12%] | $0.09 | 0.002× | 99.94% | $13.16 | 336 (846 unfilled) | -19.55% [-30.64%, -8.32%] | $0.19 |
+| map | tier3 | 848 | 516 | 0.0656 | -5.23% [-13.05%, 3.44%] | $2.27 | 0.045× | 99.21% | $15.51 | 239 (609 unfilled) | -22.35% [-35.75%, -8.58%] | $2.79 |
+| map | unknown | 30 | 21 | 0.0481 | -22.79% [-53.00%, 6.46%] | $36.05 | 0.721× | 32.18% | $4.78 | 11 (19 unfilled) | -16.99% [-56.80%, 17.05%] | $46.45 |
+| map | international=1 | 502 | 348 | 0.0560 | -4.02% [-15.32%, 8.04%] | $37.31 | 0.746× | 82.02% | $19.48 | 160 (342 unfilled) | -6.48% [-27.65%, 16.02%] | $30.90 |
+| map | international=0 | 2305 | 1443 | 0.0571 | -4.84% [-9.28%, -0.03%] | $0.10 | 0.002× | 99.92% | $11.51 | 653 (1652 unfilled) | -20.09% [-27.79%, -12.31%] | $0.06 |
+| series+map | all | 6070 | 3573 | 0.0701 | -0.42% [-4.14%, 3.14%] | $0.05 | 0.001× | 99.95% | $10.55 | 2881 (3189 unfilled) | -4.44% [-9.03%, 0.56%] | $0.07 |
 
 #### Monthly market blend fits
 
@@ -969,61 +969,61 @@ UTC monthly fits use earlier rows of the same kind from 2026-01-01, excluding ho
 | 2026-01 | map | 0 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | series | 51 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | map | 63 | 1.000000 | 0.000000 | unfitted |
-| 2026-03 | series | 206 | 1.429141 | 0.713157 | fitted |
-| 2026-03 | map | 165 | 1.243703 | 0.156871 | fitted |
-| 2026-04 | series | 510 | 1.427210 | 0.840946 | fitted |
-| 2026-04 | map | 309 | 1.195945 | 0.207217 | fitted |
-| 2026-05 | series | 832 | 1.380243 | 0.793125 | fitted |
-| 2026-05 | map | 582 | 1.324317 | 0.791176 | fitted |
-| 2026-06 | series | 1192 | 1.378099 | 0.701722 | fitted |
-| 2026-06 | map | 1034 | 1.356969 | 0.749742 | fitted |
-| 2026-07 | series | 1540 | 1.298813 | 0.717070 | fitted |
-| 2026-07 | map | 1448 | 1.315498 | 0.755874 | fitted |
-| 2026-08 | series | 2053 | 1.240421 | 0.626065 | fitted |
-| 2026-08 | map | 2066 | 1.179960 | 0.575474 | fitted |
-| 2026-09 | series | 2770 | 1.236628 | 0.661569 | fitted |
-| 2026-09 | map | 2939 | 1.244118 | 0.635687 | fitted |
-| 2026-10 | series | 3684 | 1.235600 | 0.686911 | fitted |
-| 2026-10 | map | 3818 | 1.217517 | 0.529179 | fitted |
+| 2026-03 | series | 206 | 1.442335 | 0.749188 | fitted |
+| 2026-03 | map | 165 | 1.218435 | 0.060951 | fitted |
+| 2026-04 | series | 510 | 1.426235 | 0.823474 | fitted |
+| 2026-04 | map | 309 | 1.184503 | 0.160308 | fitted |
+| 2026-05 | series | 832 | 1.372441 | 0.766276 | fitted |
+| 2026-05 | map | 582 | 1.307760 | 0.755416 | fitted |
+| 2026-06 | series | 1192 | 1.382460 | 0.712969 | fitted |
+| 2026-06 | map | 1034 | 1.359719 | 0.758375 | fitted |
+| 2026-07 | series | 1540 | 1.300636 | 0.724478 | fitted |
+| 2026-07 | map | 1448 | 1.313794 | 0.756247 | fitted |
+| 2026-08 | series | 2053 | 1.240113 | 0.630122 | fitted |
+| 2026-08 | map | 2066 | 1.179309 | 0.573594 | fitted |
+| 2026-09 | series | 2770 | 1.238566 | 0.673985 | fitted |
+| 2026-09 | map | 2939 | 1.244446 | 0.638996 | fitted |
+| 2026-10 | series | 3684 | 1.237434 | 0.696647 | fitted |
+| 2026-10 | map | 3818 | 1.219471 | 0.534852 | fitted |
 
 #### Log loss vs Kalshi (blended)
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4250 | 0.587012 | 0.601593 | -0.014581 [-0.020078, -0.009170] | yes |
-| series | tier1 | 614 | 0.621026 | 0.616540 | 0.004486 [-0.006341, 0.015635] | no |
-| series | tier2 | 1873 | 0.583196 | 0.593752 | -0.010556 [-0.017792, -0.003460] | yes |
-| series | tier3 | 1721 | 0.582443 | 0.607981 | -0.025537 [-0.035688, -0.015440] | yes |
-| series | unknown | 42 | 0.447165 | 0.471027 | -0.023863 [-0.056523, 0.010582] | no |
-| series | international=1 | 370 | 0.589094 | 0.589385 | -0.000291 [-0.013554, 0.013705] | no |
-| series | international=0 | 3880 | 0.586814 | 0.602757 | -0.015944 [-0.021791, -0.010169] | yes |
-| map | all | 4312 | 0.632059 | 0.635269 | -0.003210 [-0.006854, 0.000459] | no |
-| map | tier1 | 1046 | 0.654007 | 0.649504 | 0.004502 [-0.002295, 0.011013] | no |
-| map | tier2 | 1936 | 0.625447 | 0.631140 | -0.005693 [-0.010448, -0.000835] | yes |
-| map | tier3 | 1276 | 0.627602 | 0.633014 | -0.005412 [-0.013322, 0.002855] | no |
-| map | unknown | 54 | 0.549293 | 0.560856 | -0.011564 [-0.032919, 0.009334] | no |
-| map | international=1 | 686 | 0.627673 | 0.629473 | -0.001800 [-0.008701, 0.005680] | no |
-| map | international=0 | 3626 | 0.632889 | 0.636366 | -0.003477 [-0.007571, 0.000746] | no |
+| series | all | 4250 | 0.586908 | 0.601593 | -0.014685 [-0.020248, -0.009415] | yes |
+| series | tier1 | 614 | 0.619582 | 0.616540 | 0.003042 [-0.007231, 0.013817] | no |
+| series | tier2 | 1873 | 0.583214 | 0.593752 | -0.010538 [-0.017771, -0.003506] | yes |
+| series | tier3 | 1721 | 0.582688 | 0.607981 | -0.025292 [-0.035527, -0.015249] | yes |
+| series | unknown | 42 | 0.446865 | 0.471027 | -0.024162 [-0.057715, 0.010999] | no |
+| series | international=1 | 370 | 0.586676 | 0.589385 | -0.002709 [-0.014905, 0.009610] | no |
+| series | international=0 | 3880 | 0.586930 | 0.602757 | -0.015827 [-0.021575, -0.010037] | yes |
+| map | all | 4312 | 0.632141 | 0.635269 | -0.003129 [-0.006722, 0.000485] | no |
+| map | tier1 | 1046 | 0.653568 | 0.649504 | 0.004064 [-0.002389, 0.010216] | no |
+| map | tier2 | 1936 | 0.625422 | 0.631140 | -0.005718 [-0.010389, -0.001019] | yes |
+| map | tier3 | 1276 | 0.628270 | 0.633014 | -0.004744 [-0.012676, 0.003750] | no |
+| map | unknown | 54 | 0.549409 | 0.560856 | -0.011447 [-0.032465, 0.009312] | no |
+| map | international=1 | 686 | 0.627575 | 0.629473 | -0.001898 [-0.008268, 0.005049] | no |
+| map | international=0 | 3626 | 0.633004 | 0.636366 | -0.003362 [-0.007371, 0.000662] | no |
 
 #### Full-Kelly returns (blended)
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 2647 | 2643 | 0.0515 | 8.41% [4.43%, 12.34%] | $13532.46 | 270.649× | 62.37% | $249.12 | 1648 (999 unfilled) | 5.32% [0.45%, 10.45%] | $769.27 |
-| series | tier1 | 337 | 337 | 0.0371 | -4.53% [-15.72%, 6.41%] | $11.06 | 0.221× | 92.26% | $8.98 | 261 (76 unfilled) | -4.80% [-17.06%, 7.91%] | $25.10 |
-| series | tier2 | 1129 | 1128 | 0.0456 | 5.27% [-0.43%, 10.95%] | $5491.01 | 109.820× | 60.61% | $249.47 | 692 (437 unfilled) | 2.11% [-4.51%, 8.87%] | $75.31 |
-| series | tier3 | 1153 | 1150 | 0.0616 | 15.42% [9.09%, 21.76%] | $12442.14 | 248.843× | 69.84% | $249.12 | 677 (476 unfilled) | 12.67% [5.16%, 21.30%] | $1396.11 |
-| series | unknown | 28 | 28 | 0.0486 | 2.60% [-24.44%, 29.48%] | $64.58 | 1.292× | 12.16% | $6.45 | 18 (10 unfilled) | -0.20% [-37.94%, 38.62%] | $55.37 |
-| series | international=1 | 200 | 200 | 0.0345 | -3.91% [-18.57%, 11.64%] | $67.05 | 1.341× | 52.52% | $9.67 | 165 (35 unfilled) | -5.27% [-21.04%, 10.98%] | $91.56 |
-| series | international=0 | 2447 | 2443 | 0.0529 | 9.42% [5.55%, 13.42%] | $13655.86 | 273.117× | 86.84% | $249.12 | 1483 (964 unfilled) | 6.51% [1.40%, 11.63%] | $553.74 |
-| map | all | 1832 | 1150 | 0.0338 | 4.36% [-0.67%, 9.49%] | $667.99 | 13.360× | 78.89% | $136.80 | 519 (1313 unfilled) | -6.80% [-14.57%, 1.80%] | $13.69 |
-| map | tier1 | 363 | 245 | 0.0298 | -1.32% [-13.08%, 11.77%] | $16.85 | 0.337× | 80.44% | $6.62 | 111 (252 unfilled) | -8.00% [-26.97%, 11.89%] | $33.96 |
-| map | tier2 | 798 | 492 | 0.0294 | 3.64% [-3.25%, 10.29%] | $169.23 | 3.385× | 54.44% | $31.74 | 214 (584 unfilled) | -9.02% [-21.01%, 2.11%] | $23.44 |
-| map | tier3 | 651 | 400 | 0.0415 | 8.10% [0.54%, 15.94%] | $546.85 | 10.937× | 64.49% | $60.34 | 185 (466 unfilled) | -4.93% [-18.33%, 9.31%] | $33.44 |
-| map | unknown | 20 | 13 | 0.0297 | 15.16% [-9.30%, 40.33%] | $56.10 | 1.122× | 6.81% | $4.97 | 9 (11 unfilled) | 22.60% [-1.92%, 51.23%] | $57.13 |
-| map | international=1 | 244 | 168 | 0.0284 | 7.82% [-7.43%, 24.55%] | $68.83 | 1.377× | 47.22% | $8.40 | 83 (161 unfilled) | 2.32% [-21.80%, 27.89%] | $54.81 |
-| map | international=0 | 1588 | 982 | 0.0346 | 3.83% [-1.12%, 8.84%] | $503.58 | 10.072× | 76.22% | $67.50 | 436 (1152 unfilled) | -8.54% [-16.89%, -0.29%] | $12.13 |
-| series+map | all | 4479 | 2770 | 0.0443 | 6.75% [3.51%, 10.30%] | $19834.28 | 396.686× | 42.30% | $249.47 | 2167 (2312 unfilled) | 2.42% [-1.91%, 6.89%] | $402.54 |
+| series | all | 2651 | 2647 | 0.0511 | 9.35% [5.46%, 13.40%] | $11021.94 | 220.439× | 81.14% | $249.12 | 1645 (1006 unfilled) | 5.93% [0.92%, 10.92%] | $911.00 |
+| series | tier1 | 330 | 330 | 0.0360 | -1.90% [-13.35%, 9.36%] | $21.07 | 0.421× | 85.64% | $9.19 | 256 (74 unfilled) | -2.97% [-15.24%, 9.29%] | $29.58 |
+| series | tier2 | 1138 | 1137 | 0.0449 | 6.41% [0.88%, 12.03%] | $6349.44 | 126.989× | 57.50% | $249.47 | 696 (442 unfilled) | 2.60% [-4.10%, 9.69%] | $63.62 |
+| series | tier3 | 1154 | 1151 | 0.0615 | 15.74% [9.51%, 22.27%] | $12515.65 | 250.313× | 70.72% | $249.12 | 674 (480 unfilled) | 13.09% [5.03%, 21.57%] | $1567.50 |
+| series | unknown | 29 | 29 | 0.0499 | -1.00% [-29.09%, 24.82%] | $63.25 | 1.265× | 11.31% | $6.19 | 19 (10 unfilled) | -5.54% [-40.38%, 34.88%] | $53.88 |
+| series | international=1 | 196 | 196 | 0.0322 | 1.51% [-13.89%, 18.76%] | $82.22 | 1.644× | 51.99% | $11.84 | 162 (34 unfilled) | -0.30% [-15.41%, 16.31%] | $91.53 |
+| series | international=0 | 2455 | 2451 | 0.0526 | 9.98% [5.95%, 14.04%] | $13744.07 | 274.881× | 81.14% | $249.12 | 1483 (972 unfilled) | 6.61% [1.93%, 12.11%] | $716.23 |
+| map | all | 1772 | 1114 | 0.0333 | 4.14% [-0.50%, 8.97%] | $389.66 | 7.793× | 76.06% | $68.31 | 503 (1269 unfilled) | -6.21% [-14.18%, 2.28%] | $12.70 |
+| map | tier1 | 336 | 230 | 0.0272 | -4.97% [-16.19%, 6.46%] | $19.83 | 0.397× | 76.87% | $6.84 | 103 (233 unfilled) | -4.01% [-23.58%, 16.95%] | $32.50 |
+| map | tier2 | 776 | 478 | 0.0290 | 4.48% [-2.22%, 11.75%] | $167.06 | 3.341× | 42.12% | $26.59 | 209 (567 unfilled) | -10.61% [-22.02%, 0.81%] | $21.44 |
+| map | tier3 | 639 | 391 | 0.0420 | 8.29% [0.16%, 16.43%] | $357.45 | 7.149× | 63.38% | $38.90 | 183 (456 unfilled) | -3.52% [-17.87%, 10.84%] | $36.03 |
+| map | unknown | 21 | 15 | 0.0267 | 11.06% [-17.32%, 37.77%] | $55.83 | 1.117× | 6.61% | $4.93 | 8 (13 unfilled) | 19.37% [-21.20%, 52.77%] | $56.94 |
+| map | international=1 | 227 | 158 | 0.0247 | 3.12% [-10.23%, 16.52%] | $63.95 | 1.279× | 46.64% | $8.14 | 78 (149 unfilled) | 6.76% [-15.18%, 31.52%] | $51.80 |
+| map | international=0 | 1545 | 956 | 0.0346 | 4.29% [-0.83%, 9.60%] | $384.13 | 7.683× | 72.72% | $42.15 | 425 (1120 unfilled) | -8.59% [-16.99%, -0.31%] | $12.03 |
+| series+map | all | 4423 | 2771 | 0.0440 | 7.26% [3.74%, 10.67%] | $15678.79 | 313.576× | 58.80% | $249.12 | 2148 (2275 unfilled) | 3.09% [-1.35%, 7.87%] | $444.22 |
 
 #### Monthly breakdown
 
@@ -1031,26 +1031,26 @@ All metrics use identical linked rows within each kind/month. Unfitted blend mon
 
 | Kind | Month | Rows | Model log loss | Blended log loss | Kalshi log loss | Raw flat ROI (bets), unlimited Kelly final | Blended flat ROI (bets), unlimited Kelly final | Raw bets filled | Raw Flat ROI depth-capped [95% interval] | Raw Kelly depth-capped final | Blended bets filled | Blended Flat ROI depth-capped [95% interval] | Blended Kelly depth-capped final |
 |---|---|---:|---:|---:|---:|---|---|---:|---|---:|---:|---|---:|
-| map | 2026-01 | 63 | 0.631801 | — | 0.638920 | 14.89% (42), $68.21 | — | 4 (38 unfilled) | -3.09% [-100.00%, 95.23%] | $50.62 | — | — | — |
-| map | 2026-02 | 102 | 0.644367 | — | 0.611955 | -26.74% (58), $25.11 | — | 21 (37 unfilled) | -69.47% [-100.00%, -34.77%] | $25.70 | — | — | — |
-| map | 2026-03 | 144 | 0.653556 | 0.642727 | 0.642845 | 1.84% (79), $40.38 | 10.13% (28), $53.89 | 40 (39 unfilled) | 14.05% [-26.54%, 58.60%] | $51.95 | 14 (14 unfilled) | -4.23% [-39.90%, 22.32%] | $49.44 |
-| map | 2026-04 | 273 | 0.623220 | 0.638026 | 0.647894 | 16.45% (161), $285.53 | 73.35% (32), $89.96 | 50 (111 unfilled) | -15.69% [-43.59%, 13.75%] | $33.86 | 10 (22 unfilled) | -20.41% [-65.20%, 20.35%] | $47.06 |
-| map | 2026-05 | 452 | 0.640346 | 0.629637 | 0.636432 | -2.35% (277), $48.46 | 4.17% (231), $107.51 | 94 (183 unfilled) | -4.58% [-28.26%, 18.24%] | $30.28 | 90 (141 unfilled) | -4.26% [-24.61%, 15.33%] | $49.97 |
-| map | 2026-06 | 414 | 0.641458 | 0.641087 | 0.650163 | 3.91% (236), $98.54 | 9.56% (215), $113.91 | 49 (187 unfilled) | -2.94% [-31.03%, 30.60%] | $44.36 | 46 (169 unfilled) | 4.40% [-21.35%, 31.35%] | $55.28 |
-| map | 2026-07 | 618 | 0.655439 | 0.653475 | 0.647047 | -7.02% (381), $6.57 | -4.52% (347), $16.55 | 86 (295 unfilled) | -9.88% [-31.96%, 13.31%] | $29.45 | 72 (275 unfilled) | -2.33% [-22.60%, 16.21%] | $46.67 |
-| map | 2026-08 | 873 | 0.619331 | 0.611896 | 0.623251 | -2.00% (592), $13.90 | 12.02% (388), $306.43 | 116 (476 unfilled) | -8.38% [-28.83%, 13.12%] | $34.38 | 76 (312 unfilled) | 7.81% [-15.64%, 32.66%] | $58.92 |
-| map | 2026-09 | 879 | 0.647004 | 0.634692 | 0.631507 | -12.49% (593), $0.07 | -4.76% (379), $25.74 | 207 (386 unfilled) | -26.22% [-42.19%, -10.54%] | $0.66 | 141 (238 unfilled) | -16.86% [-31.68%, -1.14%] | $23.97 |
-| map | 2026-10 | 659 | 0.640272 | 0.626361 | 0.628124 | -11.12% (409), $0.42 | 4.96% (212), $51.17 | 154 (255 unfilled) | -29.23% [-44.53%, -13.84%] | $2.58 | 70 (142 unfilled) | -16.21% [-35.48%, 2.96%] | $24.07 |
-| series | 2026-01 | 51 | 0.572357 | — | 0.602759 | 22.55% (38), $106.74 | — | 34 (4 unfilled) | 37.27% [-7.13%, 85.27%] | $107.08 | — | — | — |
-| series | 2026-02 | 155 | 0.578866 | — | 0.565710 | -13.90% (116), $11.46 | — | 104 (12 unfilled) | -17.00% [-36.36%, 2.19%] | $11.66 | — | — | — |
-| series | 2026-03 | 304 | 0.583253 | 0.571458 | 0.590480 | 2.90% (224), $48.26 | 12.07% (197), $292.49 | 174 (50 unfilled) | 1.92% [-14.33%, 19.30%] | $54.45 | 147 (50 unfilled) | 10.54% [-1.33%, 23.53%] | $142.50 |
-| series | 2026-04 | 322 | 0.579510 | 0.566600 | 0.580957 | -0.75% (237), $29.17 | 6.76% (223), $127.38 | 170 (67 unfilled) | 4.36% [-14.84%, 26.03%] | $55.34 | 163 (60 unfilled) | 10.67% [-5.08%, 28.47%] | $121.40 |
-| series | 2026-05 | 360 | 0.600817 | 0.579972 | 0.584764 | -7.06% (264), $4.36 | 0.94% (247), $68.36 | 213 (51 unfilled) | -9.56% [-24.92%, 5.83%] | $1.97 | 196 (51 unfilled) | -2.27% [-16.29%, 11.35%] | $44.11 |
-| series | 2026-06 | 348 | 0.613647 | 0.621359 | 0.633931 | 8.80% (242), $251.80 | 9.18% (215), $133.82 | 157 (85 unfilled) | 18.61% [-1.02%, 38.91%] | $335.07 | 137 (78 unfilled) | 8.87% [-5.58%, 22.97%] | $83.68 |
-| series | 2026-07 | 513 | 0.619201 | 0.609705 | 0.614447 | 2.31% (379), $1.37 | 0.73% (342), $19.57 | 241 (138 unfilled) | 1.22% [-15.12%, 20.49%] | $32.27 | 214 (128 unfilled) | -1.67% [-16.10%, 16.17%] | $12.99 |
-| series | 2026-08 | 717 | 0.598945 | 0.591806 | 0.614837 | 6.82% (556), $81.61 | 11.63% (449), $638.21 | 272 (284 unfilled) | 2.38% [-12.87%, 18.77%] | $47.37 | 219 (230 unfilled) | 13.25% [-3.09%, 31.47%] | $328.44 |
-| series | 2026-09 | 914 | 0.589270 | 0.582209 | 0.602664 | 5.56% (676), $40.70 | 14.89% (535), $2967.71 | 377 (299 unfilled) | -5.18% [-17.19%, 6.83%] | $5.78 | 305 (230 unfilled) | 3.61% [-6.48%, 14.26%] | $160.16 |
-| series | 2026-10 | 772 | 0.586725 | 0.575606 | 0.585736 | 0.95% (538), $14.20 | 6.23% (439), $208.24 | 335 (203 unfilled) | -1.48% [-13.61%, 11.03%] | $36.47 | 267 (172 unfilled) | 4.02% [-6.76%, 13.82%] | $80.60 |
+| map | 2026-01 | 63 | 0.635848 | — | 0.638920 | 8.32% (41), $56.78 | — | 4 (37 unfilled) | -6.25% [-100.00%, 88.86%] | $49.63 | — | — | — |
+| map | 2026-02 | 102 | 0.643874 | — | 0.611955 | -24.21% (62), $26.09 | — | 22 (40 unfilled) | -57.27% [-87.16%, -21.90%] | $26.19 | — | — | — |
+| map | 2026-03 | 144 | 0.654158 | 0.643034 | 0.642845 | -1.46% (82), $35.77 | 9.58% (14), $48.38 | 42 (40 unfilled) | 3.29% [-33.78%, 43.93%] | $47.99 | 9 (5 unfilled) | 1.31% [-45.47%, 31.61%] | $47.24 |
+| map | 2026-04 | 273 | 0.624236 | 0.640646 | 0.647894 | 15.89% (170), $270.60 | 39.59% (26), $67.01 | 54 (116 unfilled) | -11.78% [-36.75%, 12.72%] | $34.58 | 7 (19 unfilled) | -6.60% [-46.63%, 32.93%] | $50.03 |
+| map | 2026-05 | 452 | 0.638671 | 0.628427 | 0.636432 | -1.85% (272), $48.76 | 8.72% (220), $116.39 | 93 (179 unfilled) | -2.85% [-26.35%, 20.05%] | $33.63 | 84 (136 unfilled) | 4.09% [-16.01%, 25.23%] | $51.28 |
+| map | 2026-06 | 414 | 0.641939 | 0.641599 | 0.650163 | 5.52% (227), $104.27 | 9.07% (215), $98.84 | 47 (180 unfilled) | -5.39% [-33.12%, 25.68%] | $45.78 | 47 (168 unfilled) | 2.20% [-23.39%, 29.26%] | $54.31 |
+| map | 2026-07 | 618 | 0.655724 | 0.653655 | 0.647047 | -7.43% (380), $6.72 | -5.10% (330), $15.85 | 85 (295 unfilled) | -8.48% [-31.45%, 13.97%] | $31.73 | 69 (261 unfilled) | -2.54% [-22.22%, 16.49%] | $46.91 |
+| map | 2026-08 | 873 | 0.618866 | 0.611709 | 0.623251 | -2.15% (592), $18.34 | 12.57% (380), $283.88 | 115 (477 unfilled) | -8.99% [-29.43%, 12.51%] | $33.13 | 77 (303 unfilled) | 6.84% [-15.66%, 31.65%] | $59.14 |
+| map | 2026-09 | 879 | 0.646626 | 0.634494 | 0.631507 | -11.54% (577), $0.05 | -4.03% (380), $30.74 | 201 (376 unfilled) | -27.34% [-42.23%, -10.86%] | $0.68 | 145 (235 unfilled) | -18.30% [-31.96%, -2.82%] | $20.81 |
+| map | 2026-10 | 659 | 0.640736 | 0.626594 | 0.628124 | -11.35% (404), $0.17 | 3.58% (207), $50.93 | 150 (254 unfilled) | -30.64% [-46.08%, -13.79%] | $1.76 | 65 (142 unfilled) | -18.98% [-38.38%, 0.08%] | $25.01 |
+| series | 2026-01 | 51 | 0.575621 | — | 0.602759 | 20.50% (41), $103.89 | — | 37 (4 unfilled) | 33.81% [-7.25%, 77.91%] | $101.44 | — | — | — |
+| series | 2026-02 | 155 | 0.576456 | — | 0.565710 | -7.52% (116), $13.82 | — | 101 (15 unfilled) | -8.34% [-27.66%, 12.08%] | $15.03 | — | — | — |
+| series | 2026-03 | 304 | 0.585765 | 0.572724 | 0.590480 | 4.15% (219), $44.36 | 10.54% (207), $285.02 | 168 (51 unfilled) | 3.32% [-13.17%, 21.35%] | $49.93 | 154 (53 unfilled) | 8.32% [-3.45%, 20.77%] | $124.79 |
+| series | 2026-04 | 322 | 0.580884 | 0.567741 | 0.580957 | -2.64% (236), $29.57 | 6.28% (223), $111.06 | 168 (68 unfilled) | 2.35% [-16.11%, 23.43%] | $54.41 | 163 (60 unfilled) | 9.75% [-4.46%, 27.23%] | $98.15 |
+| series | 2026-05 | 360 | 0.597081 | 0.577031 | 0.584764 | -3.17% (263), $5.06 | 3.83% (240), $75.67 | 212 (51 unfilled) | -7.74% [-23.36%, 9.39%] | $1.59 | 189 (51 unfilled) | 0.70% [-12.52%, 15.43%] | $36.68 |
+| series | 2026-06 | 348 | 0.613493 | 0.621505 | 0.633931 | 9.53% (244), $252.34 | 8.28% (218), $114.40 | 162 (82 unfilled) | 18.15% [-1.04%, 39.19%] | $335.99 | 140 (78 unfilled) | 6.39% [-7.94%, 20.53%] | $78.06 |
+| series | 2026-07 | 513 | 0.619614 | 0.610749 | 0.614447 | 2.57% (380), $1.57 | 1.39% (349), $27.34 | 240 (140 unfilled) | 1.68% [-14.89%, 21.99%] | $51.40 | 216 (133 unfilled) | -0.44% [-15.09%, 16.47%] | $26.53 |
+| series | 2026-08 | 717 | 0.596834 | 0.590575 | 0.614837 | 7.91% (556), $129.63 | 13.42% (443), $662.20 | 272 (284 unfilled) | 3.22% [-11.73%, 21.21%] | $56.43 | 210 (233 unfilled) | 17.30% [1.20%, 36.12%] | $356.26 |
+| series | 2026-09 | 914 | 0.589610 | 0.582475 | 0.602664 | 4.52% (666), $20.16 | 15.72% (540), $3859.97 | 374 (292 unfilled) | -5.59% [-17.41%, 6.11%] | $4.78 | 308 (232 unfilled) | 2.93% [-7.74%, 13.54%] | $201.27 |
+| series | 2026-10 | 772 | 0.586629 | 0.575497 | 0.585736 | 0.87% (542), $17.06 | 8.26% (431), $268.85 | 334 (208 unfilled) | -1.49% [-13.65%, 10.79%] | $34.43 | 265 (166 unfilled) | 5.33% [-4.41%, 16.01%] | $88.22 |
 
 ### team_elo+none: Kalshi comparison and returns
 
@@ -1196,40 +1196,40 @@ none
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4456 | 0.600306 | 0.600358 | -0.000053 [-0.008150, 0.007996] | no |
-| series | tier1 | 725 | 0.634196 | 0.616830 | 0.017366 [-0.000104, 0.034578] | no |
-| series | tier2 | 1962 | 0.597202 | 0.590722 | 0.006480 [-0.003845, 0.017065] | no |
-| series | tier3 | 1727 | 0.592254 | 0.607536 | -0.015282 [-0.029514, -0.000721] | yes |
-| series | unknown | 42 | 0.491357 | 0.471027 | 0.020329 [-0.038591, 0.078661] | no |
-| series | international=1 | 448 | 0.607693 | 0.591446 | 0.016248 [-0.006945, 0.037620] | no |
-| series | international=0 | 4008 | 0.599480 | 0.601354 | -0.001875 [-0.010319, 0.006261] | no |
-| map | all | 4477 | 0.641027 | 0.634789 | 0.006237 [0.000224, 0.012190] | yes |
-| map | tier1 | 1176 | 0.657301 | 0.646419 | 0.010882 [-0.001220, 0.022426] | no |
-| map | tier2 | 1968 | 0.637418 | 0.631291 | 0.006126 [-0.002066, 0.014388] | no |
-| map | tier3 | 1279 | 0.634187 | 0.632601 | 0.001586 [-0.011520, 0.014496] | no |
-| map | unknown | 54 | 0.580145 | 0.560856 | 0.019289 [-0.012097, 0.053023] | no |
-| map | international=1 | 788 | 0.636734 | 0.630059 | 0.006675 [-0.007771, 0.020655] | no |
-| map | international=0 | 3689 | 0.641944 | 0.635800 | 0.006144 [-0.000259, 0.012618] | no |
+| series | all | 4456 | 0.600331 | 0.600358 | -0.000027 [-0.008019, 0.007842] | no |
+| series | tier1 | 725 | 0.632427 | 0.616830 | 0.015597 [-0.001403, 0.032254] | no |
+| series | tier2 | 1962 | 0.597128 | 0.590722 | 0.006406 [-0.003882, 0.017192] | no |
+| series | tier3 | 1727 | 0.593099 | 0.607536 | -0.014437 [-0.028553, 0.000194] | no |
+| series | unknown | 42 | 0.493300 | 0.471027 | 0.022272 [-0.038790, 0.082968] | no |
+| series | international=1 | 448 | 0.604953 | 0.591446 | 0.013507 [-0.009687, 0.034181] | no |
+| series | international=0 | 4008 | 0.599815 | 0.601354 | -0.001540 [-0.010026, 0.006759] | no |
+| map | all | 4477 | 0.640741 | 0.634789 | 0.005952 [0.000085, 0.011944] | yes |
+| map | tier1 | 1176 | 0.656614 | 0.646419 | 0.010195 [-0.001834, 0.021495] | no |
+| map | tier2 | 1968 | 0.637327 | 0.631291 | 0.006036 [-0.002158, 0.014120] | no |
+| map | tier3 | 1279 | 0.633805 | 0.632601 | 0.001205 [-0.011508, 0.014028] | no |
+| map | unknown | 54 | 0.583784 | 0.560856 | 0.022928 [-0.011339, 0.059749] | no |
+| map | international=1 | 788 | 0.636177 | 0.630059 | 0.006118 [-0.008416, 0.019902] | no |
+| map | international=0 | 3689 | 0.641717 | 0.635800 | 0.005917 [-0.000212, 0.012186] | no |
 
 #### Full-Kelly returns
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 3316 | 3311 | 0.0819 | 2.00% [-2.29%, 6.57%] | $0.03 | 0.001× | 99.97% | $9.61 | 2108 (1208 unfilled) | 0.02% [-5.35%, 5.35%] | $0.09 |
-| series | tier1 | 536 | 536 | 0.0780 | 0.03% [-11.36%, 12.19%] | $0.10 | 0.002× | 99.92% | $12.56 | 432 (104 unfilled) | -4.05% [-15.88%, 8.62%] | $0.09 |
-| series | tier2 | 1406 | 1403 | 0.0716 | -2.58% [-9.12%, 3.98%] | $0.08 | 0.002× | 99.95% | $16.00 | 884 (522 unfilled) | -3.44% [-10.86%, 4.95%] | $0.05 |
-| series | tier3 | 1341 | 1339 | 0.0945 | 8.13% [1.35%, 15.21%] | $5297.53 | 105.951× | 86.78% | $249.12 | 769 (572 unfilled) | 6.65% [-2.33%, 15.58%] | $105.61 |
-| series | unknown | 33 | 33 | 0.0729 | -19.63% [-49.59%, 13.36%] | $32.55 | 0.651× | 38.66% | $5.10 | 23 (10 unfilled) | -11.86% [-49.11%, 31.13%] | $37.63 |
-| series | international=1 | 338 | 338 | 0.0790 | 0.67% [-15.46%, 17.32%] | $0.72 | 0.014× | 99.50% | $11.49 | 290 (48 unfilled) | -5.45% [-20.57%, 10.36%] | $0.51 |
-| series | international=0 | 2978 | 2973 | 0.0822 | 2.15% [-2.29%, 6.54%] | $0.08 | 0.002× | 99.87% | $6.32 | 1818 (1160 unfilled) | 0.89% [-4.89%, 6.71%] | $0.08 |
-| map | all | 2876 | 1825 | 0.0593 | -5.59% [-10.02%, -1.07%] | $0.09 | 0.002× | 99.98% | $36.65 | 834 (2042 unfilled) | -13.93% [-21.51%, -6.28%] | $0.09 |
-| map | tier1 | 754 | 513 | 0.0603 | -4.58% [-13.26%, 4.66%] | $4.14 | 0.083× | 95.75% | $8.27 | 227 (527 unfilled) | -5.50% [-21.78%, 12.10%] | $11.73 |
-| map | tier2 | 1239 | 769 | 0.0528 | -5.94% [-12.33%, 0.75%] | $0.10 | 0.002× | 99.93% | $13.37 | 356 (883 unfilled) | -16.59% [-26.63%, -5.97%] | $0.32 |
-| map | tier3 | 851 | 521 | 0.0686 | -5.68% [-13.50%, 2.34%] | $5.59 | 0.112× | 98.41% | $19.13 | 239 (612 unfilled) | -17.99% [-32.50%, -3.35%] | $6.00 |
-| map | unknown | 32 | 22 | 0.0441 | -14.08% [-42.90%, 15.39%] | $37.95 | 0.759× | 26.08% | $4.78 | 12 (20 unfilled) | -13.86% [-51.82%, 16.78%] | $46.29 |
-| map | international=1 | 500 | 344 | 0.0636 | -4.27% [-15.95%, 7.45%] | $30.11 | 0.602× | 88.18% | $24.78 | 157 (343 unfilled) | -4.70% [-25.35%, 17.56%] | $35.04 |
-| map | international=0 | 2376 | 1481 | 0.0585 | -5.88% [-10.57%, -1.18%] | $0.08 | 0.002× | 99.92% | $9.48 | 677 (1699 unfilled) | -16.08% [-23.60%, -8.43%] | $0.10 |
-| series+map | all | 6192 | 3642 | 0.0714 | -1.53% [-5.10%, 2.10%] | $0.07 | 0.001× | 99.92% | $6.83 | 2942 (3250 unfilled) | -3.93% [-8.69%, 1.06%] | $0.09 |
+| series | all | 3288 | 3283 | 0.0817 | 2.99% [-1.33%, 7.16%] | $0.04 | 0.001× | 99.95% | $8.90 | 2083 (1205 unfilled) | 0.74% [-4.73%, 6.11%] | $0.08 |
+| series | tier1 | 532 | 532 | 0.0769 | 0.49% [-11.73%, 12.73%] | $0.09 | 0.002× | 99.92% | $11.52 | 434 (98 unfilled) | -2.33% [-15.95%, 10.12%] | $0.10 |
+| series | tier2 | 1387 | 1384 | 0.0720 | -1.66% [-7.84%, 4.80%] | $0.05 | 0.001× | 99.97% | $18.18 | 863 (524 unfilled) | -3.50% [-11.28%, 4.31%] | $0.09 |
+| series | tier3 | 1336 | 1334 | 0.0940 | 9.30% [2.65%, 16.53%] | $5246.83 | 104.937× | 85.25% | $249.12 | 764 (572 unfilled) | 7.69% [-1.34%, 16.51%] | $78.44 |
+| series | unknown | 33 | 33 | 0.0757 | -16.68% [-47.60%, 16.01%] | $31.32 | 0.626× | 41.12% | $5.10 | 22 (11 unfilled) | -13.08% [-54.22%, 30.96%] | $36.40 |
+| series | international=1 | 335 | 335 | 0.0776 | 2.13% [-13.50%, 18.96%] | $1.07 | 0.021× | 99.31% | $10.43 | 292 (43 unfilled) | -2.27% [-17.85%, 13.89%] | $0.75 |
+| series | international=0 | 2953 | 2948 | 0.0822 | 3.08% [-1.38%, 7.71%] | $0.03 | 0.001× | 99.96% | $6.25 | 1791 (1162 unfilled) | 1.24% [-4.43%, 6.97%] | $0.07 |
+| map | all | 2852 | 1806 | 0.0592 | -5.22% [-9.44%, -0.75%] | $0.08 | 0.002× | 99.97% | $27.75 | 831 (2021 unfilled) | -15.32% [-22.68%, -7.88%] | $0.08 |
+| map | tier1 | 753 | 512 | 0.0586 | -5.60% [-14.51%, 3.59%] | $3.42 | 0.068× | 96.05% | $6.47 | 231 (522 unfilled) | -8.11% [-24.17%, 8.53%] | $12.13 |
+| map | tier2 | 1213 | 750 | 0.0535 | -4.30% [-10.95%, 2.85%] | $0.08 | 0.002× | 99.95% | $14.50 | 344 (869 unfilled) | -17.84% [-28.61%, -7.07%] | $0.17 |
+| map | tier3 | 856 | 524 | 0.0683 | -5.94% [-13.84%, 2.07%] | $5.15 | 0.103× | 98.40% | $17.61 | 244 (612 unfilled) | -18.70% [-32.45%, -3.84%] | $6.17 |
+| map | unknown | 30 | 20 | 0.0481 | -12.93% [-43.17%, 18.88%] | $38.22 | 0.764× | 27.55% | $4.78 | 12 (18 unfilled) | -13.86% [-51.82%, 16.78%] | $46.31 |
+| map | international=1 | 501 | 345 | 0.0618 | -5.66% [-17.09%, 5.95%] | $20.10 | 0.402× | 88.61% | $17.01 | 161 (340 unfilled) | -4.68% [-26.39%, 16.27%] | $31.97 |
+| map | international=0 | 2351 | 1461 | 0.0587 | -5.13% [-9.86%, -0.31%] | $0.09 | 0.002× | 99.92% | $11.11 | 670 (1681 unfilled) | -17.89% [-25.38%, -9.95%] | $0.07 |
+| series+map | all | 6140 | 3615 | 0.0713 | -0.82% [-4.38%, 2.86%] | $0.06 | 0.001× | 99.90% | $6.19 | 2914 (3226 unfilled) | -3.84% [-8.60%, 1.27%] | $0.07 |
 
 #### Monthly market blend fits
 
@@ -1241,61 +1241,61 @@ UTC monthly fits use earlier rows of the same kind from 2026-01-01, excluding ho
 | 2026-01 | map | 0 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | series | 51 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | map | 63 | 1.000000 | 0.000000 | unfitted |
-| 2026-03 | series | 206 | 1.453867 | 0.659498 | fitted |
-| 2026-03 | map | 165 | 1.268993 | 0.229978 | fitted |
-| 2026-04 | series | 510 | 1.467817 | 0.856730 | fitted |
-| 2026-04 | map | 309 | 1.196905 | 0.201954 | fitted |
-| 2026-05 | series | 832 | 1.407610 | 0.781346 | fitted |
-| 2026-05 | map | 582 | 1.336306 | 0.806289 | fitted |
-| 2026-06 | series | 1192 | 1.399653 | 0.688576 | fitted |
-| 2026-06 | map | 1034 | 1.356820 | 0.730843 | fitted |
-| 2026-07 | series | 1540 | 1.309316 | 0.674754 | fitted |
-| 2026-07 | map | 1448 | 1.301925 | 0.709868 | fitted |
-| 2026-08 | series | 2053 | 1.244676 | 0.565525 | fitted |
-| 2026-08 | map | 2066 | 1.164405 | 0.515103 | fitted |
-| 2026-09 | series | 2770 | 1.237907 | 0.610315 | fitted |
-| 2026-09 | map | 2939 | 1.224941 | 0.581191 | fitted |
-| 2026-10 | series | 3684 | 1.241803 | 0.635053 | fitted |
-| 2026-10 | map | 3818 | 1.204383 | 0.481869 | fitted |
+| 2026-03 | series | 206 | 1.457683 | 0.670061 | fitted |
+| 2026-03 | map | 165 | 1.268874 | 0.236759 | fitted |
+| 2026-04 | series | 510 | 1.460757 | 0.822807 | fitted |
+| 2026-04 | map | 309 | 1.201377 | 0.214366 | fitted |
+| 2026-05 | series | 832 | 1.398567 | 0.750781 | fitted |
+| 2026-05 | map | 582 | 1.323494 | 0.778151 | fitted |
+| 2026-06 | series | 1192 | 1.401278 | 0.687585 | fitted |
+| 2026-06 | map | 1034 | 1.361163 | 0.739254 | fitted |
+| 2026-07 | series | 1540 | 1.310734 | 0.677269 | fitted |
+| 2026-07 | map | 1448 | 1.300132 | 0.704951 | fitted |
+| 2026-08 | series | 2053 | 1.244600 | 0.568115 | fitted |
+| 2026-08 | map | 2066 | 1.163563 | 0.514510 | fitted |
+| 2026-09 | series | 2770 | 1.238726 | 0.617065 | fitted |
+| 2026-09 | map | 2939 | 1.226798 | 0.590978 | fitted |
+| 2026-10 | series | 3684 | 1.241658 | 0.636202 | fitted |
+| 2026-10 | map | 3818 | 1.209386 | 0.500274 | fitted |
 
 #### Log loss vs Kalshi (blended)
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4250 | 0.590082 | 0.601593 | -0.011511 [-0.016603, -0.006458] | yes |
-| series | tier1 | 614 | 0.620491 | 0.616540 | 0.003951 [-0.006460, 0.014324] | no |
-| series | tier2 | 1873 | 0.584326 | 0.593752 | -0.009426 [-0.016237, -0.002622] | yes |
-| series | tier3 | 1721 | 0.588975 | 0.607981 | -0.019005 [-0.028643, -0.009594] | yes |
-| series | unknown | 42 | 0.447581 | 0.471027 | -0.023446 [-0.054151, 0.009416] | no |
-| series | international=1 | 370 | 0.588395 | 0.589385 | -0.000990 [-0.013239, 0.012145] | no |
-| series | international=0 | 3880 | 0.590243 | 0.602757 | -0.012514 [-0.017887, -0.007064] | yes |
-| map | all | 4312 | 0.632876 | 0.635269 | -0.002393 [-0.005975, 0.001192] | no |
-| map | tier1 | 1046 | 0.653502 | 0.649504 | 0.003998 [-0.002805, 0.010258] | no |
-| map | tier2 | 1936 | 0.626311 | 0.631140 | -0.004830 [-0.009495, -0.000002] | yes |
-| map | tier3 | 1276 | 0.629480 | 0.633014 | -0.003534 [-0.011344, 0.005077] | no |
-| map | unknown | 54 | 0.548987 | 0.560856 | -0.011869 [-0.031342, 0.007291] | no |
-| map | international=1 | 686 | 0.627847 | 0.629473 | -0.001626 [-0.008455, 0.005624] | no |
-| map | international=0 | 3626 | 0.633828 | 0.636366 | -0.002538 [-0.006614, 0.001553] | no |
+| series | all | 4250 | 0.590150 | 0.601593 | -0.011444 [-0.016587, -0.006502] | yes |
+| series | tier1 | 614 | 0.619079 | 0.616540 | 0.002539 [-0.007325, 0.012628] | no |
+| series | tier2 | 1873 | 0.584260 | 0.593752 | -0.009491 [-0.016147, -0.002917] | yes |
+| series | tier3 | 1721 | 0.589715 | 0.607981 | -0.018266 [-0.027801, -0.008953] | yes |
+| series | unknown | 42 | 0.447665 | 0.471027 | -0.023362 [-0.054518, 0.008630] | no |
+| series | international=1 | 370 | 0.585804 | 0.589385 | -0.003581 [-0.015200, 0.008417] | no |
+| series | international=0 | 3880 | 0.590564 | 0.602757 | -0.012193 [-0.017534, -0.006768] | yes |
+| map | all | 4312 | 0.632663 | 0.635269 | -0.002606 [-0.006224, 0.000974] | no |
+| map | tier1 | 1046 | 0.652946 | 0.649504 | 0.003442 [-0.003219, 0.009729] | no |
+| map | tier2 | 1936 | 0.626251 | 0.631140 | -0.004889 [-0.009714, 0.000001] | no |
+| map | tier3 | 1276 | 0.629250 | 0.633014 | -0.003764 [-0.011538, 0.004686] | no |
+| map | unknown | 54 | 0.550291 | 0.560856 | -0.010565 [-0.030483, 0.009099] | no |
+| map | international=1 | 686 | 0.627415 | 0.629473 | -0.002058 [-0.008821, 0.005069] | no |
+| map | international=0 | 3626 | 0.633656 | 0.636366 | -0.002710 [-0.006783, 0.001233] | no |
 
 #### Full-Kelly returns (blended)
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 2515 | 2511 | 0.0477 | 7.71% [3.75%, 11.73%] | $9760.38 | 195.208× | 85.42% | $249.12 | 1572 (943 unfilled) | 5.18% [0.28%, 10.52%] | $709.30 |
-| series | tier1 | 314 | 314 | 0.0363 | -1.69% [-14.05%, 10.65%] | $10.23 | 0.205× | 90.45% | $6.60 | 243 (71 unfilled) | -2.20% [-15.81%, 11.31%] | $22.91 |
-| series | tier2 | 1096 | 1095 | 0.0424 | 5.49% [0.06%, 10.76%] | $3909.68 | 78.194× | 62.73% | $249.12 | 669 (427 unfilled) | 2.09% [-4.58%, 9.13%] | $126.07 |
-| series | tier3 | 1075 | 1072 | 0.0567 | 12.95% [6.77%, 19.89%] | $11775.79 | 235.516× | 60.73% | $249.12 | 639 (436 unfilled) | 11.46% [2.51%, 20.53%] | $1103.77 |
-| series | unknown | 30 | 30 | 0.0392 | -0.48% [-26.76%, 26.08%] | $67.23 | 1.345× | 9.34% | $6.33 | 21 (9 unfilled) | -1.48% [-35.68%, 33.44%] | $57.73 |
-| series | international=1 | 188 | 188 | 0.0336 | 2.54% [-14.22%, 20.28%] | $78.92 | 1.578× | 46.01% | $10.83 | 152 (36 unfilled) | 2.17% [-16.14%, 21.90%] | $82.69 |
-| series | international=0 | 2327 | 2323 | 0.0488 | 8.13% [3.96%, 12.27%] | $10938.88 | 218.778× | 85.13% | $249.12 | 1420 (907 unfilled) | 5.51% [0.44%, 10.73%] | $594.35 |
-| map | all | 1762 | 1092 | 0.0332 | 1.90% [-2.67%, 6.57%] | $283.51 | 5.670× | 79.13% | $41.89 | 510 (1252 unfilled) | -6.48% [-14.87%, 2.23%] | $16.17 |
-| map | tier1 | 338 | 218 | 0.0312 | -3.85% [-15.75%, 8.80%] | $22.13 | 0.443× | 80.17% | $7.36 | 108 (230 unfilled) | -6.89% [-29.23%, 18.93%] | $46.98 |
-| map | tier2 | 780 | 479 | 0.0288 | 2.29% [-4.74%, 9.55%] | $186.10 | 3.722× | 49.25% | $28.47 | 211 (569 unfilled) | -9.64% [-20.07%, 0.95%] | $20.14 |
-| map | tier3 | 624 | 382 | 0.0400 | 4.12% [-3.73%, 11.78%] | $201.42 | 4.028× | 65.83% | $30.09 | 182 (442 unfilled) | -3.99% [-17.51%, 9.51%] | $37.91 |
-| map | unknown | 20 | 13 | 0.0262 | 15.16% [-9.30%, 40.33%] | $52.68 | 1.054× | 3.66% | $4.86 | 9 (11 unfilled) | 22.60% [-1.92%, 51.23%] | $54.59 |
-| map | international=1 | 223 | 144 | 0.0311 | 4.09% [-11.38%, 20.02%] | $81.47 | 1.629× | 35.84% | $8.39 | 79 (144 unfilled) | 5.06% [-24.53%, 35.46%] | $74.98 |
-| map | international=0 | 1539 | 948 | 0.0335 | 1.58% [-3.41%, 6.52%] | $193.06 | 3.861× | 77.51% | $25.05 | 431 (1108 unfilled) | -8.60% [-16.96%, 0.11%] | $10.49 |
-| series+map | all | 4277 | 2639 | 0.0417 | 5.32% [1.79%, 8.74%] | $11937.46 | 238.749× | 63.99% | $249.30 | 2082 (2195 unfilled) | 2.33% [-2.39%, 7.03%] | $455.75 |
+| series | all | 2489 | 2485 | 0.0475 | 8.32% [4.22%, 12.26%] | $11754.34 | 235.087× | 78.81% | $249.12 | 1558 (931 unfilled) | 5.42% [0.34%, 10.39%] | $922.50 |
+| series | tier1 | 310 | 310 | 0.0346 | 2.19% [-10.21%, 15.21%] | $16.76 | 0.335× | 85.15% | $6.96 | 240 (70 unfilled) | 1.67% [-12.25%, 15.39%] | $27.72 |
+| series | tier2 | 1079 | 1078 | 0.0423 | 6.61% [1.13%, 11.97%] | $4705.22 | 94.104× | 64.57% | $249.12 | 662 (417 unfilled) | 2.46% [-4.37%, 9.46%] | $120.60 |
+| series | tier3 | 1070 | 1067 | 0.0567 | 11.92% [5.64%, 18.24%] | $11840.44 | 236.809× | 61.01% | $249.12 | 635 (435 unfilled) | 10.15% [1.62%, 18.89%] | $1154.78 |
+| series | unknown | 30 | 30 | 0.0410 | 4.88% [-21.18%, 30.63%] | $65.01 | 1.300× | 10.87% | $6.17 | 21 (9 unfilled) | -1.53% [-34.48%, 34.52%] | $55.91 |
+| series | international=1 | 181 | 181 | 0.0319 | 6.95% [-10.95%, 26.25%] | $92.01 | 1.840× | 43.85% | $11.04 | 148 (33 unfilled) | 6.24% [-12.00%, 25.74%] | $94.84 |
+| series | international=0 | 2308 | 2304 | 0.0487 | 8.43% [4.39%, 12.53%] | $12357.45 | 247.149× | 77.84% | $249.12 | 1410 (898 unfilled) | 5.33% [0.37%, 10.54%] | $724.55 |
+| map | all | 1757 | 1088 | 0.0328 | 2.34% [-2.67%, 7.68%] | $458.93 | 9.179× | 75.31% | $72.95 | 502 (1255 unfilled) | -6.20% [-14.42%, 2.99%] | $19.97 |
+| map | tier1 | 334 | 218 | 0.0280 | -0.61% [-13.84%, 13.43%] | $32.27 | 0.645× | 75.98% | $8.18 | 109 (225 unfilled) | -5.07% [-28.02%, 19.81%] | $55.20 |
+| map | tier2 | 770 | 474 | 0.0292 | 2.09% [-5.21%, 9.71%] | $176.82 | 3.536× | 48.19% | $29.04 | 203 (567 unfilled) | -10.63% [-22.22%, 0.42%] | $15.92 |
+| map | tier3 | 633 | 383 | 0.0400 | 4.03% [-3.86%, 11.84%] | $230.02 | 4.600× | 66.85% | $36.25 | 181 (452 unfilled) | -2.57% [-16.04%, 11.38%] | $47.67 |
+| map | unknown | 20 | 13 | 0.0257 | 8.29% [-18.89%, 34.91%] | $54.78 | 1.096× | 3.27% | $4.89 | 9 (11 unfilled) | 7.30% [-29.98%, 45.18%] | $55.53 |
+| map | international=1 | 221 | 146 | 0.0273 | 8.70% [-8.77%, 28.20%] | $97.17 | 1.943× | 39.33% | $9.55 | 78 (143 unfilled) | 8.41% [-21.39%, 41.32%] | $86.05 |
+| map | international=0 | 1536 | 942 | 0.0336 | 1.43% [-3.60%, 6.61%] | $266.26 | 5.325× | 75.35% | $37.57 | 424 (1112 unfilled) | -8.89% [-17.46%, -0.36%] | $10.54 |
+| series+map | all | 4246 | 2614 | 0.0414 | 5.85% [2.13%, 9.35%] | $14190.61 | 283.812× | 65.22% | $249.47 | 2060 (2186 unfilled) | 2.59% [-2.15%, 7.63%] | $580.93 |
 
 #### Monthly breakdown
 
@@ -1303,26 +1303,26 @@ All metrics use identical linked rows within each kind/month. Unfitted blend mon
 
 | Kind | Month | Rows | Model log loss | Blended log loss | Kalshi log loss | Raw flat ROI (bets), unlimited Kelly final | Blended flat ROI (bets), unlimited Kelly final | Raw bets filled | Raw Flat ROI depth-capped [95% interval] | Raw Kelly depth-capped final | Blended bets filled | Blended Flat ROI depth-capped [95% interval] | Blended Kelly depth-capped final |
 |---|---|---:|---:|---:|---:|---|---|---:|---|---:|---:|---|---:|
-| map | 2026-01 | 63 | 0.634559 | — | 0.638920 | 0.71% (42), $58.19 | — | 5 (37 unfilled) | 11.19% [-66.65%, 89.92%] | $50.98 | — | — | — |
-| map | 2026-02 | 102 | 0.642663 | — | 0.611955 | -16.79% (59), $28.27 | — | 18 (41 unfilled) | -48.65% [-83.20%, -10.86%] | $28.60 | — | — | — |
-| map | 2026-03 | 144 | 0.656733 | 0.643151 | 0.642845 | -2.78% (81), $47.71 | 12.33% (35), $59.80 | 42 (39 unfilled) | 0.10% [-37.81%, 38.93%] | $45.27 | 15 (20 unfilled) | -0.93% [-36.71%, 24.55%] | $49.44 |
-| map | 2026-04 | 273 | 0.624606 | 0.639455 | 0.647894 | 15.90% (166), $252.50 | 35.18% (30), $60.87 | 50 (116 unfilled) | -12.03% [-40.47%, 16.39%] | $30.51 | 9 (21 unfilled) | -27.47% [-80.10%, 8.21%] | $48.34 |
-| map | 2026-05 | 452 | 0.643603 | 0.631681 | 0.636432 | -4.81% (280), $31.69 | 6.20% (233), $85.20 | 89 (191 unfilled) | -5.28% [-28.73%, 18.47%] | $30.96 | 89 (144 unfilled) | 1.24% [-19.67%, 20.24%] | $45.53 |
-| map | 2026-06 | 414 | 0.643189 | 0.642528 | 0.650163 | 2.08% (246), $80.80 | 4.92% (224), $93.53 | 50 (196 unfilled) | 9.65% [-19.31%, 37.75%] | $61.24 | 46 (178 unfilled) | 3.70% [-23.08%, 31.01%] | $58.17 |
-| map | 2026-07 | 618 | 0.658813 | 0.654574 | 0.647047 | -6.68% (396), $6.44 | -5.20% (344), $13.47 | 98 (298 unfilled) | -11.37% [-32.50%, 10.74%] | $28.69 | 75 (269 unfilled) | -7.66% [-26.37%, 12.02%] | $41.40 |
-| map | 2026-08 | 873 | 0.620008 | 0.613011 | 0.623251 | -3.47% (604), $6.23 | 8.16% (339), $320.01 | 112 (492 unfilled) | -8.75% [-30.61%, 13.49%] | $33.57 | 69 (270 unfilled) | 0.56% [-22.95%, 25.56%] | $45.16 |
-| map | 2026-09 | 879 | 0.648612 | 0.634161 | 0.631507 | -11.74% (605), $0.05 | -5.41% (360), $34.89 | 224 (381 unfilled) | -18.80% [-34.50%, -2.35%] | $2.83 | 143 (217 unfilled) | -9.49% [-26.14%, 10.13%] | $47.32 |
-| map | 2026-10 | 659 | 0.642685 | 0.626917 | 0.628124 | -12.25% (397), $0.29 | 1.45% (197), $44.75 | 146 (251 unfilled) | -26.71% [-42.77%, -10.35%] | $3.85 | 64 (133 unfilled) | -22.33% [-42.80%, -1.12%] | $23.69 |
-| series | 2026-01 | 51 | 0.581275 | — | 0.602759 | 25.16% (37), $78.76 | — | 31 (6 unfilled) | 38.44% [-8.42%, 87.10%] | $85.01 | — | — | — |
-| series | 2026-02 | 155 | 0.584314 | — | 0.565710 | -14.52% (116), $11.90 | — | 104 (12 unfilled) | -15.93% [-35.06%, 3.62%] | $11.80 | — | — | — |
-| series | 2026-03 | 304 | 0.583521 | 0.571284 | 0.590480 | -0.71% (225), $33.67 | 11.03% (198), $274.34 | 172 (53 unfilled) | -1.55% [-18.67%, 15.86%] | $52.07 | 148 (50 unfilled) | 6.83% [-5.78%, 19.59%] | $140.60 |
-| series | 2026-04 | 322 | 0.584297 | 0.568843 | 0.580957 | -0.07% (240), $12.89 | 7.45% (222), $155.01 | 180 (60 unfilled) | 2.24% [-15.82%, 24.04%] | $37.33 | 162 (60 unfilled) | 12.32% [-3.24%, 28.96%] | $177.09 |
-| series | 2026-05 | 360 | 0.603914 | 0.580706 | 0.584764 | -7.39% (261), $2.19 | 0.31% (236), $45.12 | 213 (48 unfilled) | -8.17% [-24.62%, 7.54%] | $2.37 | 185 (51 unfilled) | -1.03% [-13.90%, 12.66%] | $39.59 |
-| series | 2026-06 | 348 | 0.619820 | 0.625813 | 0.633931 | 7.32% (248), $193.65 | 7.63% (213), $72.62 | 164 (84 unfilled) | 15.94% [-2.69%, 35.25%] | $420.27 | 140 (73 unfilled) | 7.37% [-6.87%, 21.50%] | $71.51 |
-| series | 2026-07 | 513 | 0.627545 | 0.614287 | 0.614447 | 2.06% (386), $0.93 | -1.23% (324), $16.46 | 244 (142 unfilled) | -0.58% [-17.28%, 17.91%] | $19.46 | 198 (126 unfilled) | -3.72% [-19.73%, 15.79%] | $13.23 |
-| series | 2026-08 | 717 | 0.604422 | 0.596721 | 0.614837 | 5.93% (562), $32.26 | 12.12% (422), $620.18 | 273 (289 unfilled) | -0.10% [-15.53%, 16.22%] | $21.97 | 206 (216 unfilled) | 15.41% [-1.68%, 33.83%] | $325.04 |
-| series | 2026-09 | 914 | 0.596996 | 0.586579 | 0.602664 | 1.57% (690), $10.25 | 12.98% (496), $1432.83 | 386 (304 unfilled) | -4.55% [-16.27%, 7.01%] | $0.81 | 286 (210 unfilled) | 4.14% [-8.04%, 15.83%] | $127.29 |
-| series | 2026-10 | 772 | 0.589575 | 0.576507 | 0.585736 | 4.47% (551), $2.94 | 6.67% (404), $137.57 | 341 (210 unfilled) | 4.13% [-8.10%, 17.57%] | $31.19 | 247 (157 unfilled) | 2.76% [-8.16%, 13.70%] | $83.39 |
+| map | 2026-01 | 63 | 0.633585 | — | 0.638920 | 3.22% (41), $54.84 | — | 5 (36 unfilled) | -25.03% [-100.00%, 58.85%] | $49.65 | — | — | — |
+| map | 2026-02 | 102 | 0.641808 | — | 0.611955 | -17.83% (58), $28.31 | — | 18 (40 unfilled) | -47.80% [-83.47%, -8.95%] | $28.98 | — | — | — |
+| map | 2026-03 | 144 | 0.657710 | 0.642971 | 0.642845 | 1.52% (75), $42.01 | 14.98% (32), $63.94 | 39 (36 unfilled) | 1.15% [-40.11%, 44.68%] | $42.63 | 14 (18 unfilled) | 6.12% [-26.77%, 28.96%] | $52.60 |
+| map | 2026-04 | 273 | 0.626009 | 0.639056 | 0.647894 | 11.72% (168), $236.70 | 61.15% (36), $66.70 | 52 (116 unfilled) | -13.61% [-40.22%, 14.08%] | $34.04 | 11 (25 unfilled) | -25.94% [-75.30%, 11.17%] | $48.39 |
+| map | 2026-05 | 452 | 0.642149 | 0.630445 | 0.636432 | -2.19% (275), $35.93 | 7.26% (230), $88.24 | 91 (184 unfilled) | -0.37% [-23.96%, 22.88%] | $35.64 | 87 (143 unfilled) | 3.54% [-16.54%, 23.57%] | $46.28 |
+| map | 2026-06 | 414 | 0.644375 | 0.643558 | 0.650163 | 1.83% (239), $68.71 | 3.05% (225), $96.76 | 45 (194 unfilled) | 5.31% [-24.98%, 36.10%] | $57.10 | 45 (180 unfilled) | 1.96% [-24.62%, 28.90%] | $59.07 |
+| map | 2026-07 | 618 | 0.658436 | 0.654324 | 0.647047 | -7.53% (390), $5.14 | -5.37% (338), $16.23 | 94 (296 unfilled) | -13.22% [-34.71%, 8.41%] | $25.85 | 69 (269 unfilled) | -8.15% [-27.01%, 12.11%] | $46.44 |
+| map | 2026-08 | 873 | 0.618828 | 0.612466 | 0.623251 | -2.89% (602), $9.37 | 7.79% (349), $344.21 | 117 (485 unfilled) | -9.16% [-29.49%, 11.96%] | $32.70 | 73 (276 unfilled) | 5.22% [-17.26%, 28.93%] | $49.68 |
+| map | 2026-09 | 879 | 0.647175 | 0.633400 | 0.631507 | -9.29% (608), $0.29 | -5.94% (353), $37.68 | 222 (386 unfilled) | -19.20% [-34.76%, -2.57%] | $3.42 | 142 (211 unfilled) | -13.06% [-29.96%, 6.62%] | $39.68 |
+| map | 2026-10 | 659 | 0.644262 | 0.627898 | 0.628124 | -14.10% (396), $0.10 | 1.50% (194), $40.93 | 148 (248 unfilled) | -31.80% [-48.11%, -15.70%] | $2.04 | 61 (133 unfilled) | -20.84% [-41.39%, -0.81%] | $24.62 |
+| series | 2026-01 | 51 | 0.580685 | — | 0.602759 | 15.85% (43), $77.32 | — | 36 (7 unfilled) | 29.00% [-14.57%, 72.84%] | $82.93 | — | — | — |
+| series | 2026-02 | 155 | 0.584041 | — | 0.565710 | -10.80% (114), $11.51 | — | 103 (11 unfilled) | -12.71% [-32.33%, 6.54%] | $11.55 | — | — | — |
+| series | 2026-03 | 304 | 0.586470 | 0.572541 | 0.590480 | 2.51% (215), $36.70 | 10.96% (197), $298.87 | 163 (52 unfilled) | 2.03% [-15.73%, 20.61%] | $55.38 | 148 (49 unfilled) | 6.84% [-5.26%, 18.87%] | $142.46 |
+| series | 2026-04 | 322 | 0.585328 | 0.569443 | 0.580957 | 2.57% (233), $11.81 | 8.11% (222), $160.14 | 175 (58 unfilled) | 4.11% [-15.12%, 26.07%] | $34.37 | 161 (61 unfilled) | 12.62% [-3.98%, 30.60%] | $130.88 |
+| series | 2026-05 | 360 | 0.601616 | 0.578633 | 0.584764 | -7.90% (257), $3.26 | 3.55% (224), $41.72 | 210 (47 unfilled) | -8.82% [-25.57%, 7.16%] | $2.91 | 175 (49 unfilled) | 0.69% [-13.07%, 14.54%] | $37.31 |
+| series | 2026-06 | 348 | 0.618771 | 0.625520 | 0.633931 | 9.29% (251), $241.58 | 9.77% (214), $75.82 | 166 (85 unfilled) | 17.16% [-2.58%, 36.87%] | $434.47 | 142 (72 unfilled) | 12.63% [-1.56%, 26.43%] | $71.01 |
+| series | 2026-07 | 513 | 0.627085 | 0.614589 | 0.614447 | 3.61% (374), $0.90 | 0.06% (328), $20.19 | 237 (137 unfilled) | 0.22% [-16.39%, 18.92%] | $28.64 | 201 (127 unfilled) | -3.38% [-18.82%, 15.88%] | $20.31 |
+| series | 2026-08 | 717 | 0.603501 | 0.596392 | 0.614837 | 7.45% (561), $42.07 | 10.94% (421), $696.51 | 272 (289 unfilled) | 1.04% [-13.89%, 17.26%] | $22.27 | 202 (219 unfilled) | 13.16% [-3.72%, 31.90%] | $335.97 |
+| series | 2026-09 | 914 | 0.598134 | 0.587240 | 0.602664 | 2.35% (684), $2.46 | 11.78% (489), $1835.00 | 378 (306 unfilled) | -4.61% [-16.30%, 7.06%] | $0.01 | 287 (202 unfilled) | 1.74% [-9.41%, 13.78%] | $137.75 |
+| series | 2026-10 | 772 | 0.589584 | 0.576552 | 0.585736 | 3.24% (556), $4.11 | 8.82% (394), $244.03 | 343 (213 unfilled) | 3.42% [-8.44%, 15.49%] | $30.80 | 242 (152 unfilled) | 4.17% [-7.07%, 15.01%] | $101.38 |
 
 ### player_round_glicko_rookie_weights+none: Kalshi comparison and returns
 
@@ -1332,40 +1332,40 @@ none
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4456 | 0.594997 | 0.600358 | -0.005361 [-0.013206, 0.002268] | no |
-| series | tier1 | 725 | 0.630703 | 0.616830 | 0.013872 [-0.002584, 0.029938] | no |
-| series | tier2 | 1962 | 0.594171 | 0.590722 | 0.003449 [-0.006705, 0.013790] | no |
-| series | tier3 | 1727 | 0.583516 | 0.607536 | -0.024020 [-0.038017, -0.010329] | yes |
-| series | unknown | 42 | 0.489338 | 0.471027 | 0.018311 [-0.044404, 0.079300] | no |
-| series | international=1 | 448 | 0.603206 | 0.591446 | 0.011760 [-0.009762, 0.031669] | no |
-| series | international=0 | 4008 | 0.594079 | 0.601354 | -0.007275 [-0.015439, 0.000505] | no |
-| map | all | 4477 | 0.639083 | 0.634789 | 0.004293 [-0.001658, 0.009869] | no |
-| map | tier1 | 1176 | 0.655445 | 0.646419 | 0.009026 [-0.002478, 0.019755] | no |
-| map | tier2 | 1968 | 0.635944 | 0.631291 | 0.004652 [-0.002996, 0.012632] | no |
-| map | tier3 | 1279 | 0.631309 | 0.632601 | -0.001292 [-0.013629, 0.011091] | no |
-| map | unknown | 54 | 0.581280 | 0.560856 | 0.020423 [-0.010986, 0.054196] | no |
-| map | international=1 | 788 | 0.634694 | 0.630059 | 0.004635 [-0.009042, 0.017801] | no |
-| map | international=0 | 3689 | 0.640020 | 0.635800 | 0.004220 [-0.001983, 0.010677] | no |
+| series | all | 4456 | 0.594668 | 0.600358 | -0.005690 [-0.013363, 0.002082] | no |
+| series | tier1 | 725 | 0.628922 | 0.616830 | 0.012092 [-0.003900, 0.028033] | no |
+| series | tier2 | 1962 | 0.594077 | 0.590722 | 0.003355 [-0.006731, 0.013978] | no |
+| series | tier3 | 1727 | 0.583493 | 0.607536 | -0.024043 [-0.037968, -0.010048] | yes |
+| series | unknown | 42 | 0.490548 | 0.471027 | 0.019521 [-0.044998, 0.082868] | no |
+| series | international=1 | 448 | 0.600867 | 0.591446 | 0.009421 [-0.011559, 0.028817] | no |
+| series | international=0 | 4008 | 0.593975 | 0.601354 | -0.007379 [-0.015579, 0.000557] | no |
+| map | all | 4477 | 0.639028 | 0.634789 | 0.004238 [-0.001561, 0.009878] | no |
+| map | tier1 | 1176 | 0.654442 | 0.646419 | 0.008023 [-0.003125, 0.018611] | no |
+| map | tier2 | 1968 | 0.635842 | 0.631291 | 0.004551 [-0.003417, 0.012349] | no |
+| map | tier3 | 1279 | 0.632071 | 0.632601 | -0.000530 [-0.012795, 0.011852] | no |
+| map | unknown | 54 | 0.584221 | 0.560856 | 0.023365 [-0.010524, 0.059012] | no |
+| map | international=1 | 788 | 0.633669 | 0.630059 | 0.003609 [-0.009543, 0.016984] | no |
+| map | international=0 | 3689 | 0.640173 | 0.635800 | 0.004373 [-0.001764, 0.010770] | no |
 
 #### Full-Kelly returns
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 3270 | 3265 | 0.0825 | 2.73% [-1.63%, 6.92%] | $0.09 | 0.002× | 99.93% | $12.48 | 2077 (1193 unfilled) | -0.02% [-5.21%, 5.71%] | $0.08 |
-| series | tier1 | 526 | 526 | 0.0732 | -2.28% [-14.01%, 9.69%] | $0.06 | 0.001× | 99.96% | $16.35 | 426 (100 unfilled) | -4.94% [-17.42%, 7.81%] | $0.36 |
-| series | tier2 | 1374 | 1371 | 0.0728 | -1.48% [-7.89%, 4.92%] | $0.02 | 0.000× | 99.99% | $17.25 | 863 (511 unfilled) | -3.72% [-11.00%, 4.24%] | $0.09 |
-| series | tier3 | 1337 | 1335 | 0.0964 | 9.52% [2.35%, 16.57%] | $10973.44 | 219.469× | 80.48% | $249.12 | 766 (571 unfilled) | 7.28% [-1.08%, 16.74%] | $316.90 |
-| series | unknown | 33 | 33 | 0.0763 | -16.71% [-48.28%, 16.01%] | $41.47 | 0.829× | 32.38% | $5.89 | 22 (11 unfilled) | -13.08% [-54.22%, 30.96%] | $42.04 |
-| series | international=1 | 320 | 320 | 0.0746 | -3.38% [-17.98%, 12.76%] | $2.25 | 0.045× | 99.04% | $13.41 | 275 (45 unfilled) | -7.77% [-22.86%, 7.68%] | $1.03 |
-| series | international=0 | 2950 | 2945 | 0.0834 | 3.39% [-1.08%, 8.14%] | $0.04 | 0.001× | 99.94% | $5.92 | 1802 (1148 unfilled) | 1.17% [-4.44%, 6.78%] | $21.68 |
-| map | all | 2828 | 1810 | 0.0575 | -4.83% [-9.47%, -0.22%] | $0.09 | 0.002× | 99.98% | $46.16 | 821 (2007 unfilled) | -17.08% [-25.31%, -9.25%] | $0.09 |
-| map | tier1 | 745 | 510 | 0.0562 | -4.51% [-13.36%, 4.52%] | $4.70 | 0.094× | 95.55% | $9.25 | 225 (520 unfilled) | -8.48% [-24.83%, 9.10%] | $10.26 |
-| map | tier2 | 1210 | 759 | 0.0520 | -4.42% [-10.92%, 2.24%] | $0.08 | 0.002× | 99.95% | $14.99 | 345 (865 unfilled) | -18.63% [-28.71%, -7.80%] | $0.28 |
-| map | tier3 | 843 | 520 | 0.0667 | -5.29% [-13.05%, 2.37%] | $2.18 | 0.044× | 99.28% | $16.07 | 240 (603 unfilled) | -22.93% [-36.55%, -8.98%] | $2.32 |
-| map | unknown | 30 | 21 | 0.0475 | -16.90% [-48.08%, 13.49%] | $36.25 | 0.725× | 31.58% | $4.78 | 11 (19 unfilled) | -16.99% [-56.80%, 17.05%] | $46.36 |
-| map | international=1 | 507 | 347 | 0.0575 | -2.93% [-14.78%, 8.76%] | $40.55 | 0.811× | 85.54% | $26.91 | 160 (347 unfilled) | -6.35% [-27.22%, 14.91%] | $32.62 |
-| map | international=0 | 2321 | 1463 | 0.0575 | -5.25% [-9.93%, -0.34%] | $0.09 | 0.002× | 99.92% | $11.90 | 661 (1660 unfilled) | -19.69% [-27.21%, -11.83%] | $0.10 |
-| series+map | all | 6098 | 3584 | 0.0709 | -0.78% [-4.50%, 2.69%] | $0.05 | 0.001× | 99.97% | $15.97 | 2898 (3200 unfilled) | -4.85% [-9.52%, -0.06%] | $0.03 |
+| series | all | 3263 | 3258 | 0.0815 | 3.25% [-1.08%, 7.71%] | $0.07 | 0.001× | 99.94% | $12.17 | 2068 (1195 unfilled) | 0.65% [-4.71%, 5.91%] | $0.07 |
+| series | tier1 | 527 | 527 | 0.0707 | -0.42% [-11.99%, 11.78%] | $0.09 | 0.002× | 99.94% | $15.55 | 428 (99 unfilled) | -2.47% [-15.20%, 9.51%] | $0.16 |
+| series | tier2 | 1379 | 1376 | 0.0718 | -2.01% [-8.31%, 4.46%] | $0.08 | 0.002× | 99.96% | $21.31 | 857 (522 unfilled) | -3.90% [-11.60%, 3.95%] | $0.20 |
+| series | tier3 | 1325 | 1323 | 0.0958 | 10.61% [3.78%, 17.20%] | $10891.33 | 217.827× | 79.33% | $249.12 | 761 (564 unfilled) | 7.96% [-0.62%, 17.05%] | $374.89 |
+| series | unknown | 32 | 32 | 0.0821 | -14.10% [-45.28%, 20.91%] | $42.64 | 0.853× | 30.66% | $5.91 | 22 (10 unfilled) | -13.08% [-54.22%, 30.96%] | $41.56 |
+| series | international=1 | 323 | 323 | 0.0714 | 0.45% [-16.07%, 16.60%] | $2.38 | 0.048× | 98.95% | $13.02 | 279 (44 unfilled) | -2.63% [-17.98%, 13.46%] | $1.06 |
+| series | international=0 | 2940 | 2935 | 0.0826 | 3.56% [-0.78%, 8.44%] | $0.07 | 0.001× | 99.89% | $6.56 | 1789 (1151 unfilled) | 1.17% [-4.31%, 6.87%] | $18.47 |
+| map | all | 2807 | 1791 | 0.0569 | -4.69% [-9.11%, 0.00%] | $0.09 | 0.002× | 99.97% | $32.46 | 813 (1994 unfilled) | -17.41% [-24.91%, -10.03%] | $0.07 |
+| map | tier1 | 747 | 513 | 0.0541 | -4.55% [-13.26%, 4.66%] | $5.60 | 0.112× | 94.34% | $8.04 | 227 (520 unfilled) | -9.08% [-25.64%, 8.32%] | $9.75 |
+| map | tier2 | 1182 | 741 | 0.0525 | -3.94% [-10.77%, 3.12%] | $0.09 | 0.002× | 99.94% | $13.16 | 336 (846 unfilled) | -19.55% [-30.64%, -8.32%] | $0.19 |
+| map | tier3 | 848 | 516 | 0.0656 | -5.23% [-13.05%, 3.44%] | $2.27 | 0.045× | 99.21% | $15.51 | 239 (609 unfilled) | -22.35% [-35.75%, -8.58%] | $2.79 |
+| map | unknown | 30 | 21 | 0.0481 | -22.79% [-53.00%, 6.46%] | $36.05 | 0.721× | 32.18% | $4.78 | 11 (19 unfilled) | -16.99% [-56.80%, 17.05%] | $46.45 |
+| map | international=1 | 502 | 348 | 0.0560 | -4.02% [-15.32%, 8.04%] | $37.31 | 0.746× | 82.02% | $19.48 | 160 (342 unfilled) | -6.48% [-27.65%, 16.02%] | $30.90 |
+| map | international=0 | 2305 | 1443 | 0.0571 | -4.84% [-9.28%, -0.03%] | $0.10 | 0.002× | 99.92% | $11.51 | 653 (1652 unfilled) | -20.09% [-27.79%, -12.31%] | $0.06 |
+| series+map | all | 6070 | 3573 | 0.0701 | -0.42% [-4.14%, 3.14%] | $0.05 | 0.001× | 99.95% | $10.55 | 2881 (3189 unfilled) | -4.44% [-9.03%, 0.56%] | $0.07 |
 
 #### Monthly market blend fits
 
@@ -1377,61 +1377,61 @@ UTC monthly fits use earlier rows of the same kind from 2026-01-01, excluding ho
 | 2026-01 | map | 0 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | series | 51 | 1.000000 | 0.000000 | unfitted |
 | 2026-02 | map | 63 | 1.000000 | 0.000000 | unfitted |
-| 2026-03 | series | 206 | 1.429141 | 0.713157 | fitted |
-| 2026-03 | map | 165 | 1.243703 | 0.156871 | fitted |
-| 2026-04 | series | 510 | 1.427210 | 0.840946 | fitted |
-| 2026-04 | map | 309 | 1.195945 | 0.207217 | fitted |
-| 2026-05 | series | 832 | 1.380243 | 0.793125 | fitted |
-| 2026-05 | map | 582 | 1.324317 | 0.791176 | fitted |
-| 2026-06 | series | 1192 | 1.378099 | 0.701722 | fitted |
-| 2026-06 | map | 1034 | 1.356969 | 0.749742 | fitted |
-| 2026-07 | series | 1540 | 1.298813 | 0.717070 | fitted |
-| 2026-07 | map | 1448 | 1.315498 | 0.755874 | fitted |
-| 2026-08 | series | 2053 | 1.240421 | 0.626065 | fitted |
-| 2026-08 | map | 2066 | 1.179960 | 0.575474 | fitted |
-| 2026-09 | series | 2770 | 1.236628 | 0.661569 | fitted |
-| 2026-09 | map | 2939 | 1.244118 | 0.635687 | fitted |
-| 2026-10 | series | 3684 | 1.235600 | 0.686911 | fitted |
-| 2026-10 | map | 3818 | 1.217517 | 0.529179 | fitted |
+| 2026-03 | series | 206 | 1.442335 | 0.749188 | fitted |
+| 2026-03 | map | 165 | 1.218435 | 0.060951 | fitted |
+| 2026-04 | series | 510 | 1.426235 | 0.823474 | fitted |
+| 2026-04 | map | 309 | 1.184503 | 0.160308 | fitted |
+| 2026-05 | series | 832 | 1.372441 | 0.766276 | fitted |
+| 2026-05 | map | 582 | 1.307760 | 0.755416 | fitted |
+| 2026-06 | series | 1192 | 1.382460 | 0.712969 | fitted |
+| 2026-06 | map | 1034 | 1.359719 | 0.758375 | fitted |
+| 2026-07 | series | 1540 | 1.300636 | 0.724478 | fitted |
+| 2026-07 | map | 1448 | 1.313794 | 0.756247 | fitted |
+| 2026-08 | series | 2053 | 1.240113 | 0.630122 | fitted |
+| 2026-08 | map | 2066 | 1.179309 | 0.573594 | fitted |
+| 2026-09 | series | 2770 | 1.238566 | 0.673985 | fitted |
+| 2026-09 | map | 2939 | 1.244446 | 0.638996 | fitted |
+| 2026-10 | series | 3684 | 1.237434 | 0.696647 | fitted |
+| 2026-10 | map | 3818 | 1.219471 | 0.534852 | fitted |
 
 #### Log loss vs Kalshi (blended)
 
 | Kind | Slice | Rows | Model log loss | Kalshi log loss | Difference [95% interval] | Significant |
 |---|---|---:|---:|---:|---|---|
-| series | all | 4250 | 0.587012 | 0.601593 | -0.014581 [-0.020078, -0.009170] | yes |
-| series | tier1 | 614 | 0.621026 | 0.616540 | 0.004486 [-0.006341, 0.015635] | no |
-| series | tier2 | 1873 | 0.583196 | 0.593752 | -0.010556 [-0.017792, -0.003460] | yes |
-| series | tier3 | 1721 | 0.582443 | 0.607981 | -0.025537 [-0.035688, -0.015440] | yes |
-| series | unknown | 42 | 0.447165 | 0.471027 | -0.023863 [-0.056523, 0.010582] | no |
-| series | international=1 | 370 | 0.589094 | 0.589385 | -0.000291 [-0.013554, 0.013705] | no |
-| series | international=0 | 3880 | 0.586814 | 0.602757 | -0.015944 [-0.021791, -0.010169] | yes |
-| map | all | 4312 | 0.632059 | 0.635269 | -0.003210 [-0.006854, 0.000459] | no |
-| map | tier1 | 1046 | 0.654007 | 0.649504 | 0.004502 [-0.002295, 0.011013] | no |
-| map | tier2 | 1936 | 0.625447 | 0.631140 | -0.005693 [-0.010448, -0.000835] | yes |
-| map | tier3 | 1276 | 0.627602 | 0.633014 | -0.005412 [-0.013322, 0.002855] | no |
-| map | unknown | 54 | 0.549293 | 0.560856 | -0.011564 [-0.032919, 0.009334] | no |
-| map | international=1 | 686 | 0.627673 | 0.629473 | -0.001800 [-0.008701, 0.005680] | no |
-| map | international=0 | 3626 | 0.632889 | 0.636366 | -0.003477 [-0.007571, 0.000746] | no |
+| series | all | 4250 | 0.586908 | 0.601593 | -0.014685 [-0.020248, -0.009415] | yes |
+| series | tier1 | 614 | 0.619582 | 0.616540 | 0.003042 [-0.007231, 0.013817] | no |
+| series | tier2 | 1873 | 0.583214 | 0.593752 | -0.010538 [-0.017771, -0.003506] | yes |
+| series | tier3 | 1721 | 0.582688 | 0.607981 | -0.025292 [-0.035527, -0.015249] | yes |
+| series | unknown | 42 | 0.446865 | 0.471027 | -0.024162 [-0.057715, 0.010999] | no |
+| series | international=1 | 370 | 0.586676 | 0.589385 | -0.002709 [-0.014905, 0.009610] | no |
+| series | international=0 | 3880 | 0.586930 | 0.602757 | -0.015827 [-0.021575, -0.010037] | yes |
+| map | all | 4312 | 0.632141 | 0.635269 | -0.003129 [-0.006722, 0.000485] | no |
+| map | tier1 | 1046 | 0.653568 | 0.649504 | 0.004064 [-0.002389, 0.010216] | no |
+| map | tier2 | 1936 | 0.625422 | 0.631140 | -0.005718 [-0.010389, -0.001019] | yes |
+| map | tier3 | 1276 | 0.628270 | 0.633014 | -0.004744 [-0.012676, 0.003750] | no |
+| map | unknown | 54 | 0.549409 | 0.560856 | -0.011447 [-0.032465, 0.009312] | no |
+| map | international=1 | 686 | 0.627575 | 0.629473 | -0.001898 [-0.008268, 0.005049] | no |
+| map | international=0 | 3626 | 0.633004 | 0.636366 | -0.003362 [-0.007371, 0.000662] | no |
 
 #### Full-Kelly returns (blended)
 
 | Kind | Slice | Bets | Matches | Mean edge | Flat ROI [95% interval] | Kelly, LoL caps ($50 start) | Multiple | Max drawdown | Largest stake | Bets filled | Flat ROI depth-capped [95% interval] | Kelly depth-capped final |
 |---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|
-| series | all | 2647 | 2643 | 0.0515 | 8.41% [4.43%, 12.34%] | $13532.46 | 270.649× | 62.37% | $249.12 | 1648 (999 unfilled) | 5.32% [0.45%, 10.45%] | $769.27 |
-| series | tier1 | 337 | 337 | 0.0371 | -4.53% [-15.72%, 6.41%] | $11.06 | 0.221× | 92.26% | $8.98 | 261 (76 unfilled) | -4.80% [-17.06%, 7.91%] | $25.10 |
-| series | tier2 | 1129 | 1128 | 0.0456 | 5.27% [-0.43%, 10.95%] | $5491.01 | 109.820× | 60.61% | $249.47 | 692 (437 unfilled) | 2.11% [-4.51%, 8.87%] | $75.31 |
-| series | tier3 | 1153 | 1150 | 0.0616 | 15.42% [9.09%, 21.76%] | $12442.14 | 248.843× | 69.84% | $249.12 | 677 (476 unfilled) | 12.67% [5.16%, 21.30%] | $1396.11 |
-| series | unknown | 28 | 28 | 0.0486 | 2.60% [-24.44%, 29.48%] | $64.58 | 1.292× | 12.16% | $6.45 | 18 (10 unfilled) | -0.20% [-37.94%, 38.62%] | $55.37 |
-| series | international=1 | 200 | 200 | 0.0345 | -3.91% [-18.57%, 11.64%] | $67.05 | 1.341× | 52.52% | $9.67 | 165 (35 unfilled) | -5.27% [-21.04%, 10.98%] | $91.56 |
-| series | international=0 | 2447 | 2443 | 0.0529 | 9.42% [5.55%, 13.42%] | $13655.86 | 273.117× | 86.84% | $249.12 | 1483 (964 unfilled) | 6.51% [1.40%, 11.63%] | $553.74 |
-| map | all | 1832 | 1150 | 0.0338 | 4.36% [-0.67%, 9.49%] | $667.99 | 13.360× | 78.89% | $136.80 | 519 (1313 unfilled) | -6.80% [-14.57%, 1.80%] | $13.69 |
-| map | tier1 | 363 | 245 | 0.0298 | -1.32% [-13.08%, 11.77%] | $16.85 | 0.337× | 80.44% | $6.62 | 111 (252 unfilled) | -8.00% [-26.97%, 11.89%] | $33.96 |
-| map | tier2 | 798 | 492 | 0.0294 | 3.64% [-3.25%, 10.29%] | $169.23 | 3.385× | 54.44% | $31.74 | 214 (584 unfilled) | -9.02% [-21.01%, 2.11%] | $23.44 |
-| map | tier3 | 651 | 400 | 0.0415 | 8.10% [0.54%, 15.94%] | $546.85 | 10.937× | 64.49% | $60.34 | 185 (466 unfilled) | -4.93% [-18.33%, 9.31%] | $33.44 |
-| map | unknown | 20 | 13 | 0.0297 | 15.16% [-9.30%, 40.33%] | $56.10 | 1.122× | 6.81% | $4.97 | 9 (11 unfilled) | 22.60% [-1.92%, 51.23%] | $57.13 |
-| map | international=1 | 244 | 168 | 0.0284 | 7.82% [-7.43%, 24.55%] | $68.83 | 1.377× | 47.22% | $8.40 | 83 (161 unfilled) | 2.32% [-21.80%, 27.89%] | $54.81 |
-| map | international=0 | 1588 | 982 | 0.0346 | 3.83% [-1.12%, 8.84%] | $503.58 | 10.072× | 76.22% | $67.50 | 436 (1152 unfilled) | -8.54% [-16.89%, -0.29%] | $12.13 |
-| series+map | all | 4479 | 2770 | 0.0443 | 6.75% [3.51%, 10.30%] | $19834.28 | 396.686× | 42.30% | $249.47 | 2167 (2312 unfilled) | 2.42% [-1.91%, 6.89%] | $402.54 |
+| series | all | 2651 | 2647 | 0.0511 | 9.35% [5.46%, 13.40%] | $11021.94 | 220.439× | 81.14% | $249.12 | 1645 (1006 unfilled) | 5.93% [0.92%, 10.92%] | $911.00 |
+| series | tier1 | 330 | 330 | 0.0360 | -1.90% [-13.35%, 9.36%] | $21.07 | 0.421× | 85.64% | $9.19 | 256 (74 unfilled) | -2.97% [-15.24%, 9.29%] | $29.58 |
+| series | tier2 | 1138 | 1137 | 0.0449 | 6.41% [0.88%, 12.03%] | $6349.44 | 126.989× | 57.50% | $249.47 | 696 (442 unfilled) | 2.60% [-4.10%, 9.69%] | $63.62 |
+| series | tier3 | 1154 | 1151 | 0.0615 | 15.74% [9.51%, 22.27%] | $12515.65 | 250.313× | 70.72% | $249.12 | 674 (480 unfilled) | 13.09% [5.03%, 21.57%] | $1567.50 |
+| series | unknown | 29 | 29 | 0.0499 | -1.00% [-29.09%, 24.82%] | $63.25 | 1.265× | 11.31% | $6.19 | 19 (10 unfilled) | -5.54% [-40.38%, 34.88%] | $53.88 |
+| series | international=1 | 196 | 196 | 0.0322 | 1.51% [-13.89%, 18.76%] | $82.22 | 1.644× | 51.99% | $11.84 | 162 (34 unfilled) | -0.30% [-15.41%, 16.31%] | $91.53 |
+| series | international=0 | 2455 | 2451 | 0.0526 | 9.98% [5.95%, 14.04%] | $13744.07 | 274.881× | 81.14% | $249.12 | 1483 (972 unfilled) | 6.61% [1.93%, 12.11%] | $716.23 |
+| map | all | 1772 | 1114 | 0.0333 | 4.14% [-0.50%, 8.97%] | $389.66 | 7.793× | 76.06% | $68.31 | 503 (1269 unfilled) | -6.21% [-14.18%, 2.28%] | $12.70 |
+| map | tier1 | 336 | 230 | 0.0272 | -4.97% [-16.19%, 6.46%] | $19.83 | 0.397× | 76.87% | $6.84 | 103 (233 unfilled) | -4.01% [-23.58%, 16.95%] | $32.50 |
+| map | tier2 | 776 | 478 | 0.0290 | 4.48% [-2.22%, 11.75%] | $167.06 | 3.341× | 42.12% | $26.59 | 209 (567 unfilled) | -10.61% [-22.02%, 0.81%] | $21.44 |
+| map | tier3 | 639 | 391 | 0.0420 | 8.29% [0.16%, 16.43%] | $357.45 | 7.149× | 63.38% | $38.90 | 183 (456 unfilled) | -3.52% [-17.87%, 10.84%] | $36.03 |
+| map | unknown | 21 | 15 | 0.0267 | 11.06% [-17.32%, 37.77%] | $55.83 | 1.117× | 6.61% | $4.93 | 8 (13 unfilled) | 19.37% [-21.20%, 52.77%] | $56.94 |
+| map | international=1 | 227 | 158 | 0.0247 | 3.12% [-10.23%, 16.52%] | $63.95 | 1.279× | 46.64% | $8.14 | 78 (149 unfilled) | 6.76% [-15.18%, 31.52%] | $51.80 |
+| map | international=0 | 1545 | 956 | 0.0346 | 4.29% [-0.83%, 9.60%] | $384.13 | 7.683× | 72.72% | $42.15 | 425 (1120 unfilled) | -8.59% [-16.99%, -0.31%] | $12.03 |
+| series+map | all | 4423 | 2771 | 0.0440 | 7.26% [3.74%, 10.67%] | $15678.79 | 313.576× | 58.80% | $249.12 | 2148 (2275 unfilled) | 3.09% [-1.35%, 7.87%] | $444.22 |
 
 #### Monthly breakdown
 
@@ -1439,23 +1439,23 @@ All metrics use identical linked rows within each kind/month. Unfitted blend mon
 
 | Kind | Month | Rows | Model log loss | Blended log loss | Kalshi log loss | Raw flat ROI (bets), unlimited Kelly final | Blended flat ROI (bets), unlimited Kelly final | Raw bets filled | Raw Flat ROI depth-capped [95% interval] | Raw Kelly depth-capped final | Blended bets filled | Blended Flat ROI depth-capped [95% interval] | Blended Kelly depth-capped final |
 |---|---|---:|---:|---:|---:|---|---|---:|---|---:|---:|---|---:|
-| map | 2026-01 | 63 | 0.631801 | — | 0.638920 | 14.89% (42), $68.21 | — | 4 (38 unfilled) | -3.09% [-100.00%, 95.23%] | $50.62 | — | — | — |
-| map | 2026-02 | 102 | 0.644367 | — | 0.611955 | -26.74% (58), $25.11 | — | 21 (37 unfilled) | -69.47% [-100.00%, -34.77%] | $25.70 | — | — | — |
-| map | 2026-03 | 144 | 0.653556 | 0.642727 | 0.642845 | 1.84% (79), $40.38 | 10.13% (28), $53.89 | 40 (39 unfilled) | 14.05% [-26.54%, 58.60%] | $51.95 | 14 (14 unfilled) | -4.23% [-39.90%, 22.32%] | $49.44 |
-| map | 2026-04 | 273 | 0.623220 | 0.638026 | 0.647894 | 16.45% (161), $285.53 | 73.35% (32), $89.96 | 50 (111 unfilled) | -15.69% [-43.59%, 13.75%] | $33.86 | 10 (22 unfilled) | -20.41% [-65.20%, 20.35%] | $47.06 |
-| map | 2026-05 | 452 | 0.640346 | 0.629637 | 0.636432 | -2.35% (277), $48.46 | 4.17% (231), $107.51 | 94 (183 unfilled) | -4.58% [-28.26%, 18.24%] | $30.28 | 90 (141 unfilled) | -4.26% [-24.61%, 15.33%] | $49.97 |
-| map | 2026-06 | 414 | 0.641458 | 0.641087 | 0.650163 | 3.91% (236), $98.54 | 9.56% (215), $113.91 | 49 (187 unfilled) | -2.94% [-31.03%, 30.60%] | $44.36 | 46 (169 unfilled) | 4.40% [-21.35%, 31.35%] | $55.28 |
-| map | 2026-07 | 618 | 0.655439 | 0.653475 | 0.647047 | -7.02% (381), $6.57 | -4.52% (347), $16.55 | 86 (295 unfilled) | -9.88% [-31.96%, 13.31%] | $29.45 | 72 (275 unfilled) | -2.33% [-22.60%, 16.21%] | $46.67 |
-| map | 2026-08 | 873 | 0.619331 | 0.611896 | 0.623251 | -2.00% (592), $13.90 | 12.02% (388), $306.43 | 116 (476 unfilled) | -8.38% [-28.83%, 13.12%] | $34.38 | 76 (312 unfilled) | 7.81% [-15.64%, 32.66%] | $58.92 |
-| map | 2026-09 | 879 | 0.647004 | 0.634692 | 0.631507 | -12.49% (593), $0.07 | -4.76% (379), $25.74 | 207 (386 unfilled) | -26.22% [-42.19%, -10.54%] | $0.66 | 141 (238 unfilled) | -16.86% [-31.68%, -1.14%] | $23.97 |
-| map | 2026-10 | 659 | 0.640272 | 0.626361 | 0.628124 | -11.12% (409), $0.42 | 4.96% (212), $51.17 | 154 (255 unfilled) | -29.23% [-44.53%, -13.84%] | $2.58 | 70 (142 unfilled) | -16.21% [-35.48%, 2.96%] | $24.07 |
-| series | 2026-01 | 51 | 0.572357 | — | 0.602759 | 22.55% (38), $106.74 | — | 34 (4 unfilled) | 37.27% [-7.13%, 85.27%] | $107.08 | — | — | — |
-| series | 2026-02 | 155 | 0.578866 | — | 0.565710 | -13.90% (116), $11.46 | — | 104 (12 unfilled) | -17.00% [-36.36%, 2.19%] | $11.66 | — | — | — |
-| series | 2026-03 | 304 | 0.583253 | 0.571458 | 0.590480 | 2.90% (224), $48.26 | 12.07% (197), $292.49 | 174 (50 unfilled) | 1.92% [-14.33%, 19.30%] | $54.45 | 147 (50 unfilled) | 10.54% [-1.33%, 23.53%] | $142.50 |
-| series | 2026-04 | 322 | 0.579510 | 0.566600 | 0.580957 | -0.75% (237), $29.17 | 6.76% (223), $127.38 | 170 (67 unfilled) | 4.36% [-14.84%, 26.03%] | $55.34 | 163 (60 unfilled) | 10.67% [-5.08%, 28.47%] | $121.40 |
-| series | 2026-05 | 360 | 0.600817 | 0.579972 | 0.584764 | -7.06% (264), $4.36 | 0.94% (247), $68.36 | 213 (51 unfilled) | -9.56% [-24.92%, 5.83%] | $1.97 | 196 (51 unfilled) | -2.27% [-16.29%, 11.35%] | $44.11 |
-| series | 2026-06 | 348 | 0.613647 | 0.621359 | 0.633931 | 8.80% (242), $251.80 | 9.18% (215), $133.82 | 157 (85 unfilled) | 18.61% [-1.02%, 38.91%] | $335.07 | 137 (78 unfilled) | 8.87% [-5.58%, 22.97%] | $83.68 |
-| series | 2026-07 | 513 | 0.619201 | 0.609705 | 0.614447 | 2.31% (379), $1.37 | 0.73% (342), $19.57 | 241 (138 unfilled) | 1.22% [-15.12%, 20.49%] | $32.27 | 214 (128 unfilled) | -1.67% [-16.10%, 16.17%] | $12.99 |
-| series | 2026-08 | 717 | 0.598945 | 0.591806 | 0.614837 | 6.82% (556), $81.61 | 11.63% (449), $638.21 | 272 (284 unfilled) | 2.38% [-12.87%, 18.77%] | $47.37 | 219 (230 unfilled) | 13.25% [-3.09%, 31.47%] | $328.44 |
-| series | 2026-09 | 914 | 0.589270 | 0.582209 | 0.602664 | 5.56% (676), $40.70 | 14.89% (535), $2967.71 | 377 (299 unfilled) | -5.18% [-17.19%, 6.83%] | $5.78 | 305 (230 unfilled) | 3.61% [-6.48%, 14.26%] | $160.16 |
-| series | 2026-10 | 772 | 0.586725 | 0.575606 | 0.585736 | 0.95% (538), $14.20 | 6.23% (439), $208.24 | 335 (203 unfilled) | -1.48% [-13.61%, 11.03%] | $36.47 | 267 (172 unfilled) | 4.02% [-6.76%, 13.82%] | $80.60 |
+| map | 2026-01 | 63 | 0.635848 | — | 0.638920 | 8.32% (41), $56.78 | — | 4 (37 unfilled) | -6.25% [-100.00%, 88.86%] | $49.63 | — | — | — |
+| map | 2026-02 | 102 | 0.643874 | — | 0.611955 | -24.21% (62), $26.09 | — | 22 (40 unfilled) | -57.27% [-87.16%, -21.90%] | $26.19 | — | — | — |
+| map | 2026-03 | 144 | 0.654158 | 0.643034 | 0.642845 | -1.46% (82), $35.77 | 9.58% (14), $48.38 | 42 (40 unfilled) | 3.29% [-33.78%, 43.93%] | $47.99 | 9 (5 unfilled) | 1.31% [-45.47%, 31.61%] | $47.24 |
+| map | 2026-04 | 273 | 0.624236 | 0.640646 | 0.647894 | 15.89% (170), $270.60 | 39.59% (26), $67.01 | 54 (116 unfilled) | -11.78% [-36.75%, 12.72%] | $34.58 | 7 (19 unfilled) | -6.60% [-46.63%, 32.93%] | $50.03 |
+| map | 2026-05 | 452 | 0.638671 | 0.628427 | 0.636432 | -1.85% (272), $48.76 | 8.72% (220), $116.39 | 93 (179 unfilled) | -2.85% [-26.35%, 20.05%] | $33.63 | 84 (136 unfilled) | 4.09% [-16.01%, 25.23%] | $51.28 |
+| map | 2026-06 | 414 | 0.641939 | 0.641599 | 0.650163 | 5.52% (227), $104.27 | 9.07% (215), $98.84 | 47 (180 unfilled) | -5.39% [-33.12%, 25.68%] | $45.78 | 47 (168 unfilled) | 2.20% [-23.39%, 29.26%] | $54.31 |
+| map | 2026-07 | 618 | 0.655724 | 0.653655 | 0.647047 | -7.43% (380), $6.72 | -5.10% (330), $15.85 | 85 (295 unfilled) | -8.48% [-31.45%, 13.97%] | $31.73 | 69 (261 unfilled) | -2.54% [-22.22%, 16.49%] | $46.91 |
+| map | 2026-08 | 873 | 0.618866 | 0.611709 | 0.623251 | -2.15% (592), $18.34 | 12.57% (380), $283.88 | 115 (477 unfilled) | -8.99% [-29.43%, 12.51%] | $33.13 | 77 (303 unfilled) | 6.84% [-15.66%, 31.65%] | $59.14 |
+| map | 2026-09 | 879 | 0.646626 | 0.634494 | 0.631507 | -11.54% (577), $0.05 | -4.03% (380), $30.74 | 201 (376 unfilled) | -27.34% [-42.23%, -10.86%] | $0.68 | 145 (235 unfilled) | -18.30% [-31.96%, -2.82%] | $20.81 |
+| map | 2026-10 | 659 | 0.640736 | 0.626594 | 0.628124 | -11.35% (404), $0.17 | 3.58% (207), $50.93 | 150 (254 unfilled) | -30.64% [-46.08%, -13.79%] | $1.76 | 65 (142 unfilled) | -18.98% [-38.38%, 0.08%] | $25.01 |
+| series | 2026-01 | 51 | 0.575621 | — | 0.602759 | 20.50% (41), $103.89 | — | 37 (4 unfilled) | 33.81% [-7.25%, 77.91%] | $101.44 | — | — | — |
+| series | 2026-02 | 155 | 0.576456 | — | 0.565710 | -7.52% (116), $13.82 | — | 101 (15 unfilled) | -8.34% [-27.66%, 12.08%] | $15.03 | — | — | — |
+| series | 2026-03 | 304 | 0.585765 | 0.572724 | 0.590480 | 4.15% (219), $44.36 | 10.54% (207), $285.02 | 168 (51 unfilled) | 3.32% [-13.17%, 21.35%] | $49.93 | 154 (53 unfilled) | 8.32% [-3.45%, 20.77%] | $124.79 |
+| series | 2026-04 | 322 | 0.580884 | 0.567741 | 0.580957 | -2.64% (236), $29.57 | 6.28% (223), $111.06 | 168 (68 unfilled) | 2.35% [-16.11%, 23.43%] | $54.41 | 163 (60 unfilled) | 9.75% [-4.46%, 27.23%] | $98.15 |
+| series | 2026-05 | 360 | 0.597081 | 0.577031 | 0.584764 | -3.17% (263), $5.06 | 3.83% (240), $75.67 | 212 (51 unfilled) | -7.74% [-23.36%, 9.39%] | $1.59 | 189 (51 unfilled) | 0.70% [-12.52%, 15.43%] | $36.68 |
+| series | 2026-06 | 348 | 0.613493 | 0.621505 | 0.633931 | 9.53% (244), $252.34 | 8.28% (218), $114.40 | 162 (82 unfilled) | 18.15% [-1.04%, 39.19%] | $335.99 | 140 (78 unfilled) | 6.39% [-7.94%, 20.53%] | $78.06 |
+| series | 2026-07 | 513 | 0.619614 | 0.610749 | 0.614447 | 2.57% (380), $1.57 | 1.39% (349), $27.34 | 240 (140 unfilled) | 1.68% [-14.89%, 21.99%] | $51.40 | 216 (133 unfilled) | -0.44% [-15.09%, 16.47%] | $26.53 |
+| series | 2026-08 | 717 | 0.596834 | 0.590575 | 0.614837 | 7.91% (556), $129.63 | 13.42% (443), $662.20 | 272 (284 unfilled) | 3.22% [-11.73%, 21.21%] | $56.43 | 210 (233 unfilled) | 17.30% [1.20%, 36.12%] | $356.26 |
+| series | 2026-09 | 914 | 0.589610 | 0.582475 | 0.602664 | 4.52% (666), $20.16 | 15.72% (540), $3859.97 | 374 (292 unfilled) | -5.59% [-17.41%, 6.11%] | $4.78 | 308 (232 unfilled) | 2.93% [-7.74%, 13.54%] | $201.27 |
+| series | 2026-10 | 772 | 0.586629 | 0.575497 | 0.585736 | 0.87% (542), $17.06 | 8.26% (431), $268.85 | 334 (208 unfilled) | -1.49% [-13.65%, 10.79%] | $34.43 | 265 (166 unfilled) | 5.33% [-4.41%, 16.01%] | $88.22 |

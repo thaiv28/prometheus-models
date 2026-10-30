@@ -4,8 +4,10 @@ import argparse
 import sqlite3
 import sys
 import time
+from bisect import bisect_left
 from collections import Counter, defaultdict
 from dataclasses import asdict
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -118,6 +120,86 @@ def team_resolution(page_inputs):
         canonical.update((key, winner) for key in members)
     merged = [members for members in groups.values() if len(members) > 1]
     return aliases, canonical, sum(map(len, merged)), len(merged)
+
+
+def resolve_bare_keys(conn):
+    """Resolve bare cards from a frozen snapshot of nearby sibling appearances."""
+    players = dict(conn.execute("SELECT key, player_id FROM players"))
+    siblings = defaultdict(set)
+    for key, pid in players.items():
+        base, sep, qualifier = key.partition(" (")
+        if sep and qualifier.endswith(")") and base in players:
+            siblings[players[base]].add(pid)
+    relevant = set(siblings) | set().union(*siblings.values()) if siblings else set()
+    appearances = defaultdict(set)
+    map_rows, occupants = [], defaultdict(set)
+    for gid, pid, team, start in conn.execute(
+        "SELECT p.game_id, p.player_id, CASE p.team WHEN 1 THEN m.team1_id "
+        "ELSE m.team2_id END, substr(m.start_utc,1,10) FROM player_maps p "
+        "JOIN maps g USING(game_id) JOIN matches m USING(match_id)"
+    ):
+        if pid not in relevant:
+            continue
+        day = date.fromisoformat(start).toordinal()
+        appearances[pid, team].add(day)
+        occupants[gid].add(pid)
+        if pid in siblings:
+            map_rows.append((gid, pid, team, day))
+    appearances = {key: sorted(days) for key, days in appearances.items()}
+
+    def candidate(pid, team, day):
+        hits = []
+        for sibling in siblings[pid]:
+            days = appearances.get((sibling, team), [])
+            i = bisect_left(days, day - 365)
+            if i < len(days) and days[i] <= day + 365:
+                hits.append(sibling)
+        return hits[0] if len(hits) == 1 else None
+
+    changes, touched = [], set()
+    for gid, pid, team, day in map_rows:
+        target = candidate(pid, team, day)
+        if target is not None and target not in occupants[gid]:
+            changes.append((target, gid, pid))
+            touched.add(pid)
+    roster_changes = []
+    roster_rows = conn.execute(
+        "SELECT r.event_id, r.team_id, r.slot, r.player_id, "
+        "e.start_date, first_match.start FROM rosters r "
+        "JOIN events e USING(event_id) LEFT JOIN "
+        "(SELECT event_id, min(substr(start_utc,1,10)) start FROM matches GROUP BY event_id) "
+        "first_match USING(event_id)"
+    ).fetchall()
+    roster_occupants = defaultdict(set)
+    for eid, team, _slot, pid, _start, _first in roster_rows:
+        roster_occupants[eid, team].add(pid)
+    for eid, team, slot, pid, start, first in roster_rows:
+        if pid not in siblings:
+            continue
+        # Liquipedia also stores partial event dates such as 2024-02-??.
+        day = None
+        for value in (start, first):
+            try:
+                day = date.fromisoformat((value or "")[:10]).toordinal()
+                break
+            except ValueError:
+                continue
+        if day is None:
+            continue
+        target = candidate(pid, team, day)
+        if target is not None and target not in roster_occupants[eid, team]:
+            roster_changes.append((target, eid, team, slot))
+            touched.add(pid)
+    conn.executemany(
+        "UPDATE player_maps SET player_id=? WHERE game_id=? AND player_id=?", changes
+    )
+    conn.executemany(
+        "UPDATE rosters SET player_id=? WHERE event_id=? AND team_id=? AND slot=?",
+        roster_changes,
+    )
+    resolved = len(changes) + len(roster_changes)
+    print(f"bare_keys_resolved={resolved} players={len(touched)}")
+    return resolved, len(touched)
 
 
 def build(conn, pages: dict):
@@ -335,6 +417,7 @@ def build(conn, pages: dict):
                 "UPDATE teams SET name=? WHERE team_id=?",
                 (votes.most_common(1)[0][0], row["team_id"]),
             )
+    resolve_bare_keys(conn)
     for table in ("events", "matches", "maps"):
         counts[table] = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     counts["excluded"] = sum(e["excluded"] for e in events.values())

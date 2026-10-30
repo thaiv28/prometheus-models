@@ -357,3 +357,108 @@ def test_disambiguated_keys_do_not_merge():
     assert canonical["legacy"] == "legacy"
     assert canonical["legacy (american team)"] == "legacy (american team)"
     assert (merged, groups) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "variant,expected",
+    [
+        ("unique", 2),
+        ("partial", 2),
+        ("two", 1),
+        ("other_team", 1),
+        ("old", 1),
+        ("on_map", 1),
+    ],
+)
+def test_resolve_bare_keys(conn, variant, expected):
+    conn.execute(
+        "INSERT INTO events(event_id,title,section,international,excluded) VALUES (1,'P','tier1',1,0)"
+    )
+    conn.executemany("INSERT INTO teams VALUES (?,?,?)", [(1, "a", "A"), (2, "b", "B")])
+    conn.executemany(
+        "INSERT INTO players VALUES (?,?,?)",
+        [
+            (1, "lucky", "Lucky"),
+            (2, "lucky (french player)", "Lucky"),
+            (3, "lucky (danish player)", "Lucky"),
+        ],
+    )
+    for mid, start in [
+        (1, "2026-01-01"),
+        (2, "2025-01-01" if variant in ("old", "unique") else "2025-12-01"),
+    ]:
+        conn.execute(
+            "INSERT INTO matches(match_id,event_id,page,ordinal,start_utc,time_known,team1_id,team2_id,score1,score2) VALUES (?,1,'P',?, ?,1,1,2,1,0)",
+            (mid, mid, start + "T00:00:00Z"),
+        )
+        conn.execute(
+            'INSERT INTO maps(game_id,match_id,"order",score1,score2,ot1,ot2) VALUES (?,?,1,13,9,0,0)',
+            (mid, mid),
+        )
+    # 365 days is inclusive; use 366 days for the outside-window case.
+    if variant == "old":
+        conn.execute(
+            "UPDATE matches SET start_utc='2024-12-31T00:00:00Z' WHERE match_id=2"
+        )
+        conn.execute("UPDATE events SET start_date='2026-01-01'")
+    conn.execute("INSERT INTO player_maps VALUES (1,1,1)")
+    conn.execute(
+        "INSERT INTO player_maps VALUES (2,2,?)", (2 if variant == "other_team" else 1,)
+    )
+    if variant == "two":
+        conn.execute("INSERT INTO player_maps VALUES (2,3,1)")
+    if variant == "on_map":
+        # Even an appearance on the opposite side blocks reassignment.
+        conn.execute("INSERT INTO player_maps VALUES (1,2,2)")
+    if variant == "partial":
+        conn.execute("UPDATE events SET start_date='2025-12-??'")
+    conn.execute("INSERT INTO rosters VALUES (1,1,1,1)")
+    rows, players = loader.resolve_bare_keys(conn)
+    assert conn.execute(
+        "SELECT player_id FROM player_maps WHERE game_id=1 AND team=1"
+    ).fetchone() == (expected,)
+    # No event start_date: the roster must use its first match date.
+    assert conn.execute("SELECT player_id FROM rosters").fetchone() == (
+        2 if variant in ("unique", "partial", "on_map") else 1,
+    )
+    assert (rows, players) == (
+        (2, 1)
+        if variant in ("unique", "partial")
+        else (1, 1)
+        if variant == "on_map"
+        else (0, 0)
+    )
+    assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_bare_key_roster_uses_event_start_and_frozen_evidence(conn):
+    # A newly resolved bare appearance must not extend the sibling's window.
+    pages = {
+        f"P{i}": record(
+            f"P{i}",
+            i,
+            teamcard("Alpha", "a")
+            + teamcard("Beta", "b")
+            + match().replace("Jan 1, 2026", start),
+        )
+        for i, start in [(1, "Jan 1, 2024"), (2, "Dec 1, 2024"), (3, "Nov 1, 2025")]
+    }
+    _, errors = loader.build(conn, pages)
+    assert not errors
+    bare = loader.stable_id("player:a1")
+    sibling = 999
+    conn.execute("INSERT INTO players VALUES (999,'a1 (player)','a1')")
+    conn.execute(
+        "UPDATE player_maps SET player_id=? WHERE player_id=? AND game_id IN (SELECT game_id FROM maps JOIN matches USING(match_id) WHERE event_id=1)",
+        (sibling, bare),
+    )
+    conn.execute("UPDATE events SET start_date='2024-01-01' WHERE event_id=3")
+    loader.resolve_bare_keys(conn)
+    assert conn.execute(
+        "SELECT player_id FROM player_maps JOIN maps USING(game_id) JOIN matches USING(match_id) WHERE event_id=3 AND player_id=?",
+        (bare,),
+    ).fetchone() == (bare,)
+    assert conn.execute(
+        "SELECT player_id FROM rosters WHERE event_id=3 AND slot=1 AND team_id=?",
+        (loader.stable_id("team:alpha"),),
+    ).fetchone() == (sibling,)

@@ -4,6 +4,10 @@ Every model idea tested, adopted or not, newest first, with its numbers. These p
 
 ## Two-stage runs
 
+2026-10-29 Data fix: player identity splits (bare Liquipedia keys → disambiguated siblings by team context; Kaggle spelling pairs, fallback and ID unification). Adopted model, new DB − f22f6ef DB, paired by game_id.
+
+- **Shipped (data fix, neutral).** Stage 1 +0.00003 [−0.00008, +0.00014]; tier1 −0.00098 [−0.00186, −0.00014] significant; tier3 +0.00016 [+0.00007, +0.00025] significant but inside the +0.0005 non-inferiority margin. Stage 2 −0.00017 [−0.00043, +0.00009]; no section significant. Raw series vs Kalshi −0.0057 (was −0.0054).
+
 2026-10-29 Data fix: Liquipedia template-key aliases + team merges, and Kaggle per-map lineups (stand-ins). Adopted model with frozen parameters, new DB − old DB, paired by game_id.
 
 - **Shipped (data fix, significantly better).** Stage 1 −0.00116 [−0.00171, −0.00065] (tier2 −0.0009, tier3 −0.0014 significant; tier1 +0.0001 n.s.); stage 2 −0.00131 [−0.00218, −0.00043] (tier2 −0.0023, tier3 −0.0011 significant). Vs Kalshi: raw series −0.0054 (was −0.0041), blended −0.0146 (−0.0145), blended flat ROI +8.4% (+9.0%). Performance bonus retested on the new DB: stage 1 KDA −0.00004, ADR −0.00014; stage 2 −0.00009 / +0.00002 (all n.s.); still rejected.

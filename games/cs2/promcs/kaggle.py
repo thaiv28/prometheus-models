@@ -96,26 +96,49 @@ def nickname(value):
 
 
 def similar(a, b):
-    """Spelling variants such as dev1ce/device or jottAAA/jottA."""
-    short = min(a, b, key=len)
-    if len(short) >= 3 and (a in b or b in a):
+    """Spelling variants such as dev1ce/device, jottAAA/jottA or baz/baaaaZzz."""
+    short, long = sorted((a, b), key=len)
+    if len(short) >= 3 and short in long:
+        return True
+    letters = iter(long)
+    if len(short) >= 3 and short[0] == long[0] and all(c in letters for c in short):
         return True
     return SequenceMatcher(None, a, b).ratio() >= 0.6
 
 
-def leftover(roster, names):
-    """The one roster player and Kaggle slot left after exact name matches."""
+def assign_pairs(roster, names):
+    """Greedily assign mutually unique best spelling matches after exact hits."""
     pids = {pid for found in roster.values() for pid in found}
     hit = {next(iter(roster[n])) for n in names if len(roster.get(n, ())) == 1}
-    missing = [i for i, n in enumerate(names) if len(roster.get(n, ())) != 1]
-    rest = pids - hit
-    if len(missing) != 1 or len(rest) != 1:
-        return None
-    pid = next(iter(rest))
-    known = [n for n, found in roster.items() if pid in found]
-    if any(similar(names[missing[0]], n) for n in known):
-        return missing[0], pid
-    return None
+    missing = {i for i, n in enumerate(names) if len(roster.get(n, ())) != 1}
+    remaining = pids - hit
+    aliases = {
+        pid: [n for n, found in roster.items() if pid in found] for pid in remaining
+    }
+    assigned = {}
+    while missing and remaining:
+        scores = {
+            (i, pid): max(
+                SequenceMatcher(None, names[i], n).ratio() for n in aliases[pid]
+            )
+            for i in missing
+            for pid in remaining
+        }
+        eligible = []
+        for (i, pid), score in scores.items():
+            if not any(similar(names[i], n) for n in aliases[pid]):
+                continue
+            row = [p for p in remaining if scores[i, p] >= score]
+            column = [j for j in missing if scores[j, pid] >= score]
+            if len(row) == len(column) == 1:
+                eligible.append((score, i, pid))
+        if not eligible:
+            break
+        _, i, pid = max(eligible)
+        assigned[i] = pid
+        missing.remove(i)
+        remaining.remove(pid)
+    return assigned
 
 
 def same_team(name, candidates):
@@ -168,14 +191,48 @@ def load_stats(conn, path):
         index[(map_key(name), min(s1, s2), max(s1, s2))].append((timestamp, gid))
     for entries in index.values():
         entries.sort()
+    # Frozen identity/context indexes, built before any lineup replacement.
+    identities = dict(conn.execute("SELECT player_id, key FROM players"))
+    fallback_index = defaultdict(set)
+    for pid, key, name in conn.execute("SELECT player_id, key, name FROM players"):
+        if not key.startswith("kaggle:"):
+            for alias in (name, key, key.split(" (", 1)[0]):
+                if fold(alias or ""):
+                    fallback_index[fold(alias)].add(pid)
+    appearances = defaultdict(set)
+    map_context = {}
+    for gid, start, t1, t2 in conn.execute(
+        "SELECT game_id, start_utc, team1_id, team2_id FROM maps JOIN matches USING(match_id)"
+    ):
+        day = datetime.fromisoformat(start.replace("Z", "+00:00")).date().toordinal()
+        map_context[gid] = (day, (t1, t2))
+    frequency = Counter()
     rosters = defaultdict(lambda: ({}, {}))
     for gid, pid, side, name, key in conn.execute(
         "SELECT game_id, player_id, team, name, key FROM player_maps JOIN players USING(player_id)"
     ):
+        day, teams = map_context[gid]
+        appearances[pid, teams[side - 1]].add(day)
+        frequency[pid] += 1
         for alias in (name, key):
             normalized = fold(alias or "")
             if normalized:
                 rosters[gid][side - 1].setdefault(normalized, set()).add(pid)
+
+    appearances = {key: sorted(days) for key, days in appearances.items()}
+
+    def fallback(name, gid, side):
+        candidates = fallback_index.get(name, set())
+        day, teams = map_context[gid]
+        nearby = []
+        for pid in candidates:
+            days = appearances.get((pid, teams[side]), [])
+            i = bisect_left(days, day - 365)
+            if i < len(days) and days[i] <= day + 365:
+                nearby.append(pid)
+        if len(nearby) == 1:
+            return nearby[0]
+        return next(iter(candidates)) if len(candidates) == 1 else None
 
     claims = defaultdict(list)
     totals = Counter()
@@ -248,6 +305,8 @@ def load_stats(conn, path):
             continue
         links[gid] = options[0]
     votes = defaultdict(Counter)
+    assignments = {}
+    pairs_assigned = 0
     for gid, (_, swapped, row, _) in links.items():
         for side in (1, 2):
             roster = rosters[gid][(side - 1) ^ swapped]
@@ -258,37 +317,29 @@ def load_stats(conn, path):
                 matches = roster.get(names[i - 1], set())
                 if kid is not None and len(matches) == 1:
                     votes[kid][next(iter(matches))] += 1
-            # A lone unmatched slot with a similarly spelled lone roster player.
-            spare = leftover(roster, names)
-            kid = spare and player_key(row.get(f"team{side}_player{spare[0] + 1}_id"))
-            if kid is not None:
-                votes[kid][spare[1]] += 1
+            pairs = assign_pairs(roster, names)
+            assignments[gid, side] = pairs
+            pairs_assigned += len(pairs)
+            for i, pid in pairs.items():
+                kid = player_key(row.get(f"team{side}_player{i + 1}_id"))
+                if kid is not None:
+                    votes[kid][pid] += 1
     learned = {}
     for kid, counts in votes.items():
         pid, count = counts.most_common(1)[0]
         if count / counts.total() >= 0.8:
             learned[kid] = pid
 
-    conn.execute("DELETE FROM player_stats")
-    conn.execute("DELETE FROM kaggle_links")
-    linked = Counter()
-    stats_count = covered = replaced = changed = created = 0
-    for gid, (overlap, swapped, row, year) in links.items():
-        conn.execute(
-            "INSERT INTO kaggle_links VALUES (?, ?, ?, ?)",
-            (int(row["game_id"]), gid, swapped, overlap),
-        )
-        linked[year] += 1
-        original = [
-            set().union(*roster.values()) if roster else set()
-            for roster in rosters[gid]
-        ]
-        proposals, new_players = {}, {}
+    # Resolve every slot first; a stable Kaggle person ID must have one proposal.
+    resolved, new_players = {}, {}
+    resolutions = defaultdict(Counter)
+    fallback_resolved = 0
+    for gid, (_, swapped, row, _) in links.items():
+        proposals = {}
         for side in (1, 2):
             lp_side = (side - 1) ^ swapped
             lineup = []
-            names = [nickname(row.get(f"team{side}_player{i}")) for i in range(1, 6)]
-            spare = leftover(rosters[gid][lp_side], names)
+            pairs = assignments[gid, side]
             for i in range(1, 6):
                 prefix = f"team{side}_player{i}"
                 kid = player_key(row.get(prefix + "_id"))
@@ -300,14 +351,62 @@ def load_stats(conn, path):
                     pid = next(iter(matches))
                 elif kid in learned:
                     pid = learned[kid]
-                elif spare and spare[0] == i - 1:
-                    pid = spare[1]
+                elif i - 1 in pairs:
+                    pid = pairs[i - 1]
                 else:
-                    pid = stable_id("player:kaggle:" + kid)
-                    new_players[pid] = (pid, "kaggle:" + kid, name)
-                lineup.append(pid)
-            if len(lineup) == 5 and len(set(lineup)) == 5:
+                    pid = fallback(nickname(name), gid, lp_side)
+                    if pid is not None:
+                        fallback_resolved += 1
+                    else:
+                        pid = stable_id("player:kaggle:" + kid)
+                        new_players[pid] = (pid, "kaggle:" + kid, name)
+                lineup.append((kid, pid))
+                resolutions[kid][pid] += 1
+            if len(lineup) == 5:
                 proposals[lp_side] = lineup
+        resolved[gid] = proposals
+    unified = {}
+    for kid, counts in resolutions.items():
+        disambiguated = [
+            pid
+            for pid in counts
+            if " (" in identities.get(pid, "") and identities[pid].endswith(")")
+        ]
+        unified[kid] = (
+            disambiguated[0]
+            if len(disambiguated) == 1
+            else max(
+                counts,
+                key=lambda pid: (
+                    counts[pid],
+                    pid in identities and not identities[pid].startswith("kaggle:"),
+                    frequency[pid],
+                    -pid,
+                ),
+            )
+        )
+    kid_unified = sum(len(counts) > 1 for counts in resolutions.values())
+
+    conn.execute("DELETE FROM player_stats")
+    conn.execute("DELETE FROM kaggle_links")
+    linked = Counter()
+    final_ids = defaultdict(set)
+    stats_count = covered = replaced = changed = created = 0
+    for gid, (overlap, swapped, row, year) in links.items():
+        conn.execute(
+            "INSERT INTO kaggle_links VALUES (?, ?, ?, ?)",
+            (int(row["game_id"]), gid, swapped, overlap),
+        )
+        linked[year] += 1
+        original = [
+            set().union(*roster.values()) if roster else set()
+            for roster in rosters[gid]
+        ]
+        proposals = {}
+        for side, slots in resolved[gid].items():
+            lineup = [unified[kid] for kid, _ in slots]
+            if len(set(lineup)) == 5:
+                proposals[side] = lineup
         # Reject conflicting proposals together, then recheck against any restored
         # original lineup. At most two sides can be removed from consideration.
         while proposals:
@@ -352,6 +451,9 @@ def load_stats(conn, path):
                     if len(matches) != 1:
                         continue
                     pid = next(iter(matches))
+                kid = player_key(row.get(prefix + "_id"))
+                if kid is not None:
+                    final_ids[kid].add(pid)
                 inserted[pid] = (
                     gid,
                     pid,
@@ -373,7 +475,7 @@ def load_stats(conn, path):
         f"{year}:{linked[year]}/{totals[year]} ({linked[year] / totals[year]:.1%})"
         for year in sorted(totals)
     )
-    return f"kaggle: map_rows={total} linked={count} ({count / total if total else 0:.1%}); by_year=[{yearly}]; player_stats={stats_count}; >=4/side={covered}/{count} ({covered / count if count else 0:.1%}); sides_replaced={replaced}; lineups_changed={changed}; new_kaggle_players={created}; learned_mappings={len(learned)}"
+    return f"kaggle: map_rows={total} linked={count} ({count / total if total else 0:.1%}); by_year=[{yearly}]; player_stats={stats_count}; >=4/side={covered}/{count} ({covered / count if count else 0:.1%}); sides_replaced={replaced}; lineups_changed={changed}; new_kaggle_players={created}; learned_mappings={len(learned)}; pairs_assigned={pairs_assigned}; fallback_resolved={fallback_resolved}; kid_unified={kid_unified}; kid_split_ids={sum(len(pids) > 1 for pids in final_ids.values())}"
 
 
 def load_latest(conn, root):

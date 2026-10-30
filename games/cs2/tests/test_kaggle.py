@@ -311,7 +311,7 @@ def test_full_lineup_populates_cardless_side(db, tmp_path):
     summary = load_stats(db, archive(tmp_path, [full_game(team2="Beta")]))
     assert len(lineup(db, side=2)) == 5
     assert db.execute("SELECT count(*) FROM player_stats").fetchone() == (10,)
-    assert "lineups_changed=1; new_kaggle_players=5" in summary
+    assert "lineups_changed=1; new_kaggle_players=0" in summary
     assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
@@ -331,14 +331,114 @@ def test_full_swapped_lineup_stats_keep_liquipedia_side(db, tmp_path):
 
 
 def test_display_name_and_spelling_variants():
-    from promcs.kaggle import display_name, leftover, similar
+    from promcs.kaggle import assign_pairs, display_name, similar
 
     assert display_name("tex1y, RU") == "tex1y"
     assert display_name("OLIMP (Patryk  Woźniak ), PL") == "OLIMP"
     assert similar("device", "dev1ce") and similar("jotta", "jottaaa")
+    assert similar("baz", "baaaazzz") and similar("ivz", "ivanzinho")
     assert not similar("zywoo", "apex")
     roster = {
         n: {i} for i, n in enumerate(["dev1ce", "staehr", "stavn", "hooxi", "jabbi"])
     }
-    assert leftover(roster, ["device", "staehr", "stavn", "hooxi", "jabbi"]) == (0, 0)
-    assert leftover(roster, ["stand1n", "staehr", "stavn", "hooxi", "jabbi"]) is None
+    assert assign_pairs(roster, ["device", "staehr", "stavn", "hooxi", "jabbi"]) == {
+        0: 0
+    }
+    assert assign_pairs(roster, ["stand1n", "staehr", "stavn", "hooxi", "jabbi"]) == {}
+
+
+def test_two_unmatched_pairs_learn_and_resolve(db, tmp_path):
+    db.execute("UPDATE players SET key='dev1ce', name='dev1ce' WHERE player_id=4")
+    db.execute("UPDATE players SET key='jottaaa', name='jottAAA' WHERE player_id=5")
+    row = full_game(team1_player4="device", team1_player5="jotta")
+    summary = load_stats(db, archive(tmp_path, [row]))
+    assert lineup(db) == set(range(1, 6))
+    assert "pairs_assigned=2" in summary
+    assert "learned_mappings=10" in summary
+    assert "new_kaggle_players=0" in summary
+
+
+def test_pair_assignment_ties_stop():
+    from promcs.kaggle import assign_pairs
+
+    assert assign_pairs({"abcd": {1}, "abce": {2}}, ["abcf", "abcg"]) == {}
+    # Aliases do not cast multiple votes for the same person.
+    assert assign_pairs({"abcd": {1}, "abcde": {1}}, ["abcdf", "zzz"]) == {0: 1}
+
+
+@pytest.mark.parametrize("mode", ["team", "global", "ambiguous", "outside"])
+def test_existing_player_fallback(db, tmp_path, mode):
+    from promcs.kaggle import stable_id
+
+    db.execute("INSERT INTO players VALUES (11,'unique (player)','Unique')")
+    if mode == "global":
+        # Only the key base matches: neither the name nor the full key does.
+        db.execute("UPDATE players SET name='Different' WHERE player_id=11")
+    if mode != "global":
+        db.execute("INSERT INTO players VALUES (12,'unique (other player)','Unique')")
+    if mode in ("team", "outside"):
+        start = "2024-01-01T00:00:00Z" if mode == "outside" else "2026-01-02T00:00:00Z"
+        add_map(db, 2, start=start)
+        db.execute(
+            "UPDATE player_maps SET player_id=11 WHERE game_id=2 AND player_id=5"
+        )
+    row = full_game(team1_player5="Unique")
+    summary = load_stats(db, archive(tmp_path, [row]))
+    expected = 11 if mode in ("team", "global") else stable_id("player:kaggle:5")
+    assert lineup(db) == {1, 2, 3, 4, expected}
+    assert f"fallback_resolved={int(expected == 11)}" in summary
+
+
+def test_kid_unification_prefers_disambiguated(db, tmp_path):
+    add_map(db, 2, start="2026-01-02T00:00:00Z")
+    add_map(db, 3, start="2026-01-03T00:00:00Z")
+    db.execute("INSERT INTO players VALUES (11,'p5 (french player)','p5')")
+    db.execute("UPDATE player_maps SET player_id=11 WHERE game_id=2 AND player_id=5")
+    rows = [
+        full_game(),
+        full_game(102, datetime="2026-01-02 03:00:00"),
+        full_game(103, datetime="2026-01-03 03:00:00"),
+    ]
+    summary = load_stats(db, archive(tmp_path, rows))
+    for gid in (1, 2, 3):
+        assert lineup(db, gid) == {1, 2, 3, 4, 11}
+    assert "kid_unified=1; kid_split_ids=0" in summary
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+@pytest.mark.parametrize("extra_maps,expected", [(False, 11), (True, 5)])
+def test_kid_unification_frequency_and_map_count_tie(
+    db, tmp_path, extra_maps, expected
+):
+    add_map(db, 2, start="2026-01-02T00:00:00Z")
+    db.execute("INSERT INTO players VALUES (11,'alias','Alias')")
+    db.execute("UPDATE player_maps SET player_id=11 WHERE game_id=2 AND player_id=5")
+    add_map(db, 3, start="2026-01-03T00:00:00Z")
+    db.execute("UPDATE player_maps SET player_id=11 WHERE game_id=3 AND player_id=5")
+    rows = [
+        full_game(),
+        full_game(102, datetime="2026-01-02 03:00:00", team1_player5="Alias"),
+    ]
+    if extra_maps:
+        rows.append(full_game(103, datetime="2026-01-03 03:00:00", team1_player5="p5"))
+        # p5's exact key appears on map 4; it wins two slot votes to one.
+        add_map(db, 4, start="2026-01-04T00:00:00Z")
+        rows.append(full_game(104, datetime="2026-01-04 03:00:00"))
+    summary = load_stats(db, archive(tmp_path, rows))
+    assert lineup(db) == {1, 2, 3, 4, expected}
+    assert "kid_unified=1; kid_split_ids=0" in summary
+
+
+def test_unified_identity_conflict_restores_liquipedia(db, tmp_path):
+    add_map(db, 2, start="2026-01-02T00:00:00Z")
+    db.execute("INSERT INTO players VALUES (11,'p5 (french player)','p5')")
+    db.execute("UPDATE player_maps SET player_id=11 WHERE game_id=2 AND player_id=5")
+    db.execute("UPDATE player_maps SET player_id=11 WHERE game_id=1 AND player_id=6")
+    rows = [
+        full_game(team2_player1="p5"),
+        full_game(102, datetime="2026-01-02 03:00:00"),
+    ]
+    load_stats(db, archive(tmp_path, rows))
+    assert lineup(db) == set(range(1, 6))
+    assert lineup(db, side=2) == {7, 8, 9, 10, 11}
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []

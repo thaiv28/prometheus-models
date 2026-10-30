@@ -11,7 +11,7 @@ Hourly `refresh-db.yml` and 10-minute `feed.yml` are implemented for S3 snapshot
 ## Known limits
 
 - Settlement mismatches need source review; 2,210 markets lack a parseable scheduled time and use the open-time fallback.
-- Kaggle stats: 9,884/12,322 maps linked (80.2%), mostly tiers 1–2; 93,933 player rows. Actual lineups replace 17,295 sides (617 changed: stand-ins); 31 new players, a few of them spelling variants (baz/baaaaZzz) that split history. Upstream origin is undocumented; the refresh workflow does not fetch Kaggle. Teammate-relative KDA/ADR bonuses were rejected (ledger).
+- Kaggle stats: 9,884/12,322 maps linked (80.2%), mostly tiers 1–2; 93,933 player rows. Actual lineups replace 17,295 sides (788 changed: stand-ins); 3 new players remain (two absent from Liquipedia, one ambiguous); bare-key resolution moves 8,729 map/roster rows; 5 Kaggle IDs still split, only on sides that keep Liquipedia lineups. Upstream origin is undocumented; the refresh workflow does not fetch Kaggle. Teammate-relative KDA/ADR bonuses were rejected (ledger).
 - Liquipedia tournament rosters miss stand-ins; Kaggle-linked maps use actual five-player lineups when complete and conflict-free. No veto data.
 - Time zones are converted from a fixed abbreviation table (0 unknown on 2026-10-29); unknown ones would be treated as UTC with time_known=0. International classification is approximate.
 - Liquipedia terms do not address betting/trading use; ask in their #api-help Discord.

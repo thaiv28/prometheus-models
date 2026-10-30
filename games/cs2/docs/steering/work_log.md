@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words.
 
+## 2026-10-29 — Player identity splits
+
+Branch `player-stats`, base `f22f6ef`. Bare Liquipedia keys move to a unique disambiguated sibling seen on the same team within 365 days (8,729 map/roster rows, 60 players; e.g. lucky → lucky (french player)). Kaggle sides pair unmatched slots with similarly spelled roster players (containment, same-initial subsequence, or difflib ≥0.6), fall back to a unique existing player by team then globally, and unify each Kaggle ID onto one player. New Kaggle players 31→3 (ruggah, gatsby: not in Liquipedia; nbl: two Liquipedia players); split Kaggle IDs 16→5, only on retained conflicting sides. Adopted model vs f22f6ef DB: stage 1 +0.00003 (n.s.; tier1 −0.0010 significant, tier3 +0.00016 significant, within +0.0005), stage 2 −0.00017 (n.s.). Checks: pytest 345 (11.3 s), ruff, rebuild; foreign keys clean, all game IDs kept.
+
 ## 2026-10-29 — Team aliases and Kaggle lineups (data fix)
 
 Branch `player-stats`, base `837e570`. Loader resolves template keys to roster cards (navi→Natus Vincere; 102 aliases) and merges split teams (534 keys → 259; parenthetical qualifiers stay apart); match/map IDs unchanged. Kaggle-linked maps use actual lineups: 17,295 sides, 617 changed (stand-ins), 31 new players; spelling variants (device/dev1ce) map to existing players. Teams 7,781→7,345; 2024+ matches with full rosters 42,817→48,764; Kalshi links series 5,138→5,389, maps 9,131→9,568. Adopted model, new vs old DB: stage 1 −0.0012 [−0.0017, −0.0007], stage 2 −0.0013 [−0.0022, −0.0004]; raw series vs Kalshi −0.0054 (was −0.0041). Perf bonus retest still n.s. `docs/elo_backtest.md`, series temperatures refreshed. Checks: pytest 328, ruff, rebuild 132 s. Limit: a few variants (baz/baaaaZzz) still split.
