@@ -2,9 +2,7 @@
 
 ## Status
 
-Playbook phase: **6 (trading wiring)**. 2026-10-30: the holdout gate failed narrowly; the user overrode it on the significant log-loss edge, so Phase 6 proceeds with Dota disabled in execution (candidate-only). Holdout opened once 2026-10-30: adopted `player_glicko_rw_tier_revert` + `form` beats Kalshi on series log loss (blended −0.0290, significant, every month), but the gate, blended depth-capped series flat ROI, is +14.5% [−0.4, +31.4].  Stage-2 looks: 2. Data: 45,645 series, 91,503 games (84,091 with players); Kalshi links series 1,380/1,870.
-
-Site feed, private series candidates, frozen blend artifact and scheduled workflows are implemented, not yet deployed. Snapshots score the adopted model with its fitted form layer. Dota remains disabled in Prometheus execution.
+Playbook phase: **live** (2026-10-30 19:54 UTC). The user overrode the narrowly failed holdout gate and, after the cron-job.org jobs were confirmed firing, skipped the week-long candidate-only run: Prometheus execution has `dota2` enabled with a $50 starting bankroll (`ACCOUNT#dota2`), series markets only. Adopted model: `player_glicko_rw_tier_revert` + `form` (holdout blended series −0.0290 vs Kalshi; depth-capped flat ROI +14.5% [−0.4, +31.4]). Schedules: cron-job.org feed every 15 min, refresh-db every 3 h (UTC), GitHub backups hourly / 6-hourly. Data: 45,684 series, 91,550 games.
 
 ## Known limits
 

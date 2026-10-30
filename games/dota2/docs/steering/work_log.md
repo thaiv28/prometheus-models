@@ -1,5 +1,9 @@
 
 
+## 2026-10-30 — Live
+
+cron-job.org jobs confirmed: feed dispatched 19:49 UTC (run 39 s, candidates refreshed), refresh-db fired once at 19:52 via a temporary schedule, then restored to every 3 h. Prometheus execution: mode off → `games` gains `dota2` ($50; cs2/valorant unchanged) → live at 19:54 UTC; deployed Lambda source hash matches Prometheus main. Docs only.
+
 ## 2026-10-30 — First GitHub runs; one DB build when the top-up saves nothing
 
 GitHub, first runs: `refresh-db` succeeded in 770 s (two DB builds, ~80 s each, plus crawl and top-up); feed cold 248 s (64 fetches), next run 39 s (1 fetched, 63 reused), 8 candidates and all feed objects in S3. The second DB build now runs only when `opendota games` saved games. Checks: pytest, ruff.
