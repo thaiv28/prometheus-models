@@ -2,6 +2,30 @@
 
 Older entries moved from `work_log.md`, newest first.
 
+## 2026-10-29 — Pin adopted model; regional retest
+
+Branch `pin-adopted`, base `main` (4d7fa70). Pinned `player_round_glicko_rookie_weights` (rookie 200/400, tier-3 K 0.75) as `models.ADOPTED`; new `--baseline` (default ADOPTED) adds candidate − baseline paired tables by section in both stages; existing benchmark tests pass `--baseline team_elo`. Regional layer over the adopted model rejected: stage-2 maps −0.00044 (significant, below 0.0005), Kalshi blended unchanged (ledger). Run: 453 s for three models × two layers. Holdout not opened: no maps on or after 2026-11-01. Checks: ruff, `uv run pytest -q`.
+
+## 2026-10-29 — Pinned base grid
+
+Branch `bench-speed`, base `elo-candidates` (0cdba0a). `player_round_glicko` now scores its stage-1 winner (`models.PINNED`: K=32, τ=0.5, rd_new=350, info=0.125, teammates) instead of re-searching 640 combinations every run; `--full-grid` restores the search, and `--k-grid` still overrides K. Two-model run (`team_elo,player_round_glicko`) 517 s → 214 s with identical stage-2 results. Candidate verdicts in the ledger: rookie 200/400 + tier-3 K 0.75 adopted (stage 2 −0.0068 maps); calibration, online K, tier moves rejected; regional pending intervals. S3 seeded (82,216 objects). Checks: ruff, `uv run pytest -q` (267 passed).
+
+## 2026-10-29 — CS2 Elo candidates
+
+Branch `elo-candidates`, base `main` (0807b8c). Added tier×LAN calibration and online/tier3 K weighting candidates; anchored rookie/moves grids to the base stage-1 parameters. Replay carries online metadata; offline tests cover calibration, thresholds, neutral multipliers, compounded updates and invalid inputs. Checks: pytest 266 passed/12.56 s; 18 new calibration/multiplier cases 0.29 s (clean before-change timing unavailable); ruff format/check, CLI help, registry listing and diff check passed. Used `UV_NO_SYNC=1 UV_OFFLINE=1`: plain uv panics in macOS configuration. Updated the evaluation fixture for online metadata. Limit: benchmark run pending (run by reviewer). No weights or benchmark report written.
+
+## 2026-10-29 — Full Kalshi backfill and validation
+
+Branch `full-bench`, base `main` (c8a3138). Backfill finished (KXCS2GAME 15,815, KXCS2MAP 25,730 markets; 106 fetch errors left for the scheduled collector). Rebuilt DB: series links 5,138/7,907, map links 9,131/12,865, results agree 28,362/28,396. Benchmark (517 s): player_round_glicko blended series −0.0118 vs Kalshi (significant), raw +0.0003; maps n.s.; blended series flat ROI +8.0% [+3.7, +12.2]. Committed `docs/elo_backtest.md`; ledger updated. S3 seeding pending (AWS SSO expired). Checks: `uv run pytest -q`.
+
+## 2026-10-29 — First Kalshi validation (preliminary)
+
+Branch `ledger`, base `main` (4f689df). Ran `evaluate_elo.py --models team_elo,player_round_glicko --layers none` (320 s) with the Kalshi backfill ~40% done: player_round_glicko raw +0.0014 (n.s.), blended −0.0105 (significant) vs Kalshi's tradeable quote on 1,876 series; recorded in the research ledger. `docs/elo_backtest.md` not committed until the backfill completes. Checks: `uv run pytest -q`.
+
+## 2026-10-29 — Benchmark reads Liquipedia alias column
+
+Branch `alias-col`, base `main` (491154a). The parallel ratings and linking branches disagreed: `evaluate_elo.py` read `team_aliases.vlr_team_id`, which the CS2 link step names `liquipedia_team_id`; the Kalshi stage crashed. Renamed in the benchmark and its test. Checks: `uv run pytest -q`, ruff format/check.
+
 ## 2026-10-29 — Ratings and benchmark port
 
 Branch `ratings`, base `main` (`99fdabc`). Ported team/player Elo, RD/rookie/moves, seven-region causal layer, evaluation, blend, execution backtest and two-stage/series CLIs; adapted CS2 reads, tiers and dates. Missing Kalshi tables explicitly skip market sections. Added synthetic tests and aligned docs. Checks: pytest 204 passed (12.57 s unloaded, 27.18 s during benchmark; baseline 109/1.01 s, +11.56 s CI work); ruff format/check and diff check passed. Used `UV_NO_SYNC=true UV_OFFLINE=true` to avoid uv sync's local panic. Offline rebuild passed (25.53 s); rebuild plus benchmark 227.81 s, evaluation 201.85 s. Stage 1, 73,819 maps: player_round_glicko map/series loss 0.640438/0.619448 (K32, teammates, RD350/info0.125, τ0.5); team_elo 0.662311/0.647815 (K32). Scratch report only; stage-2 outcomes scored. Limits: Kalshi validation pending links; no stats/form layer; holdout closed.
