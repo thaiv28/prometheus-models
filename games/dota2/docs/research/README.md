@@ -4,6 +4,15 @@ Every model idea tested, adopted or not, newest first, with its stage-1 and stag
 
 ## Two-stage runs
 
+2026-10-30 **stage-2 look 2** (ladder survivors + layers; the same run re-displayed paired against the rookie candidate). Report: [`docs/elo_backtest.md`](../elo_backtest.md). Stage-2 looks: 2.
+
+- **Adopted: rookie + tier/online K** (`player_glicko_rookie_weights`: 600 / 800, online 0.75, tier-3 0.75). Stage 1 −0.0122 (every tier); stage 2 −0.0110 [−0.0141, −0.0081] vs base (tier1, tier3 significant; tier2 −0.0073 n.s.). Blended series vs Kalshi −0.0070 (base −0.0042).
+- **Adopted: tier-target reversion** (`player_glicko_rw_tier_revert`: 0.1 each October; grid widened down to 0.025, still chose 0.1). Stage 1 −0.00052 [−0.00090, −0.00016] (tier3 significant), just over the 0.0005 bar; stage 2 +0.00038 [−0.00038, +0.00113] n.s. Passes the rules but the weakest adoption.
+- **Adopted: form layer** (starters' KDA-per-minute EMA, fitted on stage 1) over reversion: stage 2 −0.00184 [−0.00310, −0.00064], tier3 significant, none worse. Like CS2's layers it is judged on stage 2 (the benchmark scores layers only there): weaker evidence than a stage-1 gain.
+- Rejected: reversion to start (−0.00049, below 0.0005); KDA performance bonus (perf_k 3, −0.0002 n.s.); regional layer (−0.00036 n.s. over reversion); calibration (−0.00004).
+- Adopted model vs Kalshi, series: blended (473) −0.0080 [−0.0200, +0.0028] n.s.; tier2 −0.0182, tier3 −0.118 (8 rows), n.s. Blended flat ROI +12.1% [−5.7, +32.0], depth-capped +16.0% [−10.8, +46.0]; LoL-capped Kelly $50 → $60. Games: blended +0.0021, lose.
+- **Ladder done (plateau, per the playbook).** Trade set fixed before the holdout: series (`KXDOTA2GAME`), all tiers; no game markets; no tier filter (tier 2/3 look best on 33 and 7 bets: too few to select on).
+
 2026-10-30 ladder, **stage 1 only** (no stage-2 look), over pinned player_glicko; paired by match.
 
 - **Candidate: rookie + tier/online K** (`player_glicko_rookie_weights`: penalty 600, maps 800, online K 0.75, tier-3 K 0.75; all interior after widening): games −0.0122 [−0.0139, −0.0106] (tier1 −0.0136, tier2 −0.0110, tier3 −0.0115, all significant); series −0.0281 [−0.0319, −0.0243]. Awaits stage 2.

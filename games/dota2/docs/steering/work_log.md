@@ -1,3 +1,7 @@
+## 2026-10-30 — Ladder done: adopted reversion + form over rookie/tier K
+
+Stage 1 for the ported variants, then stage-2 look 2 with survivors and layers. Adopted `player_glicko_rw_tier_revert` (`ADOPTED`, pinned) scored with the `form` layer (`ADOPTED_LAYER`); rejected reversion to start, the KDA bonus, regional and calibration. Tier-revert grid widened to 0.025–0.35. Trade set fixed for the holdout: series only, all tiers. `docs/elo_backtest.md` is look 2. Checks: pytest, ruff, stage-1 runs (~1–2 min), look 2 (138 s).
+
 ## 2026-10-30 — Reversion, KDA performance and starter form ladder
 
 Ported season/inactivity and tier-target reversion, within-side hero-adjusted KDA-per-minute bonuses, and causal starter form with stage-1-only fitting. Added three fixed-CANDIDATE ladder grids and pinned the rookie/weights stage-1 winner; adopted model unchanged. Performance loads once for worker and final replays. Tests cover boundaries, tier sums, prediction state, hero thresholds, missing stats/duration, causal form and fixed grids. Checks: `UV_NO_SYNC=1 uv run pytest -q`: 318 passed in 17.76 s (17.94 s wall), versus baseline 254 in 21.77 s (22.46 s wall); measured CI time did not increase. Ruff format/check passed with `UV_NO_SYNC=1`; plain uv hit a local system-configuration panic. Diff whitespace passed. Requested eight-worker real-DB smoke with `--validate-from 2026-07-01` passed in 26.83 s wall (script: 26.55 s), report `/tmp/smoke.md`. No stage-2 evaluation or adoption decision.

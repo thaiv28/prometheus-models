@@ -1086,8 +1086,12 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
 
 
 def test_pinned_grid_and_full_grid(monkeypatch):
-    assert set(benchmark.PINNED) == {"player_glicko", "player_glicko_rookie_weights"}
-    assert benchmark.ADOPTED == "player_glicko"
+    assert set(benchmark.PINNED) == {
+        "player_glicko",
+        "player_glicko_rookie_weights",
+        benchmark.ADOPTED,
+    }
+    assert benchmark.ADOPTED == "player_glicko_rw_tier_revert"
     full = benchmark.parameter_grid("player_glicko", full=True)
     assert len(full) == 300
     monkeypatch.delitem(benchmark.PINNED, "player_glicko")
@@ -1205,17 +1209,18 @@ def test_series_only_supported_odd_lengths_and_resolved_results():
 
 
 @pytest.mark.parametrize(
-    "suffix,count", [("revert", 40), ("tier_revert", 8), ("perf", 8)]
+    "suffix,count", [("revert", 40), ("tier_revert", 10), ("perf", 8)]
 )
 def test_candidate_grids_and_pin(suffix, count):
     from promdota.ratings.models import CANDIDATE
 
     assert benchmark.parameter_grid("player_glicko_rookie_weights") == [CANDIDATE]
     name = f"player_glicko_rw_{suffix}"
-    grid = benchmark.parameter_grid(name)
+    grid = benchmark.parameter_grid(name, full=True)
     assert len(grid) == count
     assert all(all(params[k] == v for k, v in CANDIDATE.items()) for params in grid)
-    assert benchmark.parameter_grid(name, full=True) == grid
+    pinned = benchmark.PINNED.get(name)
+    assert benchmark.parameter_grid(name) == ([pinned] if pinned else grid)
 
 
 def test_performance_loader_and_causal_form(database):
@@ -1271,7 +1276,7 @@ def test_candidate_registry_exact_adjustments():
     }
     assert PARAM_GRIDS["player_glicko_rw_tier_revert"] == base | {
         "revert_target": ("tier",),
-        "season_revert": (0.1, 0.2, 0.35, 0.5),
+        "season_revert": (0.025, 0.05, 0.1, 0.2, 0.35),
         "season_month": (1, 10),
         "inactive_half_life": (0,),
     }

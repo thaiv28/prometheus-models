@@ -2,7 +2,7 @@
 
 ## Status
 
-Playbook phase: **4 (refinement ladder)**. 2026-10-30: 45,645 series, 91,503 games (84,091 with players). Kalshi links: series 1,380/1,870, games 1,882/2,564. Base pinned: player_glicko (k 24, rd_new 280, rd_info 0.0625, fixed); stage-2 look 1 is level with Kalshi (ledger). Stage-2 looks: 1.
+Playbook phase: **5 (holdout verdict)**. Adopted 2026-10-30: `player_glicko_rw_tier_revert` + `form` layer (rookie 600/800, online and tier-3 K 0.75, tier-target reversion 0.1 each October). Stage 2 vs Kalshi: blended series −0.0080 n.s., flat +12.1% [−5.7, +32.0]. Ladder done; trade set: series markets, all tiers. Stage-2 looks: 2. Data: 45,645 series, 91,503 games (84,091 with players); Kalshi links series 1,380/1,870.
 
 ## Known limits
 

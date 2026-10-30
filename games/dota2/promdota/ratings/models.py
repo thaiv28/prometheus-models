@@ -57,7 +57,10 @@ for region in (False, True):
 PINNED = {
     "player_glicko": {"k": 24, "new_player": "fixed", "rd_info": 0.0625, "rd_new": 280},
 }
-ADOPTED = "player_glicko"
+# Adopted 2026-10-30 (ledger): rookie + tier/online K + tier-target reversion,
+# scored with the `form` layer (--layers form). Trade set: series markets only.
+ADOPTED = "player_glicko_rw_tier_revert"
+ADOPTED_LAYER = "form"
 
 # Only adjustment grids live here. The benchmark anchors these to the current
 # PINNED base, or crosses the full base grid when explicitly using --full-grid.
@@ -97,7 +100,7 @@ for suffix, adjustment in {
     },
     "tier_revert": {
         "revert_target": ("tier",),
-        "season_revert": (0.1, 0.2, 0.35, 0.5),
+        "season_revert": (0.025, 0.05, 0.1, 0.2, 0.35),
         "season_month": (1, 10),
         "inactive_half_life": (0,),
     },
@@ -106,3 +109,10 @@ for suffix, adjustment in {
     name = f"player_glicko_rw_{suffix}"
     MODELS[name] = partial(EloModel, unit="player", credit="binary", rd=True)
     PARAM_GRIDS[name] = {key: (value,) for key, value in CANDIDATE.items()} | adjustment
+
+PINNED[ADOPTED] = CANDIDATE | {
+    "revert_target": "tier",
+    "season_revert": 0.1,
+    "season_month": 10,
+    "inactive_half_life": 0,
+}
