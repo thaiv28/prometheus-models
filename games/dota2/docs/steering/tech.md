@@ -48,6 +48,8 @@ For initial single-game top-ups, build the Liquipedia-only database with `uv run
 
 The HTTP client identifies dota2-model, accepts gzip, spaces requests by at least 1.1 seconds and retries 429/5xx with backoff, at most four attempts. The default run budget is 1,800 requests. Injected HTTP functions keep tests offline; the build never fetches. `PROMDOTA_DATA` controls the root.
 
+
+With `OPENDOTA_API_KEY` set (gitignored `.env`; load it with `set -a; . ./.env; set +a`), requests carry `api_key`, are spaced 0.1 s and a run may make 100,000 calls (pay per call, $0.01 per 100). Without it: 1.1 s and 1,800 a run (free tier, 2,000/day). The CLI hides traceback locals so the key never reaches a log.
 ## Database
 
 `uv run bash scripts/setup_db.sh` rebuilds `db/dota2.db` offline. Tables: `events`, `teams`, `players`, `matches`, `games`, `rosters`, `player_games`, `opendota_teams`, `kalshi_markets`, `team_aliases`, `kalshi_links`. Foreign keys are enabled. Loaders print aggregate summaries; parse failures go beside the DB in `parse_errors.txt`.

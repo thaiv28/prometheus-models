@@ -194,3 +194,23 @@ def test_explorer_cache_loads_players_and_skips_single(tmp_path):
     assert no_requests.requests == 0
     assert load_builder()(conn)["games_with_players"] == 1
     assert conn.execute("SELECT winner FROM games").fetchone()[0] == 2
+
+
+def test_api_key_is_sent_lifts_the_daily_cap_and_spaces_less(monkeypatch):
+    monkeypatch.setenv("OPENDOTA_API_KEY", "secret")
+    seen, waits = [], []
+    client = Fetcher(
+        get=lambda url, params: seen.append(params) or (200, {"rows": []}),
+        sleep=waits.append,
+        clock=lambda: 0.0,
+    )
+    assert client.limit == 100_000 and Fetcher(limit=5000).limit == 5000
+    client.query("/explorer", sql="x")
+    client.query("/explorer", sql="y")
+    assert seen == [
+        {"sql": "x", "api_key": "secret"},
+        {"sql": "y", "api_key": "secret"},
+    ]
+    assert waits == [0.1]
+    monkeypatch.delenv("OPENDOTA_API_KEY")
+    assert Fetcher().limit == 1800 and Fetcher(limit=5000).limit == 1800

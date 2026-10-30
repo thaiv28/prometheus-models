@@ -1,3 +1,7 @@
+## 2026-10-29 — OpenDota API key
+
+The OpenDota fetcher reads `OPENDOTA_API_KEY`: requests carry it, spacing drops to 0.1 s and the per-run cap rises from 1,800 to 100,000 (default `--limit` follows). Without a key nothing changes. Typer tracebacks no longer print locals, so the key can't reach a log. Key stored in the main checkout's gitignored `.env`. Checks: pytest, ruff.
+
 ## 2026-10-29 — Stage-1 baseline on partial data
 
 Ran `evaluate_elo.py --validate-from 2026-07-01` (stage 1 only, 64 s, 8 jobs) on the 2026-10-29 build: player_glicko 0.6294 vs team_elo 0.6501 game log loss, 38,131 games; RD parameters at grid minima. Recorded in the ledger and Current state; no code change. OpenDota per-game top-up day 1 running.

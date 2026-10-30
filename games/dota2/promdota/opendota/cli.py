@@ -6,17 +6,18 @@ from typing import Annotated
 import typer
 
 from promdota.opendota import cache, fetch
-from promdota.opendota.http import DAILY_BUDGET, Fetcher
+from promdota.opendota.http import Fetcher
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 DEFAULT_DB = Path("db/dota2.db")
+LIMIT_HELP = "Requests this run (default 1,800 free; 100,000 with OPENDOTA_API_KEY)."
 
 
 @app.command()
 def bulk(
     from_month: str = typer.Option("2019-01", "--from"),
     to_month: str | None = typer.Option(None, "--to"),
-    limit: int = typer.Option(DAILY_BUDGET, min=0),
+    limit: int | None = typer.Option(None, min=0, help=LIMIT_HELP),
 ):
     """Fetch monthly Explorer matches and players."""
     try:
@@ -28,7 +29,7 @@ def bulk(
 
 @app.command()
 def games(
-    limit: int = typer.Option(DAILY_BUDGET, min=0),
+    limit: int | None = typer.Option(None, min=0, help=LIMIT_HELP),
     db: Annotated[Path, typer.Option()] = DEFAULT_DB,
 ):
     """Fetch missing finished games referenced by SQLite."""
