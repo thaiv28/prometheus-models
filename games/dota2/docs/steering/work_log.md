@@ -1,3 +1,7 @@
+## 2026-10-30 — Gate overridden by the user
+
+The user overrode the narrowly failed holdout gate (log-loss edge significant); Phase 6 starts with Dota disabled in execution. Docs only.
+
 ## 2026-10-30 — Holdout opened: gate fails narrowly
 
 `evaluate_elo.py --holdout` (126 s) on the frozen adopted model + form, trade set series/all tiers: blended series −0.0290 vs Kalshi (significant), but blended depth-capped flat ROI +14.5% [−0.4, +31.4]: below the playbook gate. Report `docs/elo_holdout.md`; verdict in the ledger and Current state. Stopped at playbook H4; no retune, no reopening. Checks: pytest, ruff.
