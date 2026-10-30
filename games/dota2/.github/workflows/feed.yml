@@ -74,6 +74,7 @@ jobs:
         run: bash scripts/feed_data.sh restore
       - name: Export feed
         if: steps.gate.outputs.run == 'true'
+        shell: bash  # pipefail: a failed export must fail this step, not the upload
         run: |
           uv run promdota export --state data/feed/state.pkl.gz --out data/feed/dota2.json | tee /tmp/export-summary
           tail -1 /tmp/export-summary >> "$GITHUB_STEP_SUMMARY"

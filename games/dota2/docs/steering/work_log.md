@@ -1,5 +1,9 @@
 
 
+## 2026-10-30 — feed: cached schedule when Liquipedia rate-limits
+
+Branch `liquipedia-429`, base `origin/main`. Site feed run 41124259738 hit Liquipedia `HTTP 429` past the fetcher's retries; `| tee` without pipefail hid the crash until the upload step. `promdota export` now reuses the last snapshot on a URL/timeout error (snapshot left unchanged, summary `liquipedia_stale=1`; no snapshot still fails), and the export step runs with `shell: bash` (pipefail). Same fix as cs2-model. Checks: new feed test, full pytest, ruff, YAML parse.
+
 ## 2026-10-30 — Live
 
 cron-job.org jobs confirmed: feed dispatched 19:49 UTC (run 39 s, candidates refreshed), refresh-db fired once at 19:52 via a temporary schedule, then restored to every 3 h. Prometheus execution: mode off → `games` gains `dota2` ($50; cs2/valorant unchanged) → live at 19:54 UTC; deployed Lambda source hash matches Prometheus main. Docs only.

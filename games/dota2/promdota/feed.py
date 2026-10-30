@@ -14,6 +14,7 @@ from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.error import URLError
 from urllib.parse import quote
 
 from promdota.evaluation import series_probability
@@ -606,9 +607,20 @@ def export(
     if cache.exists():
         with gzip.open(cache, "rt") as handle:
             cached = json.load(handle)
+    stale = False
     if not no_fetch:
         fetch = liquipedia_fetcher or Fetcher().query
-        cached, checked, fetched, reused = upcoming_pages(fetch, titles, cached, now)
+        try:
+            cached, checked, fetched, reused = upcoming_pages(
+                fetch, titles, cached, now
+            )
+        except (URLError, TimeoutError) as exc:
+            # Liquipedia can rate-limit shared runner IPs past the fetcher's
+            # retries; the last good schedule beats a failed feed.
+            if not cached:
+                raise
+            print(f"Liquipedia fetch failed ({exc}); using cached schedule")
+            stale = True
         responses, owners = cached["responses"], cached["owners"]
     elif cached:
         responses, owners = cached["responses"], cached["owners"]
@@ -795,12 +807,12 @@ def export(
         ],
         "matches": rows,
     }
-    if not no_fetch:
+    if not no_fetch and not stale:
         cached["starts"] = sorted(page_starts)
         atomic(cache, cached, compressed=True)
     atomic(out, feed)
     counts = Counter(r["status"] for r in rows)
     print(
-        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_checked={checked} pages_fetched={fetched} pages_reused={reused} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
+        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_checked={checked} pages_fetched={fetched} pages_reused={reused} liquipedia_stale={int(stale)} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
     )
     return feed
