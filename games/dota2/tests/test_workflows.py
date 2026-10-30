@@ -38,7 +38,7 @@ def test_yaml_and_shell_parse():
 
 
 def test_site_workflow_guards():
-    for name, cron in (("refresh-db", "41 * * * *"), ("feed", "7 * * * *")):
+    for name, cron in (("refresh-db", "41 */6 * * *"), ("feed", "37 * * * *")):
         text = (WORKFLOWS / f"{name}.yml").read_text()
         for required in (
             f'cron: "{cron}"',
@@ -60,7 +60,7 @@ def test_refresh_inputs_and_optional_opendota():
     for required in (
         "promdota liquipedia crawl --listing none",
         "promdota liquipedia crawl --listing full",
-        'date -u +%H)" = "03"',
+        'date -u +%H)" =~ ^0[345]$',
         'promdota opendota bulk --from "$month"',
         "promdota opendota games --limit 1800",
         "secrets.OPENDOTA_API_KEY",
@@ -102,7 +102,7 @@ def test_feed_is_database_free_and_persists_private_candidates():
         "bash scripts/feed_data.sh restore",
         "bash scripts/feed_data.sh save",
         "promdota export --state data/feed/state.pkl.gz",
-        "gzip -9 -c",
+        "gzip -n -9 -c",
         "secrets.PROMETHEUS_DISPATCH_TOKEN",
         "if: env.HAS_DISPATCH == 'true'",
         "gh workflow run games.yml -R thaiv28/Prometheus --ref main",
@@ -115,5 +115,88 @@ def test_feed_is_database_free_and_persists_private_candidates():
         "dota2-model/feed/predictions.json",
         "--if-match",
         "--if-none-match",
+        "Metadata.sha256",
+        '--metadata sha256="$hash"',
+        'if [ "$hash" = "$previous" ]',
     ):
         assert required in script
+
+
+def test_feed_gate_precedes_dependencies_and_full_checkout():
+    text = (WORKFLOWS / "feed.yml").read_text()
+    for required in (
+        "timeout-minutes: 10",
+        "sparse-checkout: scripts/feed_gate.py",
+        "sparse-checkout-cone-mode: false",
+        "fetch-depth: 1",
+        "clean: false",
+        "python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz",
+        "dota2-model/feed/gate.json",
+        "dota2-model/feed/upcoming/latest.json.gz",
+        "--mark-export",
+        "Metadata.sha256",
+        '--metadata sha256="$hash"',
+        'if [ "$hash" != "$previous" ]',
+        "steps.upload.outputs.feed_changed == 'true'",
+    ):
+        assert required in text
+    assert text.index("Restore gate inputs") < text.index("id: gate")
+    assert text.index("id: gate") < text.index("Full checkout")
+    assert text.index("Full checkout") < text.index("setup-uv")
+    assert text.index("id: gate") < text.index("uv sync")
+    assert text.index("upload data/feed/candidates.json") < text.index("--mark-export")
+    assert text.index("upload data/feed/upcoming/latest.json.gz") < text.index(
+        "--mark-export"
+    )
+    # Every step after the gate either saves its skipped state or needs a full run.
+    if shutil.which("ruby"):
+        parsed = subprocess.run(
+            [
+                "ruby",
+                "-rpsych",
+                "-rjson",
+                "-e",
+                "puts JSON.generate(Psych.load_file(ARGV[0]))",
+                str(WORKFLOWS / "feed.yml"),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        steps = json.loads(parsed.stdout)["jobs"]["feed"]["steps"]
+        gate_index = next(i for i, step in enumerate(steps) if step.get("id") == "gate")
+        for step in steps[gate_index + 1 :]:
+            assert "if" in step
+            if step.get("name") != "Dispatch Prometheus":
+                assert "steps.gate.outputs.run" in step["if"]
+
+
+def test_runtime_dependencies_and_cache():
+    for name in ("feed", "refresh-db", "ci"):
+        text = (WORKFLOWS / f"{name}.yml").read_text()
+        assert "enable-cache: true" in text
+        assert "cache-dependency-glob: uv.lock" in text
+        if name != "ci":
+            assert "uv sync --frozen --no-dev" in text
+    assert "timeout-minutes: 45" in (WORKFLOWS / "refresh-db.yml").read_text()
+
+
+def test_docs_only_ci_keeps_steering_check():
+    text = (WORKFLOWS / "ci.yml").read_text()
+    for required in (
+        "changes:",
+        "needs: changes",
+        "github.event.pull_request.base.sha || github.event.before",
+        "git diff --name-only -z",
+        "git merge-base",
+        'p.startswith(b"docs/")',
+        'p.endswith(b".md")',
+        "uv run ruff format --check && uv run ruff check",
+        "if: needs.changes.outputs.docs_only == 'true'",
+        "uv run pytest -q tests/test_steering.py",
+        "if: needs.changes.outputs.docs_only != 'true'",
+        "run: uv run pytest -q",
+    ):
+        assert required in text
+    assert "paths-ignore" not in text
+    assert "dorny/paths-filter" not in text

@@ -19,6 +19,7 @@ from urllib.parse import quote
 from promdota.evaluation import series_probability
 from promdota.kalshi.api import Client
 from promdota.link import events_from_markets, link, market_row
+from promdota.liquipedia.crawl import revisions
 from promdota.liquipedia.http import Fetcher
 from promdota.liquipedia.parse import (
     blocks,
@@ -61,7 +62,7 @@ def atomic(path, value, compressed=False):
         value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
     ).encode()
     if compressed:
-        raw = gzip.compress(raw)
+        raw = gzip.compress(raw, mtime=0)
     fd, temporary = tempfile.mkstemp(dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as handle:
@@ -314,89 +315,141 @@ def upcoming_form(p, teams, state):
     )
 
 
-def upcoming_pages(fetch, titles, events):
-    """Refresh active roots/subpages and only bracket-owned Match pages.
+UPCOMING_VERSION = 2
 
-    Prefix listings never enumerate the complete article or Match namespace.
-    Each returned page keeps its owning active event for inherited metadata.
-    """
-    roots = [
-        title
-        for title in titles
-        if not any(title.startswith(other + "/") for other in titles)
-    ]
-    owners = {title: title for title in titles}
-    for root in roots:
-        continuation = {}
+
+def upcoming_pages(fetch, titles, cached, now):
+    """Discover by prefix, check revision IDs, and download only changed text."""
+    previous = (
+        cached.get("pages", {}) if cached.get("version") == UPCOMING_VERSION else {}
+    )
+    prefixes = cached.get("prefixes", {}) if previous else {}
+    listings = {}
+
+    def listing(key, **params):
+        old = prefixes.get(key, {})
+        if old and timedelta(0) <= now - instant(old["at"]) < timedelta(hours=6):
+            listings[key] = old
+            return old["titles"]
+        names, continuation = [], {}
         while True:
             result = fetch(
                 action="query",
                 list="allpages",
-                apprefix=root + "/",
-                apnamespace=0,
                 aplimit=500,
                 apfilterredir="nonredirects",
+                **params,
                 **continuation,
             )
-            for page in result.get("query", {}).get("allpages", []):
-                title = page["title"]
-                owner = max(
-                    (t for t in titles if title == t or title.startswith(t + "/")),
-                    key=len,
-                )
-                owners.setdefault(title, owner)
+            names.extend(page["title"] for page in result["query"]["allpages"])
             continuation = result.get("continue", {})
             if "apcontinue" not in continuation:
                 break
-    responses, fetched, brackets = [], 0, {}
-    names = sorted(owners)
-    for offset in range(0, len(names), 50):
-        batch = names[offset : offset + 50]
-        response = fetch(
-            action="query",
-            prop="revisions",
-            titles="|".join(batch),
-            rvprop="ids|timestamp|content",
-            rvslots="main",
-        )
-        responses.append(response)
-        fetched += len(batch)
-        for page in pages_in(response):
-            title = page["title"]
-            owner = owners.get(title)
-            if owner is None:
-                event = next(
-                    (e for e in events.values() if e["event_id"] == page.get("pageid")),
-                    None,
-                )
-                owner = event["title"] if event else None
-                if owner is not None:
-                    owners[title] = owner
-            if owner is not None:
-                for bracket in bracket_ids(page_text(page)):
-                    brackets.setdefault(bracket, owner)
-    for bracket, owner in sorted(brackets.items()):
-        continuation = {}
-        while True:
+        listings[key] = {"at": now.isoformat(), "titles": names}
+        return names
+
+    roots = [t for t in titles if not any(t.startswith(o + "/") for o in titles)]
+    owners = {t: t for t in titles}
+    for root in roots:
+        for title in listing(root, apprefix=root + "/", apnamespace=0):
+            owner = max(
+                (t for t in titles if title == t or title.startswith(t + "/")), key=len
+            )
+            owners.setdefault(title, owner)
+    pages, checked, fetched, reused = {}, 0, 0, 0
+
+    def refresh(names):
+        nonlocal checked, fetched, reused
+        names = sorted(set(names) - pages.keys())
+        ids = revisions(SimpleNamespace(query=fetch), names)
+        checked += len(names)
+        changed = []
+        for title in names:
+            revid = ids.get(title, (None, None, None))[1]
+            old = previous.get(title)
+            if old is not None and revid is not None and old["revid"] == revid:
+                pages[title] = old
+                reused += 1
+            else:
+                changed.append(title)
+        for offset in range(0, len(changed), 50):
+            batch = changed[offset : offset + 50]
             response = fetch(
                 action="query",
-                generator="allpages",
-                gapnamespace=130,
-                gapprefix="ID " + bracket + " ",
-                gaplimit=500,
                 prop="revisions",
+                titles="|".join(batch),
                 rvprop="ids|timestamp|content",
                 rvslots="main",
-                **continuation,
             )
-            responses.append(response)
-            for page in pages_in(response):
-                owners[page["title"]] = owner
-                fetched += 1
-            continuation = response.get("continue", {})
-            if "gapcontinue" not in continuation:
-                break
-    return responses, owners, fetched
+            fetched += len(batch)
+            normalized = {
+                n["from"]: n["to"]
+                for n in response.get("query", {}).get("normalized", [])
+            }
+            returned = {p["title"]: p for p in pages_in(response)}
+            for title in batch:
+                page = returned.get(normalized.get(title, title), {})
+                revision = next(iter(page.get("revisions", [])), {})
+                # Store the content response's ID: an edit may race the ID probe.
+                pages[title] = {
+                    "revid": revision.get("revid"),
+                    "pageid": page.get("pageid"),
+                    "wikitext": page_text(page),
+                }
+
+    root_titles = set(owners)
+    # Include known Match pages in the first probe, so warm exports use one
+    # revision request per 50 pages across both namespaces.
+    owners.update(
+        {
+            title: owner
+            for title, owner in cached.get("owners", {}).items()
+            if title.startswith("Match:") and owner in titles and title in previous
+        }
+    )
+    refresh(owners)
+    brackets = {}
+    for title in sorted(root_titles):
+        page = pages[title]
+        for bracket in bracket_ids(page["wikitext"]):
+            brackets.setdefault(bracket, owners[title])
+    needed = set(root_titles)
+    for bracket, owner in sorted(brackets.items()):
+        for title in listing(
+            "Match:ID " + bracket, apnamespace=130, apprefix="ID " + bracket + " "
+        ):
+            owners[title] = owner
+            needed.add(title)
+    refresh(needed)
+    owners = {title: owners[title] for title in sorted(needed)}
+    pages = {title: pages[title] for title in sorted(needed)}
+    responses = [
+        {
+            "query": {
+                "pages": [
+                    {
+                        "title": title,
+                        "pageid": page["pageid"],
+                        "revisions": [
+                            {
+                                "revid": page["revid"],
+                                "slots": {"main": {"content": page["wikitext"]}},
+                            }
+                        ],
+                    }
+                    for title, page in pages.items()
+                ]
+            }
+        }
+    ]
+    snapshot = {
+        "version": UPCOMING_VERSION,
+        "pages": pages,
+        "prefixes": listings,
+        "responses": responses,
+        "owners": owners,
+    }
+    return snapshot, checked, fetched, reused
 
 
 def build_state(conn, data_root=None) -> dict:
@@ -548,17 +601,20 @@ def export(
         and e["start_date"] <= (now + timedelta(days=7)).date().isoformat()
         and e["end_date"] >= (now - timedelta(days=1)).date().isoformat()
     )
-    responses, fetched, owners = [], 0, {}
-    if not no_fetch:
-        fetch = liquipedia_fetcher or Fetcher().query
-        responses, owners, fetched = upcoming_pages(fetch, titles, events)
-        atomic(cache, {"responses": responses, "owners": owners}, compressed=True)
-    elif cache.exists():
+    responses, fetched, checked, reused, owners = [], 0, 0, 0, {}
+    cached = {}
+    if cache.exists():
         with gzip.open(cache, "rt") as handle:
             cached = json.load(handle)
-            responses, owners = cached["responses"], cached["owners"]
+    if not no_fetch:
+        fetch = liquipedia_fetcher or Fetcher().query
+        cached, checked, fetched, reused = upcoming_pages(fetch, titles, cached, now)
+        responses, owners = cached["responses"], cached["owners"]
+    elif cached:
+        responses, owners = cached["responses"], cached["owners"]
     skipped = Counter()
     schedule = {}
+    page_starts = set()
     for page in pages_in(responses):
         title = page["title"]
         if title not in events and page.get("pageid") in events_by_id:
@@ -576,6 +632,8 @@ def export(
                     skipped["tbd"] += 1
                     break
         for match in parse_scheduled(title, text):
+            if match.start_utc > now:
+                page_starts.add(match.start_utc.isoformat())
             ids = [
                 int(hashlib.sha1(("team:" + key).encode()).hexdigest()[:12], 16)
                 for key in (match.team1_key, match.team2_key)
@@ -737,9 +795,12 @@ def export(
         ],
         "matches": rows,
     }
+    if not no_fetch:
+        cached["starts"] = sorted(page_starts)
+        atomic(cache, cached, compressed=True)
     atomic(out, feed)
     counts = Counter(r["status"] for r in rows)
     print(
-        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_fetched={fetched} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
+        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_checked={checked} pages_fetched={fetched} pages_reused={reused} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
     )
     return feed

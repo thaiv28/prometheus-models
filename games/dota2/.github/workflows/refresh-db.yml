@@ -3,7 +3,7 @@ name: Refresh DB
 on:
   workflow_dispatch:
   schedule:
-    - cron: "41 * * * *"
+    - cron: "41 */6 * * *"
 
 permissions:
   contents: read
@@ -23,6 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
       - run: uv sync --frozen --no-dev
       - uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -54,7 +57,7 @@ jobs:
             aws s3 sync "s3://$BUCKET/dota2-model/liquipedia" data/liquipedia --only-show-errors
           fi
           aws s3 sync "s3://$BUCKET/dota2-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
-          if [ "$(date -u +%H)" = "03" ]; then
+          if [[ "$(date -u +%H)" =~ ^0[345]$ ]]; then
             uv run promdota liquipedia crawl --listing full | tee /tmp/crawl-summary
           else
             uv run promdota liquipedia crawl --listing none | tee /tmp/crawl-summary

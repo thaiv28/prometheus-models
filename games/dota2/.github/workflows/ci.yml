@@ -9,12 +9,54 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      docs_only: ${{ steps.diff.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # Missing bases and initial pushes conservatively run the full suite.
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$EVENT" = pull_request ]; then
+            base=$(git merge-base "$BASE" "$HEAD")
+          else
+            base="$BASE"
+          fi
+          git diff --name-only -z "$base" "$HEAD" > /tmp/changed-paths
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+          paths = [p for p in Path("/tmp/changed-paths").read_bytes().split(b"\0") if p]
+          docs_only = bool(paths) and all(p.startswith(b"docs/") or (b"/" not in p and p.endswith(b".md")) for p in paths)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"docs_only={str(docs_only).lower()}\n")
+          PYTHON
   check:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
       - run: uv sync --frozen
       - run: uv run ruff format --check && uv run ruff check
-      - run: uv run pytest -q
+      - if: needs.changes.outputs.docs_only == 'true'
+        run: uv run pytest -q tests/test_steering.py
+      - if: needs.changes.outputs.docs_only != 'true'
+        run: uv run pytest -q

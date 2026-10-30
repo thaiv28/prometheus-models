@@ -6,11 +6,11 @@
 
 ## Site feed workflows
 
-`refresh-db.yml` runs hourly; `feed.yml` publishes every ten minutes through cron-job.org workflow dispatches on main. Configure those external jobs after deployment. GitHub schedules (`41 * * * *` and `7 * * * *`) are hourly backups; both workflows also accept manual dispatch and serialize without cancellation. Workflows have not run on GitHub yet; runner times and cron-job.org setup remain unverified.
+Configure cron-job.org dispatches on main: feed every 15 minutes, refresh every 3 hours. GitHub backups are `37 * * * *` and `41 */6 * * *`; both accept manual dispatch and serialize without cancellation. Feed times out after 10 minutes; refresh after 45. External setup and live GitHub timings remain unverified.
 
-Refresh restores raw caches or tries the cold seed `dota2-model/seed/raw.tar.zst`, then tops up S3 caches. Liquipedia uses `--listing none` hourly, `--listing full` during the 03:xx UTC run. OpenDota bulk refresh covers the current month and two preceding months. With an API key, rebuild then fetch missing games (`--limit 1800`) and rebuild again; without a key, skip single-game top-ups to preserve the daily free budget. Raw caches and weekly seed exclude Kalshi books. Cache database inputs by sorted content hashes plus scripts, package and lockfile. An exact DB-cache hit and matching published state `inputs` metadata skip rebuild and snapshots. Rehash after game enrichment before saving DB cache and state metadata.
+Refresh restores raw caches or the cold seed, then tops up S3. Liquipedia uses `--listing none`, except full listings during 03:00–05:59 UTC. OpenDota bulk covers three months; keyed runs fetch missing games (limit 1,800) between rebuilds. Raw caches/seeds exclude books. Sorted input hashes plus code/lockfile key the DB cache; matching published `inputs` metadata skips rebuild and snapshots. Rehash after enrichment.
 
-Refresh builds `feed-state` and the blend artifact and uploads both. Feed downloads the trusted ratings state, prediction log and upcoming snapshot, exports without a DB, uploads public compressed JSON and private candidates, persists upcoming responses and conditionally saves predictions by ETag. A missing state fails with instructions to run refresh first. Conditional writes skip a concurrently changed prediction log.
+Feed's sparse checkout runs a stdlib gate before uv installation. Cached page revision IDs and open Kalshi event tickers detect changes; passed starts, request failures, missing state, or two hours since export force a run. Successful candidate publication advances `last_export_at`, leaving an hour below Prometheus's three-hour candidate age limit. Full runs restore ratings/predictions, export without a DB, and persist the upcoming snapshot. Missing ratings fail. SHA-256 S3 metadata skips identical uploads; deterministic feed gzip supports comparison. Prediction saves retain ETag concurrency checks. Dispatch Prometheus only when the public feed hash changes. uv caches use `uv.lock`; production installs exclude dev dependencies.
 
 ## Credentials and storage
 
@@ -35,4 +35,8 @@ Syncs never delete remote objects. Keep candidates, state and raw inputs private
 
 ## Cost
 
-Planning estimate: 720 refreshes/month × 3–10 minutes plus 4,320 exports × 0.5–1 minute ≈ 4,320–11,520 Actions minutes/month, before cache savings and included quotas. S3 is storage plus small GET/PUT/transfer charges, likely dollars/month at this cache size; measure after deployment. OpenDota paid single-game ceiling is 1,800/hour × $0.01/100 ≈ $129.60/month; completed games are cached, so actual top-ups should be much lower. No live workflow cost has been measured.
+The repo is public (since 2026-10-30), so standard-runner Actions minutes are free; the rules still apply for Liquipedia/OpenDota politeness and the CI time budget. Method if it ever goes private: runs/month × billed minutes/run, each job rounded up to a whole minute.
+
+Runs per 30 days: feed 2,880 cron-job.org dispatches (15 min) + 720 hourly backups; refresh 240 (3 h) + 120 backups (6 h); Kalshi collection 120. Duplicates are cheap: the feed gate and the refresh input hash skip unchanged work.
+
+Measured locally 2026-10-30 (live APIs): cold export 220 s with 64 Liquipedia page fetches; warm export 4.2 s with 0 fetches (one revisions request per 50 pages); unchanged gate 3 s, then the run stops before `uv sync`. GitHub run timings are unmeasured. S3 requests/storage and OpenDota calls ($0.01 per 100) are billed separately.

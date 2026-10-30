@@ -28,9 +28,23 @@ NOW = datetime(2026, 10, 29, 12, tzinfo=UTC)
 def response(text, title="P"):
     return {
         "query": {
-            "pages": [
-                {"title": title, "revisions": [{"slots": {"main": {"content": text}}}]}
-            ]
+            "pages": {
+                "1": {
+                    "title": title,
+                    "pageid": 1
+                    if title == "P"
+                    else int(hashlib.sha1(title.encode()).hexdigest()[:8], 16),
+                    "revisions": [
+                        {
+                            "revid": int(
+                                hashlib.sha1(text.encode()).hexdigest()[:8], 16
+                            ),
+                            "timestamp": "2026-10-29T12:00:00Z",
+                            "slots": {"main": {"content": text}},
+                        }
+                    ],
+                }
+            }
         }
     }
 
@@ -282,8 +296,11 @@ def test_fetch_batches_pagination_and_current_price(database, tmp_path):
         liquipedia_fetcher=lp,
         kalshi_fetcher=kalshi,
     )
-    assert [len(q["titles"].split("|")) for q in lp_queries] == [50, 2]
-    assert all(q["action"] == "query" and q["rvslots"] == "main" for q in lp_queries)
+    assert [len(q["titles"].split("|")) for q in lp_queries] == [50, 2, 50, 2]
+    assert all(
+        q["action"] == "query" and q.get("rvslots", "main") == "main"
+        for q in lp_queries
+    )
     assert [q["cursor"] for q in k_queries] == [None, "next"]
     upcoming = next(r for r in feed["matches"] if r["status"] == "upcoming")
     assert upcoming["market"]["p"] == 0.62
@@ -294,7 +311,7 @@ def test_fetch_batches_pagination_and_current_price(database, tmp_path):
     assert saved["provenance"]["match_id"] == upcoming["match_id"]
     assert saved["raw"]["Alpha"] == round(saved["provenance"]["p_series"], 6)
     with gzip.open(tmp_path / "data/feed/upcoming/latest.json.gz", "rt") as handle:
-        assert len(json.load(handle)["responses"]) == 2
+        assert len(json.load(handle)["pages"]) == 52
 
 
 def test_page_final_requires_prior_call_and_unrated_skips(database, tmp_path, capsys):
@@ -454,6 +471,9 @@ def test_upcoming_root_subpage_and_bracket_discovery(database, tmp_path):
     def fetch(**kw):
         queries.append(kw)
         if kw.get("list") == "allpages":
+            if kw["apnamespace"] == 130:
+                assert kw["apprefix"] == "ID abcdef1234 "
+                return {"query": {"allpages": [{"title": title}]}}
             assert kw["apprefix"] == "P/"
             if not kw.get("apcontinue"):
                 return {
@@ -461,19 +481,19 @@ def test_upcoming_root_subpage_and_bracket_discovery(database, tmp_path):
                     "continue": {"apcontinue": "P/Next", "continue": "-||"},
                 }
             return {"query": {"allpages": []}}
-        if kw.get("generator") == "allpages":
-            assert kw["gapnamespace"] == 130
-            assert kw["gapprefix"] == "ID abcdef1234 "
-            return response(scheduled().replace("{{Match|", "{{MatchPage|"), title)
+        texts = {
+            "P": "",
+            "P/Group Stage": "{{Bracket|id=abcdef1234}}",
+            title: scheduled().replace("{{Match|", "{{MatchPage|"),
+        }
         return {
             "query": {
-                "pages": [
-                    {"title": "P", "revisions": [{"*": ""}]},
-                    {
-                        "title": "P/Group Stage",
-                        "revisions": [{"*": "{{Bracket|id=abcdef1234}}"}],
-                    },
-                ]
+                "pages": {
+                    str(i): next(
+                        iter(response(texts[name], name)["query"]["pages"].values())
+                    )
+                    for i, name in enumerate(kw["titles"].split("|"))
+                }
             }
         }
 
@@ -488,9 +508,21 @@ def test_upcoming_root_subpage_and_bracket_discovery(database, tmp_path):
     assert upcoming["event"] == "Test Event"
     assert "Match%3AID" in upcoming["url"]
     assert all(q["action"] == "query" for q in queries)
-    assert len([q for q in queries if "apprefix" in q]) == 2
+    assert len([q for q in queries if "apprefix" in q]) == 3
     cached = export(db=database, data=tmp_path / "data", now=NOW, no_fetch=True)
     assert cached == feed
+    queries.clear()
+    warm = export(
+        db=database,
+        data=tmp_path / "data",
+        now=NOW,
+        liquipedia_fetcher=fetch,
+        kalshi_fetcher=lambda **kw: {"markets": []},
+    )
+    assert warm == feed
+    assert len(queries) == 1
+    assert len(queries[0]["titles"].split("|")) == 3
+    assert queries[0]["rvprop"] == "ids|timestamp"
 
 
 def test_current_form_includes_unscored_and_null_stat_appearances(database):
@@ -598,3 +630,66 @@ def test_saved_dota_match_page_fixture():
         page = json.load(handle)
     match = parse_scheduled(page["title"], page["wikitext"])[0]
     assert (match.team1_key, match.team2_key, match.best_of) == ("og", "vici gaming", 3)
+
+
+def test_incremental_pages_and_prefix_expiry(database, tmp_path, capsys):
+    from datetime import timedelta
+    from time import perf_counter
+
+    from promdota.feed import build_state
+
+    with sqlite3.connect(database) as conn:
+        state = build_state(conn, tmp_path)
+    calls = []
+    texts = {"P": scheduled(), "P/Sub": ""}
+
+    def fetch(**kw):
+        calls.append(kw)
+        if "list" in kw:
+            return {"query": {"allpages": [{"title": "P/Sub"}]}}
+        return {
+            "query": {
+                "pages": {
+                    t: next(iter(response(texts[t], t)["query"]["pages"].values()))
+                    for t in kw["titles"].split("|")
+                }
+            }
+        }
+
+    def timed(now):
+        calls.clear()
+        start = perf_counter()
+        export(
+            state,
+            data=tmp_path / "export",
+            now=now,
+            liquipedia_fetcher=fetch,
+            kalshi_fetcher=lambda **kw: {"markets": []},
+        )
+        return perf_counter() - start, sum(
+            len(q["titles"].split("|"))
+            for q in calls
+            if "content" in q.get("rvprop", "")
+        )
+
+    first, fetched = timed(NOW)
+    assert fetched == 2
+    second, fetched = timed(NOW + timedelta(minutes=15))
+    assert fetched == 0
+    assert len(calls) == 1 and calls[0]["rvprop"] == "ids|timestamp"
+    assert "pages_checked=2 pages_fetched=0 pages_reused=2" in capsys.readouterr().out
+    print(
+        f"offline export first={first:.6f}s pages_fetched=2 second={second:.6f}s pages_fetched=0 pages_reused=2"
+    )
+    texts["P/Sub"] = "changed"
+    assert timed(NOW + timedelta(minutes=30))[1] == 1
+    assert [q["titles"] for q in calls if "content" in q.get("rvprop", "")] == ["P/Sub"]
+    timed(NOW + timedelta(hours=6))
+    assert any("list" in q for q in calls)
+    cache = tmp_path / "export/feed/upcoming/latest.json.gz"
+    with gzip.open(cache, "rt") as handle:
+        old = json.load(handle)
+    old["version"] = 1
+    with gzip.open(cache, "wt") as handle:
+        json.dump(old, handle)
+    assert timed(NOW + timedelta(hours=6, minutes=15))[1] == 2
