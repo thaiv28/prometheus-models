@@ -1,4 +1,4 @@
-"""Offline diagnostics for the independent-map series assumption."""
+"""Offline diagnostics for the independent-game series assumption."""
 
 import argparse
 import json
@@ -21,8 +21,8 @@ from promdota.evaluation import (
 )
 
 
-def series_check(maps, start="2026-01-01", end=HOLDOUT_START, n_resamples=2000, seed=0):
-    """Match-clustered calibration, map-2 dependence and Bo3 decider residuals."""
+def series_check(maps, start="2025-11-01", end=HOLDOUT_START, n_resamples=2000, seed=0):
+    """Match-clustered calibration, game-2 dependence and Bo3 decider residuals."""
     ordered = maps.sort_values(["match_id", "order"])
     first = ordered.drop_duplicates("match_id")
     dates = pd.to_datetime(first.start_utc, utc=True)
@@ -137,17 +137,17 @@ def series_check(maps, start="2026-01-01", end=HOLDOUT_START, n_resamples=2000, 
     for side in (1, 0):
         stat = dependence[side]
         summary.append(
-            f"Map 2 after map-1 {'win' if side else 'loss'}: win rate {stat['win_rate']:.4f}, model {stat['model_p']:.4f}, residual {stat['mean']:.4f} [{stat['low']:.4f}, {stat['high']:.4f}], n={stat['rows']}."
+            f"Game 2 after game-1 {'win' if side else 'loss'}: win rate {stat['win_rate']:.4f}, model {stat['model_p']:.4f}, residual {stat['mean']:.4f} [{stat['low']:.4f}, {stat['high']:.4f}], n={stat['rows']}."
         )
     summary.append(
-        f"Map-2 residual contrast (win minus loss): 95% [{contrast_ci[0]:.4f}, {contrast_ci[1]:.4f}]."
+        f"Game-2 residual contrast (win minus loss): 95% [{contrast_ci[0]:.4f}, {contrast_ci[1]:.4f}]."
     )
     d = decider_stats
     summary.append(
         f"Bo3 1–1 decider: residual {d['mean']:.4f} [{d['low']:.4f}, {d['high']:.4f}], n={d['rows']}."
     )
     summary.append(
-        "Intervals resample whole matches; residual = won − model pre-map chance."
+        "Intervals resample whole matches; residual = won − model pre-game chance."
     )
     return {
         "rows": len(first),
@@ -164,7 +164,7 @@ def series_check(maps, start="2026-01-01", end=HOLDOUT_START, n_resamples=2000, 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=Path("db/dota2.db"))
-    parser.add_argument("--from", dest="start", default="2026-01-01")
+    parser.add_argument("--from", dest="start", default="2025-11-01")
     parser.add_argument("--to", dest="end", default=HOLDOUT_START)
     parser.add_argument("--out", type=Path, default=Path("docs/series_independence.md"))
     parser.add_argument("--model", default="team_elo")
@@ -188,7 +188,7 @@ def main(argv=None):
     if not args.db.is_file():
         parser.error(f"database does not exist: {args.db}")
     if args.start >= args.end or args.end > HOLDOUT_START:
-        parser.error("require from < to <= 2026-11-01 (holdout remains closed)")
+        parser.error("require from < to <= 2026-07-01 (holdout remains closed)")
     with sqlite3.connect(args.db) as conn:
         maps = load_maps(conn)
         maps = maps[maps.start_utc < args.end]

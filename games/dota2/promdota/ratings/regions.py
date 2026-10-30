@@ -1,4 +1,4 @@
-"""CS2 event macro-region identity codes; unknown hosts have no region."""
+"""Dota 2 event macro-region identity codes; unknown hosts have no region."""
 
 REGION_CODES = ("EU", "CIS", "NA", "SA", "AS", "OCE", "AF")
 

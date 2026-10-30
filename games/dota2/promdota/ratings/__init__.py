@@ -1,1 +1,1 @@
-"""Sequential rating models for played CS2 maps."""
+"""Sequential rating models for played Dota 2 games."""

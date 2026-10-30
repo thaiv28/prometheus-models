@@ -1,6 +1,7 @@
 """Causal homes and frozen seven-region layer fits."""
 
 import sqlite3
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,8 +14,6 @@ from promdota.ratings.layers import (
     RegionalLayer,
     causal_features,
 )
-
-pytestmark = pytest.mark.skip(reason="Phase 3: port to games schema")
 
 
 def planted(n=10000):
@@ -81,14 +80,37 @@ def test_regional_threshold_ridge_and_refit():
 
 def test_causal_homes_and_excluded_events():
     conn = sqlite3.connect(":memory:")
-    conn.executescript("""CREATE TABLE events(event_id, region, international, excluded);
-        CREATE TABLE matches(match_id, start_utc, team1_id, team2_id, event_id);
-        CREATE TABLE maps(game_id, match_id, "order", score1, score2);
-        INSERT INTO events VALUES (1,'NA',0,0),(2,'EU',0,0),(3,'CIS',1,0),(4,'AS',0,1);
-        INSERT INTO matches VALUES (1,'2024-01-01',10,20,1),(2,'2024-01-02',10,20,2),
-            (3,'2024-01-03',10,20,3),(4,'2024-01-04',10,20,4),(5,'2024-01-05',10,20,2);
-        INSERT INTO maps VALUES (1,1,1,13,8),(2,1,2,13,8),(3,2,1,13,8),(4,3,1,13,8),
-            (5,4,1,13,8),(6,5,1,13,8),(7,5,2,13,8),(8,5,3,0,0);""")
+    conn.executescript(
+        (
+            Path(__file__).resolve().parents[1] / "scripts/001_create_tables.sql"
+        ).read_text()
+    )
+    conn.executescript("""
+        INSERT INTO teams(team_id,key) VALUES (10,'a'),(20,'b');
+        INSERT INTO events(event_id,title,section,region,international,excluded)
+        VALUES (1,'NA','tier1','NA',0,0),(2,'EU','tier2','EU',0,0),
+               (3,'CIS','tier1','CIS',1,0),(4,'AS','tier3','AS',0,1);
+    """)
+    for match, event in [(1, 1), (2, 2), (3, 3), (4, 4), (5, 2)]:
+        conn.execute(
+            """INSERT INTO matches(match_id,event_id,page,ordinal,start_utc,time_known,
+                team1_id,team2_id,score1,score2,winner)
+                VALUES (?,?,'Synthetic',0,?,1,10,20,2,0,1)""",
+            (match, event, f"2024-01-{match:02d}T00:00:00Z"),
+        )
+    conn.executemany(
+        'INSERT INTO games(game_id,match_id,"order",winner) VALUES (?,?,?,?)',
+        [
+            (1, 1, 1, 1),
+            (2, 1, 2, 1),
+            (3, 2, 1, 1),
+            (4, 3, 1, 1),
+            (5, 4, 1, 1),
+            (6, 5, 1, 1),
+            (7, 5, 2, 1),
+            (8, 5, 3, None),
+        ],
+    )
     features = causal_features(conn, {})
     assert features.index.tolist() == [1, 2, 3, 4, 6, 7]
     assert features.home1.tolist() == [None, "NA", "NA", "NA", "NA", "NA"]

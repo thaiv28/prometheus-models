@@ -1,15 +1,10 @@
-import itertools
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 
 from promdota.ratings.elo import EloConfig, EloModel, TeamElo
 from promdota.ratings.models import MODELS, PARAM_GRIDS
 from promdota.ratings.regions import REGION_CODES, macro_region
-from promdota.ratings.rounds import map_win
-
-pytestmark = pytest.mark.skip(reason="Phase 3: port to games schema")
 
 
 def row(**kwargs):
@@ -18,8 +13,8 @@ def row(**kwargs):
         "game_id": 1,
         "team1_id": 10,
         "team2_id": 20,
-        "score1": 13,
-        "score2": 11,
+        "score1": 1,
+        "score2": 0,
         "won": 1,
         "region": "un",
         "international": 0,
@@ -27,34 +22,19 @@ def row(**kwargs):
     return SimpleNamespace(**(values | kwargs))
 
 
-def test_map_win_dp():
-    assert map_win(0.5) == pytest.approx(0.5)
-    assert map_win(0.52) == pytest.approx(0.583, abs=0.0005)
-    assert map_win(0.55) == pytest.approx(0.701, abs=0.0005)
-    assert map_win(0) == 0 and map_win(1) == 1
-    values = [map_win(p) for p in np.linspace(0, 1, 101)]
-    assert all(a <= b for a, b in itertools.pairwise(values))
-    for p in (0.12, 0.52, 0.77):
-        assert map_win(p) + map_win(1 - p) == pytest.approx(1)
-    assert map_win(0.520001) == map_win(0.52)
-    with pytest.raises(ValueError):
-        map_win(-0.1)
-
-
-def test_margin_and_round_credit():
+def test_binary_and_margin_credit():
+    binary = EloModel()
+    assert binary.score(row()) == 1
+    assert binary.score(row(won=0)) == 0
     margin = EloModel(credit="margin", c=4, k=32)
-    assert margin.score(row()) == pytest.approx(0.7310585786)
-    assert margin.score(row(score2=3)) == pytest.approx(0.9933071491)
+    game = row(score1=13, score2=11)
+    assert margin.score(game) == pytest.approx(0.7310585786)
+    assert margin.score(row(score1=13, score2=3)) == pytest.approx(0.9933071491)
     assert margin.score(row(score1=11, score2=13, won=0)) == pytest.approx(
-        1 - margin.score(row())
+        1 - margin.score(game)
     )
-    round_model = EloModel(credit="round", k=48, tau=0.6)
-    round_model.update(row())
-    assert round_model.ratings[10] == pytest.approx(1500 + 48 * (13 / 24 - 0.5))
-    assert round_model.ratings[20] == pytest.approx(1500 - 48 * (13 / 24 - 0.5))
-    e = 1 / (1 + 10 ** (-4 / 400))
-    p = map_win(e)
-    assert round_model.predict(row()) == pytest.approx(1 / (1 + ((1 - p) / p) ** 0.6))
+    with pytest.raises(ValueError, match="credit"):
+        EloModel(credit="round")
 
 
 def test_player_mean_equal_updates_and_initialization():
@@ -145,7 +125,7 @@ def test_region_offsets_only_cross_region_and_zero_sum():
 
 
 def test_registry_grids_and_v1_regression():
-    assert len(MODELS) == len(PARAM_GRIDS) == 20
+    assert len(MODELS) == len(PARAM_GRIDS) == 9
     assert "team_binary" not in MODELS
     for name in MODELS:
         if name == "coin":
@@ -157,7 +137,7 @@ def test_registry_grids_and_v1_regression():
         assert ("region_k" in grid) == name.endswith("_region")
         assert ("new_player" in grid) == name.startswith("player")
         assert ("c" in grid) == ("margin" in name)
-        assert ("tau" in grid) == ("round" in name)
+        assert "tau" not in grid
         model = MODELS[name](**{p: values[0] for p, values in grid.items()})
         assert model.predict(row()) == 0.5
     old = TeamElo(EloConfig(k=48))
@@ -182,14 +162,14 @@ def test_registry_grids_and_v1_regression():
     )
 
 
-@pytest.mark.parametrize("credit", ["binary", "margin", "round"])
+@pytest.mark.parametrize("credit", ["binary", "margin"])
 def test_rd_first_move_and_update_expectation(credit):
     from math import log
 
     lineups = {1: ((1, 2), (3, 4))}
     base = EloModel(unit="player", credit=credit, k=12, lineups=lineups)
     model = EloModel(unit="player", credit=credit, k=12, lineups=lineups, rd=True)
-    # Unequal strengths distinguish map-win prediction from round expectation.
+    # Unequal strengths exercise the information term away from 50%.
     for candidate in (base, model):
         candidate.ratings.update({1: 1510, 2: 1510, 3: 1490, 4: 1490})
     expected = base._state(row())[-1]
@@ -234,7 +214,7 @@ def test_rd_growth_cap_floor_and_prediction_has_no_leakage():
     assert model.rd_variance == {1: 140**2, 2: 140**2}
 
 
-@pytest.mark.parametrize("credit", ["binary", "margin", "round"])
+@pytest.mark.parametrize("credit", ["binary", "margin"])
 @pytest.mark.parametrize("region_k", [0, 4])
 def test_rd_disabled_preserves_existing_player_variants(credit, region_k):
     options = {
@@ -283,10 +263,9 @@ def test_team_ignores_rd_and_player_validates_parameters():
 
 def test_glicko_registry_and_exact_grids():
     for region in (False, True):
-        name = "player_round" + ("_region" if region else "") + "_glicko"
+        name = "player_region_glicko" if region else "player_glicko"
         grid = {
             "k": (16, 24, 32, 48, 64),
-            "tau": (0.4, 0.5, 0.6, 0.8),
             "rd_new": (280, 350, 450, 600),
             "rd_info": (0.125, 0.25, 0.5, 1.0),
             "new_player": ("fixed", "teammates"),
@@ -295,7 +274,7 @@ def test_glicko_registry_and_exact_grids():
             grid["region_k"] = (2, 4)
         assert PARAM_GRIDS[name] == grid
         model = MODELS[name]()
-        assert model.unit == "player" and model.credit == "round" and model.rd
+        assert model.unit == "player" and model.credit == "binary" and model.rd
         assert bool(model.region_k) == region
         assert model.rd_floor == 140 and model.rd_growth == 10
         assert model.predict(row()) == 0.5
@@ -323,7 +302,7 @@ def test_rookie_log_discount_and_update_only_counts(maps):
     assert model.map_counts == {1: maps + 1, 2: maps + 1}
 
 
-@pytest.mark.parametrize("credit", ["binary", "round"])
+@pytest.mark.parametrize("credit", ["binary"])
 def test_adjusted_strengths_drive_update_expectation(credit):
     model = EloModel(
         unit="player",
@@ -403,66 +382,20 @@ def test_tier_home_majority_ties_and_unranked_maps():
         assert model.tier_homes == {1: 3, 2: 3}
 
 
-def test_default_glicko_exact_pre_adjustment_predictions():
-    model = MODELS["player_round_glicko"](
-        k=48,
-        tau=0.5,
-        new_player="teammates",
-        lineups={1: ((1, 2), (3, 4)), 2: ((1, 5), (3, 6)), 3: ((2, 5), (4, 6))},
-    )
-    # Captured from HEAD's original EloModel, before adding either adjustment.
-    expected = [
-        0.5,
-        0.6049514936541424,
-        0.4895232774269876,
-        0.5494500189842346,
-        0.34805927231445377,
-        0.5873668334641886,
-        0.36348696685987575,
-        0.4842849065470713,
-        0.41388964763129493,
-    ]
-    for i, probability in enumerate(expected):
-        game = row(
-            game_id=i % 3 + 1,
-            score1=13 if i % 2 == 0 else 7,
-            score2=9 if i % 2 == 0 else 13,
-            won=int(i % 2 == 0),
-            start_utc=f"2026-01-{i + 1:02d}T12:00:00Z",
-            section=("tier2", "tier1", "unknown")[i % 3],
-        )
-        assert model.predict(game) == probability
-        model.update(game)
-    assert model.map_counts == model.tier_counts == model.tier_homes == {}
-
-
-@pytest.mark.parametrize(
-    "variant", ["rookie", "moves", "rookie_moves", "weights", "rookie_weights"]
-)
-def test_rookie_moves_registry_exact_grids(variant):
-    name = f"player_round_glicko_{variant}"
-    grid = {
-        "k": (32,),
-        "tau": (0.5,),
-        "rd_new": (350,),
-        "rd_info": (0.125,),
-        "new_player": ("teammates",),
-    }
+@pytest.mark.parametrize("variant", ["rookie", "weights", "rookie_weights"])
+def test_ladder_registry_exact_grids(variant):
+    name = f"player_glicko_{variant}"
+    grid = {}
     if "rookie" in variant:
         grid.update(
             rookie_penalty=(150, 200, 300, 400, 600),
             rookie_maps=(50, 100, 200, 400),
         )
-    if "moves" in variant:
-        grid.update(move_up_penalty=(50, 100, 200), move_down_bonus=(0, 50))
     if "weights" in variant:
         grid.update(online_k=(0.5, 0.75, 1.0), tier3_k=(0.5, 0.75, 1.0))
-    if variant == "rookie_weights":
-        grid.update(rookie_penalty=(200, 300, 400), rookie_maps=(100, 200, 400))
     assert PARAM_GRIDS[name] == grid
     model = MODELS[name](**{p: values[0] for p, values in grid.items()})
-    assert model.unit == "player" and model.credit == "round" and model.rd
-    assert model.move_maps == 20
+    assert model.unit == "player" and model.credit == "binary" and model.rd
     assert model.predict(row()) == 0.5
 
 
@@ -496,7 +429,7 @@ def test_invalid_player_adjustment_parameters(options):
 
 @pytest.mark.parametrize("rd", [False, True])
 def test_k_multipliers_one_exactly_preserve_replay(rd):
-    options = {"unit": "player", "credit": "round", "rd": rd}
+    options = {"unit": "player", "credit": "binary", "rd": rd}
     legacy = EloModel(**options)
     default = EloModel(**options)
     explicit = EloModel(**options, online_k=1.0, tier3_k=1.0)

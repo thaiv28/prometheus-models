@@ -31,9 +31,6 @@ benchmark = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(benchmark)
 
 
-pytestmark = pytest.mark.skip(reason="Phase 3: port to games schema")
-
-
 def test_series_probability():
     assert series_probability(0.6, 1) == 0.6
     assert series_probability(0.6, 3) == pytest.approx(0.648)
@@ -97,27 +94,23 @@ def test_candle_missing_closes_and_cutoff():
 def database(tmp_path):
     path = tmp_path / "tiny.db"
     with sqlite3.connect(path) as conn:
+        conn.executescript((ROOT / "scripts/001_create_tables.sql").read_text())
         conn.executescript("""
-            CREATE TABLE events(event_id PRIMARY KEY, section, international, region, excluded DEFAULT 0, online);
-            CREATE TABLE teams(team_id PRIMARY KEY, name);
-            CREATE TABLE matches(match_id PRIMARY KEY, event_id, start_utc, best_of, team1_id, team2_id, score1, score2, winner);
-            CREATE TABLE maps(game_id PRIMARY KEY, match_id, "order", map, score1, score2);
-            CREATE TABLE player_maps(game_id, player_id, team);
             CREATE TABLE kalshi_markets(ticker, series, event_ticker, kind, competitor_id, open_time);
             CREATE TABLE team_aliases(competitor_id, liquipedia_team_id);
             CREATE TABLE kalshi_links(event_ticker, match_id, game_id, kind, method, reason);
-            INSERT INTO events VALUES (1, 'tier1', 1, NULL, 0, 0), (99, 'unknown', 0, NULL, 0, NULL);
-            INSERT INTO teams VALUES (10, 'A'), (20, 'B');
+            INSERT INTO events(event_id,title,section,international,region,excluded,online) VALUES (1, 'One', 'tier1', 1, NULL, 0, 0), (99, 'Unknown', 'unknown', 0, NULL, 0, NULL);
+            INSERT INTO teams(team_id,key,name) VALUES (10, 'a', 'A'), (20, 'b', 'B');
         """)
         for match_id, start, best_of, winner, wins in (
             (1, "2023-01-01T00:00:00Z", 1, 1, [1]),
             (2, "2024-01-01T00:00:00Z", 3, 1, [1, 0, 1]),
-            (3, "2026-10-31T23:00:00Z", 2, None, [1, 0]),
-            (4, "2026-11-01T00:00:00Z", 1, 2, [0]),
-            (5, "2026-11-02T00:00:00Z", None, 1, [1]),
+            (3, "2026-06-30T23:00:00Z", 2, None, [1, 0]),
+            (4, "2026-07-01T00:00:00Z", 1, 2, [0]),
+            (5, "2026-07-02T00:00:00Z", None, 1, [1]),
         ):
             conn.execute(
-                "INSERT INTO matches VALUES (?, ?, ?, ?, 10, 20, ?, ?, ?)",
+                "INSERT INTO matches(match_id,event_id,page,ordinal,start_utc,time_known,best_of,team1_id,team2_id,score1,score2,winner) VALUES (?, ?, 'Synthetic', 0, ?, 1, ?, 10, 20, ?, ?, ?)",
                 (
                     match_id,
                     1 if match_id != 3 else 99,
@@ -130,21 +123,28 @@ def database(tmp_path):
             )
             for order, won in enumerate(wins, 1):
                 conn.execute(
-                    """INSERT INTO maps(game_id,match_id,"order",map,score1,score2)
-                       VALUES (?, ?, ?, 'Mirage', ?, ?)""",
+                    """INSERT INTO games(game_id,match_id,"order",winner)
+                       VALUES (?, ?, ?, ?)""",
                     (
                         match_id * 10 + order,
                         match_id,
                         order,
-                        13 if won else 8,
-                        8 if won else 13,
+                        1 if won else 2,
                     ),
                 )
         conn.executemany(
-            "INSERT INTO player_maps(game_id,player_id,team) VALUES (?,?,?)",
+            "INSERT INTO players(player_id,key) VALUES (?,?)",
+            [
+                (side * 100 + starter, f"player:{side}:{starter}")
+                for side in (1, 2)
+                for starter in range(5)
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO player_games(game_id,player_id,team) VALUES (?,?,?)",
             [
                 (game_id, side * 100 + starter, side)
-                for (game_id,) in conn.execute("SELECT game_id FROM maps")
+                for (game_id,) in conn.execute("SELECT game_id FROM games")
                 for side in (1, 2)
                 for starter in range(5)
             ],
@@ -162,7 +162,13 @@ def database(tmp_path):
             for competitor in ("a", "b", "other", "unresolved"):
                 conn.execute(
                     "INSERT INTO kalshi_markets(ticker,series,event_ticker,kind,competitor_id) VALUES (?,?,?,?,?)",
-                    (event + competitor, "KXCS2GAME", event, kind, competitor),
+                    (
+                        event + competitor,
+                        "KXDOTA2GAME" if kind == "series" else "KXDOTA2MAP",
+                        event,
+                        kind,
+                        competitor,
+                    ),
                 )
     directory = tmp_path / "data/kalshi/candles"
     directory.mkdir(parents=True)
@@ -193,7 +199,7 @@ def test_load_series_and_market_pairing(database):
         loaded = load_maps(conn)
         assert loaded.loc[loaded.game_id == 11, ["score1", "score2"]].iloc[
             0
-        ].tolist() == [13, 8]
+        ].tolist() == [1, 0]
         lineups = load_lineups(conn)
         assert lineups[11] == (tuple(range(100, 105)), tuple(range(200, 205)))
         assert set(lineups) == set(loaded.game_id)
@@ -203,6 +209,8 @@ def test_load_series_and_market_pairing(database):
         assert set(maps[maps.match_id == 3].international) == {0}
         assert set(maps[maps.match_id == 3].online) == {1}
         assert set(maps[maps.match_id == 2].online) == {0}
+        assert loaded["map"].isna().all()
+        assert loaded.loc[loaded.match_id == 3, "series_won"].isna().all()
         assert loaded.columns[-1] == "online"
         assert loaded.online.dtype.kind in "iu"
         series = benchmark.series_rows(maps)
@@ -260,9 +268,9 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
         "--jobs",
         "2",
         "--models",
-        "team_elo,team_round,player_binary_region",
+        "team_elo,player_binary,player_binary_region",
         "--report-models",
-        "team_elo,team_round,player_binary_region",
+        "team_elo,player_binary,player_binary_region",
     ]
     result = subprocess.run(
         command, env=env, text=True, capture_output=True, check=True
@@ -272,8 +280,8 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
     assert "Holdout maps=" not in result.stdout
     assert "### Leaderboard" in report
     assert "Series blended Δ log loss" in report
-    assert "Map blended flat ROI" in report
-    assert "Map blended Kelly (LoL caps) $" in report
+    assert "Game blended flat ROI" in report
+    assert "Game blended Kelly (LoL caps) $" in report
     assert report.count("#### Log loss vs Kalshi (blended)") == 6
     assert report.count("#### Full-Kelly returns (blended)") == 6
     assert "excluded from blended tables: 2 rows" in report
@@ -282,12 +290,12 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
     assert "| series | all | 0 |" in blended
     assert "| team_elo | all | 5 |" in report
     assert "| team_elo | all | 1 |" in report
-    for name in ("team_elo", "team_round", "player_binary_region"):
+    for name in ("team_elo", "player_binary", "player_binary_region"):
         assert f"| {name} |" in report
         assert f"### {name}: Kalshi comparison and returns" in report
-    assert "team_round − team_elo (paired log loss)" in report
+    assert "player_binary − team_elo (paired log loss)" in report
     assert "player_binary_region − team_elo (paired log loss)" in report
-    assert "Unknown host-region map rows: 6" in report
+    assert "Unknown host-region game rows: 6" in report
     assert "Total wall time:" in result.stdout
     assert len(result.stdout.splitlines()) <= 20
     # Redirect learned artifacts into scratch space, and run imported workers inline.
@@ -297,7 +305,7 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
     args = command[2:] + ["--jobs", "1", "--write-weights", "--baseline", "team_elo"]
     selected = benchmark.main(args)
     weights = json.loads((tmp_path / "promdota/ratings/elo_weights.json").read_text())
-    assert set(weights) == {"team_elo", "team_round", "player_binary_region"}
+    assert set(weights) == {"team_elo", "player_binary", "player_binary_region"}
     for name, params in selected.items():
         assert weights[name] == {
             **params,
@@ -307,7 +315,7 @@ def test_end_to_end_variants_and_weights(database, tmp_path, monkeypatch):
     # Future rows must not affect the tuning leaderboard or chosen parameters.
     leaderboard = report.split("### Leaderboard")[1].split("Kalshi uses")[0]
     with sqlite3.connect(path) as conn:
-        conn.execute("UPDATE maps SET score1=13,score2=1 WHERE match_id>=2")
+        conn.execute("UPDATE games SET winner=1 WHERE match_id>=2")
         conn.execute("DROP TABLE kalshi_links")
     assert benchmark.main(args) == selected
     assert (
@@ -340,12 +348,12 @@ def test_empty_windows_and_invalid_selection(database, tmp_path, monkeypatch):
         "32",
     ]
     for extra in (
-        ["--tune-from", "2026-11-01"],
+        ["--tune-from", "2026-07-01"],
         ["--k-grid", "nan"],
-        ["--validate-from", "2026-10-31T23:30:00"],
+        ["--validate-from", "2026-06-30T23:30:00"],
         ["--tune-to", "2026-02-01"],
-        ["--validate-from", "2026-11-02"],
-        ["--tune-to", "2024-01-01"],
+        ["--validate-from", "2026-07-02"],
+        ["--tune-to", "2023-01-01"],
         ["--seed-from", "2025-01-01"],
         ["--validate-from", "NaT"],
         ["--layers", "missing"],
@@ -371,9 +379,9 @@ def test_baseline_always_included(database, tmp_path, monkeypatch):
             "--out",
             str(tmp_path / "report.md"),
             "--models",
-            "team_round",
+            "player_binary",
             "--report-models",
-            "team_elo,team_round",
+            "team_elo,player_binary",
             "--jobs",
             "1",
             "--baseline",
@@ -382,8 +390,8 @@ def test_baseline_always_included(database, tmp_path, monkeypatch):
             "32",
         ]
     )
-    assert set(selected) == {"team_elo", "team_round"}
-    assert "| coin | all | 3 |" in (tmp_path / "report.md").read_text()
+    assert set(selected) == {"team_elo", "player_binary"}
+    assert "| coin | all | 4 |" in (tmp_path / "report.md").read_text()
 
 
 def test_glicko_report_default_and_explicit_models(
@@ -392,7 +400,7 @@ def test_glicko_report_default_and_explicit_models(
     path, data = database
     monkeypatch.setenv("PROMDOTA_DATA", str(data))
     # Exercise actual registry factories with a small grid in the synthetic DB.
-    for name in ("player_round_glicko", "player_round_region_glicko"):
+    for name in ("player_glicko", "player_region_glicko"):
         monkeypatch.setitem(
             benchmark.PARAM_GRIDS,
             name,
@@ -418,18 +426,18 @@ def test_glicko_report_default_and_explicit_models(
     selected = benchmark.main(args)
     assert set(selected) == {
         "team_elo",
-        "player_round_glicko",
+        "player_glicko",
     }
     report = out.read_text()
     assert report.index("## Combined summary") < report.index("### Leaderboard")
     assert report.count("#### Log loss vs Kalshi\n") == 4
     assert report.count("#### Full-Kelly returns\n") == 4
-    assert "| series | tier1 |" in report and "| map | international=0 |" in report
+    assert "| series | tier1 |" in report and "| game | international=0 |" in report
     assert "frozen stage-1" in report and "unrounded" in report
     assert "depth-capped returns" in report
-    assert "unplayed maps are not in the rows" in report
+    assert "unplayed games are not in the rows" in report
     printed = capsys.readouterr().out
-    assert "Series flat ROI" in printed and "Map Kelly (LoL caps) $" in printed
+    assert "Series flat ROI" in printed and "Game Kelly (LoL caps) $" in printed
     assert len(printed.splitlines()) <= 20
     selected = benchmark.main(args + ["--report-models", "team_elo,team_elo"])
     assert set(selected) == {"team_elo"}
@@ -456,7 +464,7 @@ def test_blend_recovers_coefficients_and_team_symmetry():
 
 def test_blend_walk_forward_boundaries_kinds_and_exclusion():
     records = []
-    for month in ("2023-12", "2024-01", "2024-02", "2024-03", "2026-11", "2026-12"):
+    for month in ("2023-12", "2024-01", "2024-02", "2024-03", "2026-07", "2026-08"):
         for kind in ("series", "map"):
             for i in range(12):
                 records.append(
@@ -501,7 +509,7 @@ def test_blend_walk_forward_boundaries_kinds_and_exclusion():
         == later.loc[february, "p_blend"].tolist()
     )
     # Even August snapshots never train on July holdout outcomes.
-    assert (snapshots[snapshots.month == "2026-12"].n == 36).all()
+    assert (snapshots[snapshots.month == "2026-08"].n == 36).all()
     january_losses, january_returns = benchmark.market_tables(
         january, probability="p_blend"
     )
@@ -535,7 +543,13 @@ def test_end_to_end_fitted_blend(database, tmp_path, monkeypatch):
             )
             conn.execute(
                 "INSERT INTO kalshi_markets(ticker,series,event_ticker,kind,competitor_id) VALUES (?,?,?,?,?)",
-                (event + "a", "KXCS2GAME", event, kind, "a"),
+                (
+                    event + "a",
+                    "KXDOTA2GAME" if kind == "series" else "KXDOTA2MAP",
+                    event,
+                    kind,
+                    "a",
+                ),
             )
             candles = data / "kalshi/candles"
             (candles / f"{event}a.json.gz").write_bytes(
@@ -573,12 +587,12 @@ def test_end_to_end_fitted_blend(database, tmp_path, monkeypatch):
     report = report_path.read_text()
     fits = report.split("#### Monthly market blend fits")[1]
     assert "| 2024-02 | series | 1 |" in fits
-    assert "| 2024-02 | map | 1 |" in fits
+    assert "| 2024-02 | game | 1 |" in fits
     assert fits.count("| fitted |") == 2
     assert "excluded from blended tables: 2 rows" in fits
     loss = report.split("#### Log loss vs Kalshi (blended)")[1]
     assert "| series | all | 1 |" in loss
-    assert "| map | all | 1 |" in loss
+    assert "| game | all | 1 |" in loss
 
 
 def _candle(end, bid, ask):
@@ -665,7 +679,13 @@ def test_stage_separation_layers_and_default_market_window(
             )
             conn.execute(
                 "INSERT INTO kalshi_markets(ticker,series,event_ticker,kind,competitor_id) VALUES (?,?,?,?,?)",
-                (event + "a", "KXCS2GAME", event, kind, "a"),
+                (
+                    event + "a",
+                    "KXDOTA2GAME" if kind == "series" else "KXDOTA2MAP",
+                    event,
+                    kind,
+                    "a",
+                ),
             )
             candles = data / "kalshi/candles"
             (candles / f"{event}a.json.gz").write_bytes(
@@ -698,7 +718,7 @@ def test_stage_separation_layers_and_default_market_window(
     ]
     selected = benchmark.main(args)
     assert len(fitted) == len(applied) == 1
-    assert set(fitted[0].match_id) == {2}
+    assert set(fitted[0].match_id) == {1, 2}
     assert set(applied[0].match_id) == {3, 4, 5}
     assert all(set(frame.match_id) == {3, 4, 5} for frame in market_sources)
     assert all(set(frame.match_id) == {3} for frame in market_rows)
@@ -711,7 +731,7 @@ def test_stage_separation_layers_and_default_market_window(
     assert "## Holdout" in report
     stage1 = report.split("## Stage 1")[1].split("## Stage 2")[0]
     with sqlite3.connect(path) as conn:
-        conn.execute("UPDATE maps SET score1=1,score2=13 WHERE match_id>=3")
+        conn.execute("UPDATE games SET winner=2 WHERE match_id>=3")
     assert benchmark.main(args) == selected
     assert out.read_text().split("## Stage 1")[1].split("## Stage 2")[0] == stage1
 
@@ -739,9 +759,11 @@ def test_monthly_counts_and_identical_rows():
     table = benchmark.monthly_table(frame)
     parsed = [line.split("|")[1:-1] for line in table.splitlines()[2:]]
     for kind in ("map", "series"):
-        assert sum(int(row[2]) for row in parsed if row[0].strip() == kind) == sum(
-            frame.kind == kind
-        )
+        assert sum(
+            int(row[2])
+            for row in parsed
+            if row[0].strip() == ("game" if kind == "map" else kind)
+        ) == sum(frame.kind == kind)
     september = next(row for row in parsed if row[1].strip() == "2025-09")
     rows = frame[frame.start_utc.str.startswith("2025-09")]
     assert float(september[3]) == pytest.approx(benchmark.mean_loss(rows), abs=1e-6)
@@ -764,11 +786,11 @@ def test_blend_default_validation_start():
                 "won": won,
             }
             for month, won in (
+                ("2025-10", 0),
+                ("2025-11", 1),
                 ("2025-12", 0),
-                ("2026-01", 1),
-                ("2026-02", 0),
-                ("2026-11", 1),
-                ("2026-12", 0),
+                ("2026-07", 1),
+                ("2026-08", 0),
             )
         ]
     )
@@ -810,7 +832,7 @@ def test_robustness_table_rows():
     assert len(table.splitlines()) == 8
     for mode in ("tradeable", "hours24", "hours6"):
         assert f"| {mode} | model | series | 0 |" in table
-        assert f"| {mode} | model | map | 0 |" in table
+        assert f"| {mode} | model | game | 0 |" in table
 
 
 def test_series_check_planted_dependence():
@@ -894,7 +916,7 @@ def test_robustness_and_series_report_reuse_frozen_models(
         == 4
     )
     for mode in ("tradeable", "hours24", "hours6"):
-        assert f"| {mode} | team_elo | map |" in table
+        assert f"| {mode} | team_elo | game |" in table
         assert f"| {mode} | team_elo+none | series |" in table
     assert "## Series independence: team_elo" in report
     assert "Bets filled" in report and "unfilled" in report
@@ -917,7 +939,7 @@ def test_series_decider_window_first_map_probability_and_empty():
             }
             for match, start in [
                 (1, "2026-01-01T00:00:00Z"),
-                (2, "2026-11-01T00:00:00Z"),
+                (2, "2026-07-01T00:00:00Z"),
             ]
             for order, p, won in [(1, 0.2, 1), (2, 0.9, 0), (3, 0.7, 1)]
         ]
@@ -1055,7 +1077,7 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
     assert "Stage 1 — tuning (outcomes)" in report
     assert "Stage 2 — validation (outcomes)" in report
     assert "team_elo+regional" in report
-    assert "| team_elo | all | 3 |" in report
+    assert "| team_elo | all | 4 |" in report
     assert "| team_elo | all | 2 |" in report
     assert "Kalshi sections skipped: missing tables" in report
     assert "Kalshi sections skipped: missing tables" in capsys.readouterr().out
@@ -1063,18 +1085,116 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
     assert "## Holdout" not in report
 
 
-def test_pinned_grid_and_full_grid():
-    pinned = benchmark.PINNED["player_round_glicko"]
-    assert benchmark.parameter_grid("player_round_glicko") == [pinned]
-    assert [
-        p["k"] for p in benchmark.parameter_grid("player_round_glicko", (16, 24))
-    ] == [16, 24]
-    full = benchmark.parameter_grid("player_round_glicko", full=True)
-    assert len(full) == 640 and pinned in full
+def test_pinned_grid_and_full_grid(monkeypatch):
+    assert benchmark.PINNED == {}
+    assert benchmark.ADOPTED == "player_glicko"
+    full = benchmark.parameter_grid("player_glicko", full=True)
+    assert len(full) == 160
+    assert benchmark.parameter_grid("player_glicko") == full
+    pinned = {"k": 24, "rd_new": 450, "rd_info": 0.5, "new_player": "fixed"}
+    monkeypatch.setitem(benchmark.PINNED, "player_glicko", pinned)
+    assert benchmark.parameter_grid("player_glicko") == [pinned]
+    assert [p["k"] for p in benchmark.parameter_grid("player_glicko", (16, 24))] == [
+        16,
+        24,
+    ]
+    assert benchmark.parameter_grid("player_glicko", full=True) == full
     assert len(benchmark.parameter_grid("team_elo")) == 6
 
 
-def test_adopted_model_is_pinned():
-    adopted = benchmark.PINNED[benchmark.ADOPTED]
-    assert benchmark.parameter_grid(benchmark.ADOPTED) == [adopted]
-    assert adopted["tier3_k"] == 0.75 and adopted["rookie_penalty"] == 200
+@pytest.mark.parametrize(
+    "variant,count", [("rookie", 20), ("weights", 9), ("rookie_weights", 180)]
+)
+def test_ladder_grid_requires_pin_or_full_grid(monkeypatch, variant, count):
+    name = f"player_glicko_{variant}"
+    with pytest.raises(ValueError, match=r"pin the base first.*--full-grid"):
+        benchmark.parameter_grid(name)
+    assert len(benchmark.parameter_grid(name, full=True)) == 160 * count
+    pinned = {"k": 64, "rd_new": 600, "rd_info": 1.0, "new_player": "teammates"}
+    monkeypatch.setitem(benchmark.PINNED, "player_glicko", pinned)
+    for full in (False, True):
+        grid = benchmark.parameter_grid(name, k_grid=(16,), full=full)
+        assert len(grid) == count
+        assert all(
+            all(params[key] == value for key, value in pinned.items())
+            for params in grid
+        )
+
+
+def test_ladder_cli_error_before_database_access(tmp_path, capsys):
+    with pytest.raises(SystemExit) as error:
+        benchmark.main(
+            ["--db", str(tmp_path / "absent.db"), "--models", "player_glicko_rookie"]
+        )
+    assert error.value.code == 2
+    assert "pin the base first" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("sizes", [(5, 4), (4, 5), (6, 5), (5, 6), (5, 0), (0, 0)])
+def test_incomplete_lineups_use_prior_history_or_team_pseudo_player(database, sizes):
+    from promdota.ratings.elo import EloModel
+
+    path, _ = database
+    with sqlite3.connect(path) as conn:
+        conn.execute("DELETE FROM player_games WHERE game_id=21")
+        for side, size in enumerate(sizes, 1):
+            for starter in range(size):
+                player = side * 1000 + starter
+                conn.execute(
+                    "INSERT INTO players(player_id,key) VALUES (?,?)",
+                    (player, str(player)),
+                )
+                conn.execute(
+                    "INSERT INTO player_games(game_id,player_id,team) VALUES (21,?,?)",
+                    (player, side),
+                )
+        lineups = load_lineups(conn)
+        assert 21 not in lineups  # Neither side is used unless both have five.
+        games = load_maps(conn)
+    first, missing = [
+        next(games[games.game_id == game].itertuples(index=False)) for game in (11, 21)
+    ]
+    model = EloModel(unit="player", rd=True, lineups=lineups)
+    assert model.predict(missing) == 0.5
+    assert model._units(missing, 1) == (("team", 10),)
+    assert model._units(missing, 2) == (("team", 20),)
+    model.update(missing)
+    assert model.ratings[("team", 10)] > 1500
+    assert model.ratings[("team", 20)] < 1500
+    # Full earlier starters replace pseudo-players only after that game updates.
+    model = EloModel(unit="player", rd=True, lineups=lineups)
+    model.predict(first)
+    assert model.last_lineups == {}
+    model.update(first)
+    assert model._units(missing, 1) == lineups[11][0]
+    assert model._units(missing, 2) == lineups[11][1]
+    assert model.predict(missing) > 0.5
+    assert all(player < 1000 for player in model.ratings)
+
+
+def test_unresolved_games_skip_but_resolved_games_in_unresolved_series_load(database):
+    path, _ = database
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE games SET winner=NULL WHERE game_id=21")
+        loaded = load_maps(conn)
+    assert 21 not in set(loaded.game_id)
+    unresolved_series = loaded[loaded.match_id == 3]
+    assert len(unresolved_series) == 2
+    assert unresolved_series.series_won.isna().all()
+    assert unresolved_series.won.tolist() == [1, 0]
+    assert unresolved_series.score1.tolist() == [1, 0]
+    assert unresolved_series.score2.tolist() == [0, 1]
+
+
+def test_series_only_supported_odd_lengths_and_resolved_results():
+    frame = pd.DataFrame(
+        {
+            "match_id": range(7),
+            "p": 0.6,
+            "best_of": [1, 2, 3, 5, 7, None, 3],
+            "series_won": [1, 1, 0, 1, 1, 1, None],
+        }
+    )
+    rows = benchmark.series_rows(frame)
+    assert rows.match_id.tolist() == [0, 2, 3]
+    assert rows.p.tolist() == pytest.approx([0.6, 0.648, 0.68256])

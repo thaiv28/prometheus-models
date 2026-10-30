@@ -38,7 +38,7 @@ from promdota.kalshi.collect import data_dir
 from promdota.quotes import TRADEABLE as TRADEABLE
 from promdota.quotes import QuoteRule, candle_quote
 from promdota.ratings.layers import LAYERS
-from promdota.ratings.models import ADOPTED, MODELS, PARAM_GRIDS, PINNED
+from promdota.ratings.models import ADOPTED, LADDER_BASE, MODELS, PARAM_GRIDS, PINNED
 from promdota.ratings.regions import macro_region
 from promdota.ratings.replay import load_lineups, load_maps, replay
 
@@ -155,6 +155,7 @@ def market_tables(frame, probability="p"):
         "|---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---:|",
     ]
     for kind, label, rows in market_slices(frame):
+        kind = "game" if kind == "map" else kind
         if rows.empty:
             loss_lines.append(f"| {kind} | {label} | 0 | — | — | — | — |")
         else:
@@ -185,7 +186,7 @@ def market_tables(frame, probability="p"):
     stats = summarize(frame, probability=probability)
     if stats["bets"]:
         bet_lines.append(
-            f"| series+map | all | {stats['bets']} | {stats['matches']} | "
+            f"| series+game | all | {stats['bets']} | {stats['matches']} | "
             f"{stats['mean_edge']:.4f} | {stats['flat_roi']:.2%} "
             f"[{stats['roi_low']:.2%}, {stats['roi_high']:.2%}] | "
             f"${stats['bankroll']:.2f} | {stats['multiple']:.3f}× | "
@@ -199,7 +200,7 @@ def summary_table(markets):
     labels = [
         f"{kind}{suffix} {metric}"
         for suffix in ("", " blended")
-        for kind in ("Series", "Map")
+        for kind in ("Series", "Game")
         for metric in (
             "Δ log loss",
             "flat ROI",
@@ -271,7 +272,7 @@ def robustness_table(markets):
                     )
                     rois.append(f"{stats['flat_roi']:.2%}" if stats["bets"] else "—")
             lines.append(
-                f"| {rule} | {name} | {kind} | {len(rows)} | "
+                f"| {rule} | {name} | {'game' if kind == 'map' else kind} | {len(rows)} | "
                 + " | ".join(cells + rois)
                 + " |"
             )
@@ -317,7 +318,7 @@ def monthly_table(frame):
             else "—"
         )
         lines.append(
-            f"| {kind} | {month} | {len(rows)} | {mean_loss(rows):.6f} | {blend_loss} | "
+            f"| {'game' if kind == 'map' else kind} | {month} | {len(rows)} | {mean_loss(rows):.6f} | {blend_loss} | "
             f"{game_losses(rows.market_p, rows.won).log_loss.mean():.6f} | {raw_roi} | {blend_roi} | "
             + depth_cells(rows)
             + " "
@@ -331,7 +332,18 @@ def parameter_grid(model, k_grid=None, full=False):
         pinned = dict(PINNED[model])
         return [pinned | {"k": k} for k in k_grid] if k_grid else [pinned]
     grid = dict(PARAM_GRIDS[model])
-    if k_grid is not None and "k" in grid:
+    if model in LADDER_BASE:
+        base = LADDER_BASE[model]
+        if base in PINNED:
+            grid = {key: (value,) for key, value in PINNED[base].items()} | grid
+        elif full:
+            grid = PARAM_GRIDS[base] | grid
+        else:
+            raise ValueError(
+                f"{model} requires PINNED[{base!r}]; pin the base first "
+                "or use --full-grid"
+            )
+    if k_grid is not None and "k" in grid and model not in LADDER_BASE:
         grid["k"] = k_grid
     return [dict(zip(grid, values)) for values in product(*grid.values())]
 
@@ -359,10 +371,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=Path("db/dota2.db"))
     parser.add_argument("--out", type=Path, default=Path("docs/elo_backtest.md"))
-    parser.add_argument("--models", default=",".join(n for n in MODELS if n != "coin"))
+    parser.add_argument("--models", default="team_elo,player_glicko")
     parser.add_argument(
         "--report-models",
-        help="comma list; default team_elo, player_round_glicko, best two",
+        default="team_elo,player_glicko",
+        help="comma list (default: team_elo,player_glicko)",
     )
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 1, 8))
     parser.add_argument("--k-grid", help="optional K grid override for every model")
@@ -377,9 +390,9 @@ def main(argv=None):
         help="re-search pinned models' full grids (models.PINNED)",
     )
     parser.add_argument("--seed-from")
-    parser.add_argument("--tune-from", default="2024-01-01")
-    parser.add_argument("--tune-to", default="2026-01-01")
-    parser.add_argument("--validate-from", default="2026-01-01")
+    parser.add_argument("--tune-from", default="2023-01-01")
+    parser.add_argument("--tune-to", default="2025-11-01")
+    parser.add_argument("--validate-from", default="2025-11-01")
     parser.add_argument("--layers", default="none")
     parser.add_argument("--blend-min", type=int, default=100)
     parser.add_argument(
@@ -431,7 +444,7 @@ def main(argv=None):
             raise ValueError
     except (ValueError, TypeError):
         parser.error(
-            "use positive finite K values, --jobs >= 1, --blend-min >= 1 and ISO dates: seed-from <= tune-from < tune-to <= validate-from <= 2026-11-01"
+            "use positive finite K values, --jobs >= 1, --blend-min >= 1 and ISO dates: seed-from <= tune-from < tune-to <= validate-from <= 2026-07-01"
         )
     layer_names = list(dict.fromkeys(name.strip() for name in args.layers.split(",")))
     if any(name not in LAYERS for name in layer_names):
@@ -450,7 +463,7 @@ def main(argv=None):
         parser.error("unknown rating model in --report-models")
     if args.baseline not in MODELS or args.baseline == "coin":
         parser.error("unknown rating model in --baseline")
-    extras = report_names if report_names is not None else ["player_round_glicko"]
+    extras = report_names if report_names is not None else ["player_glicko"]
     names = list(
         dict.fromkeys(
             [
@@ -461,6 +474,10 @@ def main(argv=None):
             ]
         )
     )
+    try:
+        grids = {name: parameter_grid(name, k_grid, args.full_grid) for name in names}
+    except ValueError as error:
+        parser.error(str(error))
     if not args.db.is_file():
         parser.error(f"database does not exist: {args.db}")
     with sqlite3.connect(args.db) as conn:
@@ -483,13 +500,9 @@ def main(argv=None):
             maps = maps[pd.to_datetime(maps.start_utc, utc=True) < HOLDOUT_START]
         tuning_maps = scored_rows(maps, args.tune_from, args.tune_to)
         if tuning_maps.empty:
-            parser.error("no tuning maps in the requested scoring window")
+            parser.error("no tuning games in the requested scoring window")
         lineups = load_lineups(conn)
-        tasks = [
-            (name, params)
-            for name in names
-            for params in parameter_grid(name, k_grid, args.full_grid)
-        ]
+        tasks = [(name, params) for name in names for params in grids[name]]
         best_params, losses = {}, {}
         if args.jobs == 1:
             initialize_worker(
@@ -523,7 +536,7 @@ def main(argv=None):
                 dict.fromkeys(
                     [
                         "team_elo",
-                        "player_round_glicko",
+                        "player_glicko",
                         args.baseline,
                         *ranked[:2],
                     ]
@@ -575,21 +588,21 @@ def main(argv=None):
                 if temperatures
                 else "Series temperatures: off."
             ),
-            "Parameters minimize tuning map log loss across all sections. Replay predicts before update; "
-            f"Replay starts {args.seed_from or 'at the first map'}. "
+            "Parameters minimize tuning game log loss across all sections. Replay predicts before update; "
+            f"Replay starts {args.seed_from or 'at the first game'}. "
             f"Tuning: [{args.tune_from}, {args.tune_to}); validation: "
             f"[{args.validate_from}, {HOLDOUT_START}). "
             "Holdout is scored only with --holdout and never selects parameters. "
-            "Series use the first map prediction and independent maps in an odd best-of; "
-            "missing/even best-of or unknown results are skipped. "
+            "Series use the first game prediction and independent games in Bo1/Bo3/Bo5; "
+            "Bo2, unknown/unsupported lengths and unknown results are skipped. "
             "Accuracy gives 0.5 predictions half credit; ECE uses 10 equal-width bins. "
             "Log loss clips probabilities at 1e-6. Paired bootstrap uses 2,000 resamples, "
             "seed 0, clustered by match_id. Differences are the named model minus its comparator; "
             "negative favors the model. Significance requires a 95% percentile interval excluding zero. "
             "Tuning scores are selection diagnostics, not independent evidence of improvement.",
-            f"Fit through {fit_through}. Unknown host-region map rows: {unknown} (including missing/un).",
+            f"Fit through {fit_through}. Unknown host-region game rows: {unknown} (including missing/un).",
             "## Stage 1 — tuning (outcomes)\n\n### Leaderboard\n\n"
-            "| Model | Best params | Map log loss | Series log loss | Rows |\n"
+            "| Model | Best params | Game log loss | Series log loss | Rows |\n"
             "|---|---|---:|---:|---:|\n"
             + "\n".join(
                 f"| {name} | {json.dumps(best_params[name], sort_keys=True)} | {losses[name]:.6f} | "
@@ -599,18 +612,18 @@ def main(argv=None):
             (
                 f"Kalshi uses the first hourly bid/ask (midpoint for log loss, ask/bid for bets) "
                 f"ending ≥30 min after the market opened and ≥2 h before the scheduled start, "
-                f"with a spread ≤ {args.max_spread:.2f}: a price a bot could trade before any veto. "
+                f"with a spread ≤ {args.max_spread:.2f}: a price a bot could trade before the series. "
                 "Markets without such a quote are skipped. "
                 if args.quote == "tradeable"
                 else f"Kalshi uses the last tight hourly quote ending ≥{24 if args.quote == 'hours24' else 6} h "
                 "before start and ≥30 min after open. "
                 if args.quote in ("hours24", "hours6")
                 else "Kalshi uses the last valid hourly bid/ask midpoint ending at or before "
-                "match start (can already price the veto). "
+                "match start (can already price lineup news). "
             )
             + "oriented to team1 using aliases. One contract per event, preferring team1. "
-            "Compare identical rows; map predictions use the first map's pre-match chance. "
-            "Missing links, aliases or candles are skipped; unplayed maps are not in the rows. "
+            "Compare identical rows; game predictions use the first game's pre-match chance. "
+            "Missing links, aliases or candles are skipped; unplayed games are not in the rows. "
             "Returns use frozen stage-1 parameters. "
             "Each bet buys $1 of contracts, fees extra; order fees ceil to a cent "
             "(0.07 × contracts × price × (1−price)). Edge selection uses unrounded per-contract fees. "
@@ -691,7 +704,7 @@ def main(argv=None):
             if not tuning:
                 report.append(
                     "### Leaderboard (frozen stage-1 parameters)\n\n"
-                    "| Model | Best params | Map log loss | Series log loss | Rows |\n"
+                    "| Model | Best params | Game log loss | Series log loss | Rows |\n"
                     "|---|---|---:|---:|---:|\n"
                     + "\n".join(
                         f"| {name} | {json.dumps(best_params[name.split('+')[0]], sort_keys=True)} | "
@@ -701,13 +714,13 @@ def main(argv=None):
                         )
                     )
                 )
-            for kind in ("Maps", "Series"):
+            for kind in ("Games", "Series"):
                 frames = (
                     selected
-                    if kind == "Maps"
+                    if kind == "Games"
                     else {n: series_rows(f) for n, f in selected.items()}
                 )
-                coin_frame = coin_rows if kind == "Maps" else series_rows(coin_rows)
+                coin_frame = coin_rows if kind == "Games" else series_rows(coin_rows)
                 report.extend([f"### {kind}", metrics_table(coin_frame, "coin")])
                 for name in window_names:
                     report.append(metrics_table(frames[name], name))
@@ -807,7 +820,7 @@ def main(argv=None):
                 ]
                 for row in fits.itertuples(index=False):
                     fit_lines.append(
-                        f"| {row.month} | {row.kind} | {row.n} | {row.a:.6f} | {row.b:.6f} | "
+                        f"| {row.month} | {'game' if row.kind == 'map' else row.kind} | {row.n} | {row.a:.6f} | {row.b:.6f} | "
                         + ("fitted |" if row.fitted else "unfitted |")
                     )
                 report.extend(

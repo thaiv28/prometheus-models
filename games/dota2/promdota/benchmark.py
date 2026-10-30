@@ -12,17 +12,12 @@ from promdota.quotes import PRESTART, TRADEABLE, candle_quote
 
 
 def series_rows(maps):
-    """Use the first map's pre-update chance and the recorded series winner."""
+    """Use the first game's pre-update chance and the recorded series winner."""
     first = maps.drop_duplicates("match_id").copy()
-    first = first[
-        first.best_of.notna()
-        & (first.best_of > 0)
-        & (first.best_of % 2 == 1)
-        & first.series_won.notna()
-    ].copy()
+    first = first[first.best_of.isin((1, 3, 5)) & first.series_won.notna()].copy()
     first["p"] = [series_probability(p, int(n)) for p, n in zip(first.p, first.best_of)]
     if "series_t" in first:
-        # Stage-1 temperature per best-of: independent-map odds run too extreme.
+        # Stage-1 temperature per best-of: independent-game odds run too extreme.
         first["p"] = temper(first.p, first.series_t)
     first["won"] = first.series_won.astype(int)
     return first
@@ -54,8 +49,8 @@ def kalshi_rows(conn, maps, series, directory, rule=PRESTART):
         params=SERIES,
     )
     map_index = maps.set_index("game_id")
-    # Kalshi quotes are taken before the match, so maps are compared with the
-    # model's pre-match chance (the first map's), not one updated on earlier maps.
+    # Kalshi quotes are taken before the match, so games are compared with the
+    # model's pre-match chance (the first game's), not one updated on earlier games.
     prematch = maps.sort_values(["match_id", "order"]).groupby("match_id").p.first()
     series_index = series.set_index("match_id")
     candidates = []
@@ -111,7 +106,7 @@ def kalshi_rows(conn, maps, series, directory, rule=PRESTART):
 
 
 def report_market_rows(
-    conn, source, directory, rule=TRADEABLE, validate_from="2026-01-01"
+    conn, source, directory, rule=TRADEABLE, validate_from="2025-11-01"
 ):
     """The report's validation rows, including later holdout dates for causal fits."""
     dates = pd.to_datetime(source.start_utc, utc=True)

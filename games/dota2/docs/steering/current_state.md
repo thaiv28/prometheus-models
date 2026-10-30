@@ -2,7 +2,7 @@
 
 ## Status
 
-Playbook phase: **2 (data)**. Phase 2 code done; real crawl pending. Liquipedia tournaments and Match pages, OpenDota enrichment, and Kalshi Dota 2 loading/linking build offline from caches. Phase 3 rating and benchmark code remains CS2's; its test modules are skipped until ported to games. Feed, trading and blend delivery remain deferred until the holdout gate passes.
+Playbook phase: **3 (benchmark)**. Data and benchmark ports are complete; real crawl and database pending. Liquipedia tournaments and Match pages, OpenDota enrichment, and Kalshi Dota 2 loading/linking build offline from caches. Binary team Elo and player Glicko now run the two-stage Dota benchmark with synthetic database coverage; real-data tuning and pins await the DB. Feed, trading and blend delivery remain deferred until the holdout gate passes.
 
 ## Known limits
 
@@ -14,4 +14,4 @@ Playbook phase: **2 (data)**. Phase 2 code done; real crawl pending. Liquipedia 
 ## Future work
 
 1. Run the real Phase 2 crawl and inspect coverage, orphans, winner conflicts and links.
-2. Phase 3: port the benchmark to binary game outcomes; baseline team Elo vs player Glicko.
+2. Build the real DB, run stage 1 team Elo vs player Glicko, pin its winner, then validate on stage 2 before opening holdout.

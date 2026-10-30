@@ -1,6 +1,6 @@
 """Kalshi taker backtest with rounded order fees and match-level settlement.
 
-Quotes are oriented to CS2 team1. Fills assume the last pre-start hourly ask/bid,
+Quotes are oriented to Dota 2 team1. Fills assume the last pre-start hourly ask/bid,
 with optional tape-based depth caps and no slippage. Each summary is an independent $50 path.
 """
 

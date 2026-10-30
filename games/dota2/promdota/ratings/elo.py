@@ -2,10 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from math import exp, isfinite, log, log1p, tanh
+from math import isfinite, log, log1p, tanh
 
 from promdota.ratings.regions import macro_region
-from promdota.ratings.rounds import map_win
 
 TIER_RANKS = {"tier3": 1, "tier2": 2, "tier1": 3}
 
@@ -47,7 +46,6 @@ class EloModel:
         credit="binary",
         k=32.0,
         c=4.0,
-        tau=1.0,
         region_k=0.0,
         new_player="fixed",
         lineups=None,
@@ -69,12 +67,11 @@ class EloModel:
         if unit not in {"team", "player"} or credit not in {
             "binary",
             "margin",
-            "round",
         }:
             raise ValueError("unknown Elo unit or credit")
         if new_player not in {"fixed", "teammates"}:
             raise ValueError("unknown new_player mode")
-        if k <= 0 or c <= 0 or tau <= 0 or region_k < 0 or scale <= 0:
+        if k <= 0 or c <= 0 or region_k < 0 or scale <= 0:
             raise ValueError("Elo parameters must be positive (region_k may be zero)")
         if not (0 < online_k <= 2 and 0 < tier3_k <= 2):
             raise ValueError("online_k and tier3_k must be in (0, 2]")
@@ -114,7 +111,7 @@ class EloModel:
         self.tier_counts = {}
         self.tier_homes = {}
         self.unit, self.credit = unit, credit
-        self.k, self.c, self.tau = k, c, tau
+        self.k, self.c = k, c
         self.region_k, self.new_player = region_k, new_player
         self.init, self.scale = init, scale
         self.lineups = lineups if lineups is not None else {}
@@ -179,23 +176,11 @@ class EloModel:
         return a, b, home_a, home_b, expected
 
     def predict(self, row):
-        expected = self._state(row)[-1]
-        if self.credit != "round":
-            return expected
-        p = map_win(expected)
-        if p in (0, 1):
-            return p
-        log_odds = self.tau * (log(p) - log(1 - p))
-        if log_odds >= 0:
-            return 1 / (1 + exp(-log_odds))
-        odds = exp(log_odds)
-        return odds / (1 + odds)
+        return self._state(row)[-1]
 
     def score(self, row):
         if self.credit == "binary":
             return row.won
-        if self.credit == "round":
-            return row.score1 / (row.score1 + row.score2)
         magnitude = 0.5 * tanh(abs(row.score1 - row.score2) / self.c)
         return 0.5 + (magnitude if row.won else -magnitude)
 

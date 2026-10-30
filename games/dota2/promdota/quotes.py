@@ -12,9 +12,9 @@ class QuoteRule:
 
     `tradeable` (the default for reports): the first candle ending at least
     `open_delay_minutes` after the market opened, no later than `buffer_hours` before the
-    scheduled start (so no veto or lineup news), whose bid/ask spread is at most
+    scheduled start (before late lineup news), whose bid/ask spread is at most
     `max_spread`. `prestart`: the last candle ending at or before the start,
-    which can already price the veto. `hours24`/`hours6`: last tight candle
+    which can already price late lineup news. `hours24`/`hours6`: last tight candle
     ending at least 24/6 hours before start and 30 minutes after open.
     """
 

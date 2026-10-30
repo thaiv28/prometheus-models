@@ -52,7 +52,7 @@ def fit(p, mid, won):
     return float(beta[0]), float(beta[1]), len(y)
 
 
-def walk_forward(frame, validate_from="2026-01-01", min_rows=100):
+def walk_forward(frame, validate_from="2025-11-01", min_rows=100):
     """Return annotated rows and monthly fits, using strictly earlier months.
 
     Training is separate by kind, starts at validate_from, and excludes holdout.

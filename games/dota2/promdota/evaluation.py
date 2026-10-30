@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 EPS = 1e-6
-HOLDOUT_START = "2026-11-01"
+HOLDOUT_START = "2026-07-01"
 
 
 def game_losses(p, won):
@@ -85,7 +85,7 @@ def paired_bootstrap(loss_a, loss_b, n_resamples=2000, seed=0, clusters=None):
 
 
 def series_probability(p, best_of):
-    """Independent-map chance of winning an odd best-of series."""
+    """Independent-game chance of winning an odd best-of series."""
     if best_of < 1 or best_of % 2 != 1:
         raise ValueError("best_of must be a positive odd integer")
     if not 0 <= p <= 1:

@@ -9,12 +9,12 @@ REGIONS = tuple(REGION_CODES)
 
 
 def causal_features(conn, lineups):
-    """Emit homes before each scored map, using earlier eligible event hosts."""
+    """Emit homes before each scored game, using earlier eligible event hosts."""
     maps = conn.execute('''SELECT g.game_id, m.team1_id, m.team2_id, e.region,
                   COALESCE(e.international, 0)
-           FROM maps g JOIN matches m USING (match_id)
+           FROM games g JOIN matches m USING (match_id)
            JOIN events e USING (event_id)
-           WHERE g.score1 != g.score2 AND e.excluded = 0
+           WHERE g.winner IS NOT NULL AND e.excluded = 0
            ORDER BY m.start_utc, m.match_id, g."order"''')
     homes, counts, features = {}, {}, []
     for game, team1, team2, host, international in maps:

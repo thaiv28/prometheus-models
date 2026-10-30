@@ -15,8 +15,6 @@ from promdota.backtest import (
     summarize,
 )
 
-pytestmark = pytest.mark.skip(reason="Phase 3: port to games schema")
-
 
 def rows(*updates):
     defaults = {
