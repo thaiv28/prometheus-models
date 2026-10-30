@@ -4,6 +4,14 @@ Every model idea tested, adopted or not, newest first, with its stage-1 and stag
 
 ## Two-stage runs
 
+**Holdout (opened once, 2026-10-30)**: 2026-07-01 – 2026-10-29, 3,835 games, 557 linked series with a tradeable quote; frozen stage-1 parameters and June blend fits; adopted `player_glicko_rw_tier_revert` + form. Report: [`docs/elo_holdout.md`](../elo_holdout.md).
+
+- **Gate (blended series flat ROI after fees, depth-capped, 95% interval above 0): FAIL, narrowly.** +14.5% [−0.4, +31.4], LoL-capped Kelly $50 → $325 (62% drawdown). Unlimited depth: +13.2% [+1.5, +25.2], $50 → $3,310.
+- Vs Kalshi, series: blended −0.0290 [−0.0431, −0.0162], raw −0.0263 [−0.0478, −0.0059], both significant; better than Kalshi every month. Tier 3 (289 rows) blended −0.0439 significant, depth-capped ROI +29.6% [+10.7, +49.3]; tier 1 −0.0168 n.s., +3.8%; tier 2 −0.0023 n.s., −19.1%.
+- By month (blended, depth-capped): Jul +54.4%, Aug −3.6%, Sep +21.4%, Oct +2.8%. July carries much of the return.
+- Games (not in the trade set): blended −0.0001; raw ROI +5.2% n.s.
+- Context: base player_glicko blended series −0.0246, depth-capped +10.3% [−5.9, +26.5]; team Elo loses.
+
 2026-10-30 **stage-2 look 2** (ladder survivors + layers; the same run re-displayed paired against the rookie candidate). Report: [`docs/elo_backtest.md`](../elo_backtest.md). Stage-2 looks: 2.
 
 - **Adopted: rookie + tier/online K** (`player_glicko_rookie_weights`: 600 / 800, online 0.75, tier-3 0.75). Stage 1 −0.0122 (every tier); stage 2 −0.0110 [−0.0141, −0.0081] vs base (tier1, tier3 significant; tier2 −0.0073 n.s.). Blended series vs Kalshi −0.0070 (base −0.0042).

@@ -1,3 +1,7 @@
+## 2026-10-30 — Holdout opened: gate fails narrowly
+
+`evaluate_elo.py --holdout` (126 s) on the frozen adopted model + form, trade set series/all tiers: blended series −0.0290 vs Kalshi (significant), but blended depth-capped flat ROI +14.5% [−0.4, +31.4]: below the playbook gate. Report `docs/elo_holdout.md`; verdict in the ledger and Current state. Stopped at playbook H4; no retune, no reopening. Checks: pytest, ruff.
+
 ## 2026-10-30 — Ladder done: adopted reversion + form over rookie/tier K
 
 Stage 1 for the ported variants, then stage-2 look 2 with survivors and layers. Adopted `player_glicko_rw_tier_revert` (`ADOPTED`, pinned) scored with the `form` layer (`ADOPTED_LAYER`); rejected reversion to start, the KDA bonus, regional and calibration. Tier-revert grid widened to 0.025–0.35. Trade set fixed for the holdout: series only, all tiers. `docs/elo_backtest.md` is look 2. Checks: pytest, ruff, stage-1 runs (~1–2 min), look 2 (138 s).

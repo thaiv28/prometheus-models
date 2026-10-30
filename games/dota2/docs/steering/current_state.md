@@ -2,7 +2,7 @@
 
 ## Status
 
-Playbook phase: **5 (holdout verdict)**. Adopted 2026-10-30: `player_glicko_rw_tier_revert` + `form` layer (rookie 600/800, online and tier-3 K 0.75, tier-target reversion 0.1 each October). Stage 2 vs Kalshi: blended series −0.0080 n.s., flat +12.1% [−5.7, +32.0]. Ladder done; trade set: series markets, all tiers. Stage-2 looks: 2. Data: 45,645 series, 91,503 games (84,091 with players); Kalshi links series 1,380/1,870.
+Playbook phase: **5, stopped at H4** (holdout gate failed narrowly; awaiting the user). Holdout opened once 2026-10-30: adopted `player_glicko_rw_tier_revert` + `form` beats Kalshi on series log loss (blended −0.0290, significant, every month), but the gate, blended depth-capped series flat ROI, is +14.5% [−0.4, +31.4]. No trading infrastructure built. Stage-2 looks: 2. Data: 45,645 series, 91,503 games (84,091 with players); Kalshi links series 1,380/1,870.
 
 ## Known limits
 
