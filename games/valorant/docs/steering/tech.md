@@ -1,0 +1,171 @@
+# Tech
+
+## Stack
+
+Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`promval`); BeautifulSoup + lxml for HTML; ruff; pytest (offline, fixtures in `tests/fixtures/`).
+
+## Layout
+
+| Path | Purpose |
+|---|---|
+| `promval/ratings/` | Team Elo, model registry, chronological map replay; optional `elo_weights.json` |
+| `promval/evaluation.py`, `scripts/evaluate_elo.py` | Scoring helpers and offline benchmark report |
+| `tests/test_elo.py`, `tests/test_evaluation.py` | Ratings, leakage, candle formats and synthetic-DB benchmark checks |
+| `promval/main.py` | CLI entry: `kalshi`, `vlr`, `feed-state`, `export`, `blend-artifact` |
+| `promval/feed.py` | Versioned ratings snapshot, website feed and frozen prediction log |
+| `promval/trading.py`, `blend_artifact.json` | Private candidates and frozen monthly blend fits |
+| `promval/benchmark_rows.py` | Shared report/artifact series temperatures and tradeable quotes |
+| `tests/test_trading.py` | Offline causal fits and execution contract checks |
+| `scripts/feed_data.sh` | Conditional S3 prediction-log restore/save |
+| `.github/workflows/refresh-db.yml`, `feed.yml` | Hourly snapshot build and DB-free site publication |
+| `tests/test_feed.py` | Offline feed, schedule, freeze and price checks |
+| `promval/kalshi/quotes.py` | Shared benchmark/feed candle quote rules |
+| `promval/kalshi/api.py` | Public HTTP client, pacing, retries and pagination |
+| `promval/kalshi/collect.py` | Raw catalog, trade, candle and book files |
+| `promval/kalshi/cli.py` | Collector, manifest and book-loop commands |
+| `tests/test_kalshi_collect.py` | Offline fixture-based collector and CLI tests |
+| `promval/vlr/` | VLR.gg crawler, raw cache and parsers |
+| `scripts/001_create_tables.sql`, `002_load_vlr.py`, `003_events.py`, `004_map_pool.py`, `setup_db.sh` | Rebuild SQLite from VLR cache |
+| `promval/link.py` | Pure team normalization, event linking and settlement checks |
+| `scripts/005_load_kalshi.py`, `006_link_kalshi.py` | Load catalogs, learn aliases and link Kalshi to VLR |
+| `tests/test_link.py` | Offline linking and catalog-to-DB checks |
+| `scripts/work_log.py`, `.githooks/` | Work-log tooling |
+| `tests/test_vlr_*.py` | Offline parser, crawl and DB checks |
+| `tests/test_steering.py` | Doc guard |
+| `tests/fixtures/` | Saved Kalshi JSON and gzipped VLR pages |
+
+## Kalshi collector
+
+`promval kalshi collect [--no-books] [--limit N]` refreshes both Valorant series (`KXVALORANTGAME`, `KXVALORANTMAP`), saves final-market histories and snapshots active books. `--limit` caps new trade/candle fetches combined (each file attempt counts separately). `promval kalshi books --every 60 --minutes 60` refreshes active tickers each pass; pass summaries include failures. GitHub Actions collects every six hours (see Deployment).
+
+Public base: `https://api.elections.kalshi.com/trade-api/v2`. Paginate `/markets` and `/historical/markets` by series; merge by ticker, preferring `/markets`. Historical-catalog markets use `/historical/trades?ticker=T` and `/historical/markets/T/candlesticks`; recent markets use `/markets/trades?ticker=T` and `/series/S/markets/T/candlesticks`. Trades paginate with `limit=1000`; hourly candles use market open/close unix timestamps and `period_interval=60`. Preserve raw fields. Books use `/markets/T/orderbook`; the books loop discovers tickers through `/markets?series_ticker=S&status=open`.
+
+Under `data/kalshi/` (or `$PROMVAL_DATA/kalshi/`):
+
+- `markets/<SERIES>.json`: raw market list sorted by ticker, refreshed each run.
+- `trades/<TICKER>.jsonl.gz`: raw full tape sorted by (`created_time`, `trade_id`).
+- `candles/<TICKER>.json.gz`: raw candlesticks list.
+- `books/<YYYY-MM-DD>/<YYYYMMDDTHHMMSSZ>.jsonl.gz`: one new gzip file per pass, one line per snapshot with `at` (UTC ISO Z, second precision), `ticker` and raw `orderbook_fp`. No appends; zero snapshots write no file. Local timestamp collisions advance the filename by a second.
+- `manifest.json`: version 1 with sorted `trades` and `candles` ticker arrays. Skip histories present locally or listed here; runners download only this manifest, never the history archive.
+
+New files and refreshed catalogs use temporary files plus atomic rename. Only finalized/settled markets get histories; existing trade/candle files are never rewritten. Empty tapes with positive `volume_fp` (or `volume`) and empty candle lists report errors without writing files, allowing retries. Zero-volume empty tapes are saved as complete. Other markets continue after failures; failed catalogs skip that series. After collection, atomically rewrite the manifest as the union of its old entries and all local histories, including newly saved files. A missing manifest starts empty. `promval kalshi manifest` rebuilds it from local history files only, for seeding S3. Books are written atomically once per pass.
+
+The standard-library client uses a repository User-Agent, 30-second timeout and at least 0.06 seconds between requests. HTTP 429/5xx, URL errors and timeouts retry up to five attempts with 1/2/4/8-second backoff. First-run estimate: about 10k final markets × two requests at ~0.06-second spacing plus latency, roughly an hour; pagination and retries can add time.
+
+## VLR scraper
+
+`uv run promval vlr events` refreshes all tier lists: 60 VCT, 61 VCL, 62 T3, 63 GC, 64 Collegiate, 67 Offseason. Pages stop at the first empty list; `raw/events/tier<T>_p<N>.html.gz` is overwritten each run, obsolete trailing pages removed. Cost: ≈63 pages ≈2 min at 2 s/request. `003_events.py` builds the union into `events` (event_id, slug, name, primary vlr_tier, section, JSON tiers, international, status, dates, region, prize); no cache creates an empty table. Primary priority: 60, 63, 61, 67, 62, 64; sections: vct, gc, vcl, offseason, t3, collegiate. International (`is_international`): a vct, gc or offseason event, not a qualifier, whose name matches Masters followed by a city, Valorant Champions <year>, Champions Tour <year>: Champions, LOCK//IN, Esports World Cup or a Game Changers Championship. Regional names ending in Masters and T3/collegiate "Masters" cups do not match. `promval/vlr/event_overrides.json` applies international/section overrides by event ID last.
+
+`004_map_pool.py` builds `veto_pools` (match_id, start_utc, sorted comma-joined pool) from exactly seven distinct veto maps. `map_pool_periods` (pool, first_utc, last_utc, matches) merges consecutive pools in VCT start order (all matches only when events is empty). Runs shorter than three join the preceding stable pool, or the next at the start; without a stable run, use the longest run's pool. View `map_pool` merges each map's adjacent active spans. Endpoints are inclusive observed times, not patch dates.
+
+Run `uv run promval vlr crawl --since 2021-01-01`; options: `--economy-since 2023-01-01`, `--max-matches N`, `--min-interval 2.0`, `--workers N` (parallel fetches; `--min-interval` caps the total rate and a 429/5xx pauses all workers), `--full` (walk back to `--since` past cached pages; use it to resume an interrupted backfill, since a normal run stops after 3 pages with nothing new). Build offline with `bash scripts/setup_db.sh`; it deletes and rebuilds `db/valorant.db` in numeric script order. Failures roll back one match, continue, and log to `db/parse_errors.txt`.
+
+Cache: `${PROMVAL_DATA:-data}/vlr/raw/matches/<id>.html.gz` and `<id>_economy.html.gz`. Writes use atomic gzip replacement. Parsed `(match, economy)` pickles are atomically gzip-cached in `vlr/parsed/v<PARSER_VERSION>/<id>.pkl.gz`; valid only when newer than both existing raw pages. Errors are not cached. Bump `promval.vlr.parse.PARSER_VERSION` whenever any parser's output changes. The loader parses misses in up to eight worker processes (CPU count capped at eight); `002_load_vlr.py --jobs N` or `PROMVAL_JOBS=N` overrides this (1 is serial). SQLite inserts stay in ascending match ID order in the main process, one transaction per match, using table batches. Results listings are uncached. Never re-fetch cached match pages; missing economy tabs can be retried independently. Skip same-day matches until tomorrow (Eastern date). Stop at empty/older pages, three consecutive pages without new work, or the match limit.
+
+Requests start at least 2 seconds apart. User-Agent: `valorant-model/0.1 (+https://github.com/thaiv28/valorant-model)`. Retry 429, 5xx, URL errors and timeouts up to five attempts, sleeping 5/10/20/40 seconds. Fetching is injectable; parsers never fetch.
+
+Results parser extracts IDs, slugs and day headings. Match parser extracts event/stage, team IDs/names, best-of, patch, UTC start, series score/winner, ordered veto (short tags; “remains” is decider), played maps, picks, scores, side totals, duration, overtime beyond 24 rounds, players/agents/stats, and round winners/sides/types. Skip unplayed maps. Missing stats are null. Reject inconsistent round counts, round wins or series map wins. An 11–13 score is 24 regulation rounds, not overtime. Map order is taken from the numbered map tabs, not the order of the stat sections. A drawn series (1–1 Bo2) has a null winner. The economy tab omits overtime rounds, so its per-round rows cover regulation only.
+
+Economy fixtures (2020–2026) show pistol/conversion/bonus won/played, eco (<10k), half buy (10–18k), full buy (18k+) matchup counts, plus per-round team equipment and bank amounts (displayed in thousands). Summary grids exclude each half’s first three rounds; aggregate their counts by own buy category. Preserve every round’s category/buy/bank. Separate semi-eco and semi-buy are absent, stored null; half buy stays separate. Unavailable values remain null.
+
+Tables: `matches` (match_id), `vetoes` (match_id/step), `maps` (game_id), `rounds` (game_id/round), `player_maps` (game_id/player_id), `economy` (game_id/team); declared foreign keys connect them. Agents and economy round details use JSON text; other fields are scalar SQL columns.
+
+Time gotcha: VLR `data-utc-ts` is America/New_York local time, despite its name. Convert with zoneinfo (EST/EDT) to ISO UTC ending Z.
+
+Backfill estimate: roughly 590 results pages back to 2021, about 29k matches; approximately two requests per match from 2023 and one before, at 2 seconds, roughly a day of crawling. Not run against the live site.
+
+## Kalshi ↔ VLR links
+
+The numbered DB build loads `kalshi_markets` from `collect.data_dir()/markets/{KXVALORANTGAME,KXVALORANTMAP}.json`; missing catalogs load zero rows with a message. Rules supply scheduled EDT/EST times (UTC Z) and event names; ticker suffixes supply team codes and map numbers.
+
+`team_aliases` maps consistent competitor UUIDs to VLR team IDs, with names, codes and confident-series evidence counts; conflicting UUIDs are permanently dropped. `kalshi_links` stores one row per event, match/game IDs, kind, method and failure reason.
+
+Candidates start within ±30 hours of the advertised schedule (otherwise open time +24 hours), allowing a one-day slip. Exact → alias → anchor passes repeat until no new link is made, re-deriving aliases from every confident link. Exact matching accepts either the outside name or the alternate inside a trailing parenthetical. Alias matching requires both UUIDs. An anchor requires one exact/aliased team appearing in only one candidate match; the other name must share normalized tokens, match team-code initials/a token, or have difflib similarity ≥0.6. Prefer an exact other-side name present in the window over a looser subteam name; competing matches remain ambiguous. Finally both fuzzy name similarities must reach 0.8, without overriding that preference. Normalization removes accents and generic organization words and equates female/women/GC. Map events inherit their series match (map-only catalogs use a representative map event), then select the played map by order; missing rows are `unplayed`.
+
+Cross-check each linked binary settled market against the series/map winner; skip scalar settlements and unknown winners. `db/link_report.txt` lists unlinked events/unplayed maps with team names, schedule, event name and reason; anchor name mappings; and mismatched tickers with VLR IDs. The linker prints linked/total series and maps, aliases, market agreements/checked and mismatches. Re-runs replace derived rows. The Aug 18–Oct 27, 2026 catalog window linked 194/252 series against 233 cached matches before anchor/variant improvements. Settlement checks agreed on 1256/1264; eight disagreements came from the subsequently fixed VLR map ordering bug. Updated coverage is pending.
+
+## Site feed
+
+`uv run promval feed-state [--out PATH]` saves `data/feed/state.pkl.gz` (gzip level 6, atomic pickle, version 1). `uv run promval export [--state PATH] [--out PATH] [--no-fetch]` writes `${PROMVAL_DATA:-data}/feed/valorant.json` in the Prometheus [feed format](../feed-format.md). Sources: chronological DB replay using frozen rookie weights/series temperatures; VLR schedule/header pages (seven-day horizon, at most five listings); Kalshi open series quotes and cached prestart candles. Transient pages live in `data/upcoming/`, cached six hours; live pages always refresh. `--no-fetch` uses pages younger than seven days and omits current quotes. `data/predictions.json` refreshes future calls and freezes them at start; disappeared future calls are deleted. Finals prefer logged calls, otherwise causal replay. Both JSON files replace atomically. No raw-cache writes. `--state` opens no DB: replay, final rows, closing quotes and lookups come from the snapshot. Without it, export builds the same state from SQLite.
+
+Export also atomically writes private `data/feed/candidates.json` (`--candidates PATH`): raw series chances keyed by linked Kalshi rules names, domestic/international groups, no orders or blending. Both contracts must agree; starts must be within 18 hours. `--no-fetch` exports no candidates. `promval blend-artifact` freezes `promval/blend_artifact.json`: adopted replay and stage-1 temperature, benchmark tradeable quotes, monthly earlier-only fits from September 2025, minimum 300 series; later snapshots include prior holdout outcomes. Prometheus packages a copy of this artifact and performs blending/execution.
+
+## Model change rules
+
+```bash
+uv run python scripts/evaluate_elo.py --out docs/elo_backtest.md               # two-stage benchmark, all models (~2–10 min)
+uv run python scripts/evaluate_elo.py --layers none,regional,form --out docs/elo_backtest.md
+uv run python scripts/evaluate_elo.py --write-weights                          # also store each model's stage-1 parameters
+```
+
+- **Stages.** Stage 1 (tuning): 2023-01-01 to 2025-09-01, match outcomes only; every parameter, grid choice and layer fit is selected here. Stage 2 (validation): 2025-09-01 to 2026-07-01, the frozen models against outcomes and against Kalshi (log loss, blend, returns). Holdout: 2026-07-01 on, never used for selection or fitting; opened once, for the final verdict, with `--holdout`.
+- **Adopt a change only on a significant stage-1 gain.** The paired-bootstrap 95% interval of the per-map log-loss difference against the current best model, resampling whole matches, must exclude 0 on the sections the change targets (all, or a section such as vct, vcl, gc or international), and no guarded section (all, vct, vcl, gc, international) may be significantly worse. An added parameter, feature or layer also needs a gain of at least 0.0005.
+- **Then confirm on stage 2.** Stage-2 outcome log loss and blended log loss vs Kalshi must not be significantly worse than the current best. A stage-2 gain is reported but is not a reason to adopt a change that failed stage 1; tuning on stage 2 to pass it is not allowed.
+- **Removals** ship when every guarded section's interval stays below +0.0005 on both stages (non-inferior).
+- **Every test goes in the ledger,** adopted or not, with its numbers: `docs/research/README.md`. Count the tests run against stage 2; many tries against one validation window make a lucky winner likely, so prefer ideas with a stage-1 case.
+- **Trading results are reported, not gates:** the returns tables (raw and blended, LoL-capped Kelly, monthly breakdown) are in-sample for the blend's earliest months and assume fills at hourly quotes; a single month driving a result is called out.
+- **Data fixes** (which data a model uses: a link, alias, tier, parser bug) are not model changes: they ship when they are correct and the benchmark doesn't get significantly worse.
+
+## Ratings and benchmark
+
+Kalshi `--quote`: `tradeable` (default) takes the first hourly candle ending ≥30 min after open and ≥2 h before start, spread ≤`--max-spread` (0.06). `hours24`/`hours6` take the last tight candle ending ≥24/6 h before start and ≥30 min after open; skip if none. `prestart` takes the last valid candle by start (may price the veto). Returns use Prometheus caps (`LOL_SIZING`): full Kelly, ≤10% of opening capital and $250 per fixture, $250 per order, $1k exposure, $2k per UTC day; fees count toward cash limits. `sizing="full"` omits LoL caps.
+
+Built: `coin` (0.5), v1 `team_elo`, 11 composable variants `<unit>_<credit>[_region]`, two player RD combinations and nine rookie/move/map/pick/reversion/performance variants; `team_binary` is named `team_elo`. Initial ratings 1500, scale 400. Replay by (match start UTC, match_id, map order), predict before update. Chronologically loaded replays take O(maps); lineup/home history uses bounded work per map. Factories receive `load_lineups` starters; `load_maps` includes round scores, map names, picked_by (1/2 or NULL), and event host/international fields.
+
+Player performance (off by default, perf_k=0): add perf_k·(stat−expectation−teammate mean residual) before RD weighting, zero-sum within each side before weighting. Stat is KDA=(K+0.5A−D)/rounds or VLR rating. Expectations average agent EMAs with ≥20 sightings, else global EMA, else zero; α=0.01, updated only after the map. Missing stats get zero bonus; fewer than two observations on a side disables its bonus. `load_performance` supplies agents/stats once per connection. Two `player_round_glicko_rookie_tier_revert_perf_{kda,rating}` variants freeze the adopted tier-reversion base and grid perf_k={1,2,3,5,7,10,15,20}.
+
+Three dimensions:
+
+- Credit: binary S=win (1/0); margin winner S=0.5+0.5·tanh(abs(score1−score2)/c), loser 1−S; round S=score1/(score1+score2). Expected e=1/(1+10^(−Δ/400)); all units update ±K·(S−e). Binary/margin predict e. Round predicts σ(τ·logit(map_win(e))); first-to-13 DP, at 12–12 e²/(e²+(1−e)²), cache e rounded to four decimals.
+- Unit: team ID or mean starter rating. Every starter moves equally unless RD or performance bonuses are enabled. New players start fixed at 1500 or at the mean of already-rated teammates (1500 if none). Missing starters use that team's latest earlier lineup, then a namespaced team pseudo-player. Accept any nonempty lineup size.
+- Regions: strength adds the team's home offset. Home is the earlier-map majority of known non-international event hosts; ties retain the previous home. Offsets start zero; only known, differing homes move ±region_k·(S−e). Record the current host after updating, preventing leakage.
+
+Host country → macro region (`ratings/regions.py`):
+
+| Region | Codes |
+|---|---|
+| Americas | us ca mx br ar cl co pe uy ve py bo ec cr gt pa pr do na latam north-america north_america south-america south_america |
+| EMEA | eu gb de fr es it pt nl be se no dk fi pl cz at ch tr ru ua by kz sa ae eg ma za il gr ro hu rs hr bg ie lt lv ee me mena cis |
+| Pacific | kr jp ph id th vn sg my au nz in tw hk mo kh mm pk bd lk np mn |
+| China | cn |
+
+`sa` means Saudi Arabia; use explicit South America aliases. Other codes (including un/missing) are unknown; benchmark summaries count unknown map rows.
+
+Grids: K={16,24,32,48,64,96}; margin c={4,6,8,12}; round τ={0.4,0.5,0.6,0.8,1}; regional region_k={2,4,8,16} (otherwise 0); players new_player={fixed,teammates}. Replay starts at the first map unless `--seed-from` restricts it. Stage 1 selects parameters by map outcome log loss on [`--tune-from` (2023-01-01), `--tune-to` (2025-09-01)); no Kalshi data enters selection. Stage 2 validates frozen parameters on [`--validate-from` (2025-09-01), `HOLDOUT_START` (2026-07-01)). Require tune-from < tune-to ≤ validate-from ≤ holdout; earlier maps seed ratings. Winning models replay continuously; optional July 2026+ holdout never selects parameters or fits blends. Series use the first map's probability and independent maps; skip missing/even best-of and unknown winners. A stage-1 temperature per best-of (Bo3, Bo5) then softens them: p′ = σ(T·logit p), T fitted on stage-1 series log loss (≥30 rows, grid 0.40–1.50; Bo1 = 1); `--no-series-temperature` disables it.
+
+Optional `--series-momentum` (default off; `--no-series-momentum` disables) replaces independence with an exact two-state chain: map 1 uses p0, later maps use σ(logit(p0) ± m), plus after a team1 win, minus after a loss; finished series absorb. `fit_momentum` fits m ∈ [−1,1] by transition MLE on stage-1 adjacent maps using first-map p0 (not updated pre-map p); fewer than 100 eligible transitions gives zero. Each model/layer fits its own `series_m`, then refits its series temperature on chain odds. `slot_probabilities` returns P(win slot k | slot played); Kalshi map markets use these pre-match chances when enabled. Bo1 stays unchanged. Research: `uv run python scripts/series_odds.py --out series_odds_report.md` replays frozen JSON weights once, fits T/m/m+T on stage 1, compares series losses and match-clustered intervals on both stages, and reports stage-2 slot losses and Bo3 calibration. `--validate-to` cannot exceed holdout. Independence diagnostics accept `--m` (default 0).
+
+Player RD (off by default; ignored for teams) adds `player_round_glicko` and `player_round_region_glicko`. New variance = rd_new²; before each map grow by rd_growth² × days since the player's last map start, capped at rd_new². Scale the usual player move by variance/rd_floor², then store max(rd_floor², 1/(1/variance + rd_info·(ln(10)/scale)²·E·(1−E))). E is the update expectation (round share for round credit). Only updates record variance/dates. Defaults: rd_new=280, rd_floor=140, rd_growth=10 per √day, rd_info=0.125. Glicko grids: K={16,24,32,48,64}, τ={0.4,0.5,0.6,0.8}, rd_new={280,350,450,600}, rd_info={0.125,0.25,0.5,1.0}, new_player={fixed,teammates}; regional region_k={2,4}. Floor/growth fixed (1,920 RD candidates).
+
+Player-only rookie/tier adjustments default off: rookie_penalty=move_up_penalty=move_down_bonus=0, rookie_maps=30, move_maps=20. Effective rating subtracts rookie_penalty·(1−log1p(n)/log1p(rookie_maps)) for n<rookie_maps prior maps. Tier ranks: collegiate=0, t3=1, vcl=2, vct=3; gc/offseason/unknown neither apply moves nor change homes. Home is the prior ranked-map majority, retaining ties. Above/below home, add −move_up_penalty/+move_down_bonus times max(0,1−prior_maps_at_rank/move_maps). Both affect prediction and update expectations, never directly lower stored ratings; only update records counts. `player_round_glicko_{rookie,rookie_moves}` grids: K={32}, τ={0.4,0.5}, rd_new={280}, rd_info={0.25}, new_player={teammates}, rookie_penalty={50,100,150,200,300}, rookie_maps={100,200,400,800}. Moves-only retains K={32,48}, rd_new={280,350}; both move variants use move_up_penalty={50,100,200}, move_down_bonus={0,50}.
+
+Map/pick adjustments default off (map_k=pick_bonus=0, map_unit="player"). Before credit transforms, add the mean map offset of starters (team ID for team-unit models), or team ID offsets with map_unit="team"; missing offsets are zero. For string map names, update each unit's current-map offset by signed Δ=map_k·(S−e), before RD weighting, then subtract signed Δ/|M| from every stored map M for that unit. Offsets sum to zero; a unit's first map stays zero. Positive pick_bonus adds rating points to picked_by's side in prediction/update expectations; absent/NULL/NaN/decider picks add nothing. `predict_maps(row,maps,picked_by=None)` returns {map:team1 probability}, replacing map/picker without recording history; optional picker dict supplies 1/2 per map, otherwise no bonus. Like predict, only unseen starters may initialize. `player_round_glicko_rookie_maps`: map_k={0.5,1,2,4}, map_unit={player,team}, pick_bonus={0,3}; `player_round_glicko_rookie_pick`: map_k={0}, pick_bonus={1,2,3,5,8}. Both fix K=32, τ=0.5, rd_new=280, rd_info=0.25, new_player=teammates, rookie_penalty=200, rookie_maps=400. Rejected (ledger).
+
+Player reversion defaults off: season_revert=0, season_month=1, inactive_half_life=0 days. At date d, r′=init+(r−init)·(1−season_revert)^s·0.5^(gap_days/inactive_half_life); omit inactivity factor when disabled. s counts UTC first-of-season_month boundaries strictly after the last update through d. Unupdated players are unaffected. Predictions use r′ without storing it; updates commit it before expectation. `player_round_glicko_rookie_revert` fixes the adopted rookie base above; grid: season_revert={0,0.1,0.2,0.35,0.5}, season_month={1,11}, inactive_half_life={0,180,365,730}. Rejected (ledger). `revert_target="tier"` replaces init with the running mean rating of the player's latest tier (ranked sections plus gc; offseason/unknown keep the previous); `player_round_glicko_rookie_tier_revert` (season_revert={0.1,0.2,0.35,0.5}, month {1,11}, no inactivity) is the adopted model: 0.2 at Nov 1.
+
+Leaderboard retains selected params and tuning map/series losses; vs-v1 tables use paired log-loss differences, 2,000 match-clustered resamples, seed 0. Intervals excluding zero indicate significance. Coin metrics remain. Tuning comparisons are selection diagnostics.
+
+Kalshi rows retain ticker and quote end timestamp; cached hourly closes accept `close_dollars` or historical `close` (dollars). Prefer team1's contract; invert team2 quotes. Compare identical linked rows; map predictions use first-map pre-match chances. Missing links/aliases/candles and unplayed maps are skipped.
+
+`backtest.py` buys the larger positive edge q−P−0.07·P·(1−P), requiring both buy prices in (0,1). One bet is one order: contracts C=stake/P; fee=ceil-to-cent(0.07·C·P·(1−P)), extra to stake; profit=C·won−stake−fee. Flat stake is $1 of contracts; ROI=total profit/total(stake+fee), with 2,000 whole-match bootstrap resamples, seed 0. Kelly's continuous after-fee fractions allocate cash budgets, converted to contract stakes using each rounded order fee. Same-day bets use opening capital and settle together. Each slice starts independently at $50.
+
+All returns tables pair unlimited depth with depth-capped flat ROI, filled/unfilled counts and Kelly final. `--depth-window-hours 6 --depth-share 0.5` caps contracts at half the tape volume in [quote end, quote end+6 h] at prices no worse than ours (trade YES price ≤ ask when buying YES, ≥ bid when buying NO; inverted for team2 tickers). Cached `trades/<ticker>.jsonl.gz` is read once per ticker. Missing tape gives zero fills. Flat bets need the full $1 stake; Kelly allows partial fills. This is a traded-volume proxy, without queue position or slippage.
+
+`uv run python scripts/evaluate_elo.py --robustness --series-check` adds quote-rule comparisons (`tradeable`, `hours24`, `hours6`) using reported frozen replays without retuning; each rule refits its causal monthly blend. The series diagnostic reports Bo3/Bo5 calibration in ten bins and log loss, map-2 win/loss conditional residuals and their contrast, and Bo3 1–1 decider residuals, with match bootstrap intervals. Standalone: `uv run python scripts/series_independence.py --from 2025-09-01 --to 2026-07-01 --model team_elo --params '{}' --out /tmp/series.md`. Defaults use stage-2 dates and model defaults; pass frozen parameters to match a benchmark model. No holdout is opened.
+
+`blend.py`: logit(p_blend)=a·logit(mid)+b·(logit(p_model)−logit(mid)), inputs clipped to [0.01,0.99]. No intercept; numpy Newton MLE with ridge 1e-6. Freeze separate series/map fits each UTC calendar month using earlier match starts at/after `--validate-from`, never holdout. Below `--blend-min` (100 default), use mid unchanged and flag unfitted; exclude these rows from blended tables and state their count. Report monthly (month,kind,n,a,b,status) snapshots. Rating parameters still use the tuning window.
+
+Report starts with a validation summary, then Stage 1 outcome leaderboard/params and all-section vs-v1 bootstrap, Stage 2 outcome losses by section and vs-v1 bootstrap, then Stage 2 Kalshi tables. The summary has one row per reported model: all-section series/map model−Kalshi log loss, flat ROI and Kelly final. Blended columns repeat these metrics on fitted rows. Each model has raw and blended log-loss and return tables by kind (series/map), slice (all, vct/vcl/gc/t3/collegiate/offseason, international=1/0). `--report-models` overrides defaults: `team_elo`, `player_round_glicko`, best two by stage-1 map loss, deduplicated, plus their layers. Explicit report models are tuned even if absent from `--models`. Monthly breakdowns list kind, month, rows, model/blended/Kalshi losses and raw/blended flat ROI (bets) on identical linked rows; unfitted blend months show dashes and retain row counts.
+
+`ratings/layers.py` defines `Layer.name`, `fit(frame) -> None`, `apply(frame) -> pd.Series`; factories receive `context={"conn": connection, "lineups": lineups}`. Frames include p, won, match/event/section/region/international/team IDs. Each reported frozen model fits each requested layer on stage-1 rows only, applies it to validation/holdout, and reports `<model>+<layer>` alongside its base. `--layers none` is default and reproduces base probabilities. Fitted variants include a `describe()` line under their model section.
+
+Post-model layers (not yet benchmarked on full data):
+
+- `regional`: for known, differing macro homes, logit(p′)=s·logit(p)+e[home1]−e[home2]; other rows unchanged. Numpy Newton MLE minimizes summed stage-1 log loss + 4·(Σe²+(s−1)²), with four zero-sum effects. Fewer than 50 eligible stage-1 maps gives identity.
+- `form`: logit(p′)=logit(p)+w·(form1_H−form2_H). Fit scalar w by unpenalized stage-1 MLE for H∈{3,5,8,12,20,40,80}; select lowest stage-1 log loss. A side averages starters’ earlier VLR-rating weighted means, weights 0.5^(age/H) in that player’s map appearances. Null ratings add no observation but age prior weights; skip players without ratings. Missing side form leaves p unchanged; adjusted probabilities clip to [1e-6,1−1e-6].
+- `form_multi`: same half-lives and causal starter means for rating, ACS, KAST, ADR and fk−fd per map. Divide side differences by their complete-row stage-1 standard deviations (stored; constant scales use 1), without centering. Fit five weights with summed logistic loss + Σw² (ridge λ=1); select H by stage-1 log loss. Only rows with all five differences adjust; others retain p. Reports show H, weights and rows.
+- `regional_form` / `regional_form_multi`: fit regional, then form / form_multi using adjusted stage-1 p; apply in that order.
+
+`causal_features(conn,lineups)` passes over all DB maps in replay order, emitting features before recording each map. Homes count earlier known non-international macro hosts; ties retain the previous home, no history gives None. Form uses earlier stats only, skipping null observations per stat while aging prior weights, including history before the tuning window; future rows never affect earlier features. Each layer instance caches features once; the combination shares its cache. Fits consume only supplied stage-1 outcomes; feature histories continue causally during frozen validation/holdout.
+
+Run `uv run python scripts/evaluate_elo.py --tune-from 2023-01-01 --tune-to 2025-09-01 --validate-from 2025-09-01 --layers none`; flags: `--db`, `--out`, `--models` comma list (default all except coin), `--jobs` (default min(cpu,8)), optional `--k-grid` override, `--seed-from`, `--tune-from`, `--tune-to`, `--validate-from`, `--layers`, `--holdout`, `--write-weights`. Process pool tunes (model,params); summaries print wall time in ≤20 lines. Weights store selected models' parameters, rookie series temperatures and fit date in `ratings/elo_weights.json`. Full-data two-stage benchmark and holdout pending.

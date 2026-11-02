@@ -1,0 +1,51 @@
+{
+  "team_elo": {
+    "k": 32,
+    "fit_through": "2025-08-31"
+  },
+  "player_round_glicko_rookie": {
+    "k": 32,
+    "tau": 0.5,
+    "rd_new": 280,
+    "rd_info": 0.25,
+    "new_player": "teammates",
+    "rookie_penalty": 200,
+    "rookie_maps": 400,
+    "fit_through": "2025-08-31",
+    "series_temperature": {
+      "3": 0.81,
+      "5": 0.77
+    }
+  },
+  "player_round_glicko_rookie_tier_revert": {
+    "k": 32,
+    "tau": 0.5,
+    "rd_new": 280,
+    "rd_info": 0.25,
+    "new_player": "teammates",
+    "rookie_penalty": 200,
+    "rookie_maps": 400,
+    "season_revert": 0.2,
+    "season_month": 11,
+    "inactive_half_life": 0,
+    "fit_through": "2025-08-31",
+    "series_temperature": {
+      "3": 0.91,
+      "5": 0.84
+    }
+  },
+  "player_round_glicko_rookie_tier_revert_perf_kda": {
+    "k": 32,
+    "tau": 0.5,
+    "rd_new": 280,
+    "rd_info": 0.25,
+    "new_player": "teammates",
+    "rookie_penalty": 200,
+    "rookie_maps": 400,
+    "season_revert": 0.2,
+    "season_month": 11,
+    "inactive_half_life": 0,
+    "perf_k": 7,
+    "fit_through": "2025-08-31"
+  }
+}
