@@ -17,7 +17,7 @@ from promval import blend
 GAME = "valorant"
 SERIES = "KXVALORANTGAME"
 VALIDATE_FROM = "2025-09-01"
-MODEL = "player_round_glicko_rookie_tier_revert_perf_kda"
+MODEL = "player_round_glicko_rookie_tier_revert"
 RULES = re.compile(
     r"^If (?P<side>.+?) wins the (?P<event>.+): (?P<team1>.+?) vs\.? "
     r"(?P<team2>.+?) Valorant match originally scheduled for "
@@ -72,12 +72,7 @@ def export_blend_artifact(out):
     from promval.benchmark_rows import benchmark_market_rows, with_series_temperature
     from promval.feed import REPO
     from promval.ratings.models import MODELS
-    from promval.ratings.replay import (
-        load_lineups,
-        load_maps,
-        load_performance,
-        replay,
-    )
+    from promval.ratings.replay import load_lineups, load_maps, replay
 
     params = json.loads((REPO / "promval/ratings/elo_weights.json").read_text())[
         MODEL
@@ -87,12 +82,7 @@ def export_blend_artifact(out):
     root = Path(os.environ.get("PROMVAL_DATA", REPO / "data"))
     with sqlite3.connect(f"file:{REPO / 'db/valorant.db'}?mode=ro", uri=True) as conn:
         source = replay(
-            load_maps(conn),
-            MODELS[MODEL](
-                lineups=load_lineups(conn),
-                performance=load_performance(conn),
-                **params,
-            ),
+            load_maps(conn), MODELS[MODEL](lineups=load_lineups(conn), **params)
         )
         source = with_series_temperature(source, temperatures)
         rows = benchmark_market_rows(conn, source, root / "kalshi")

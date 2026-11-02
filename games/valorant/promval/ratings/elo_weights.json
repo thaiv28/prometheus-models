@@ -46,10 +46,6 @@
     "season_month": 11,
     "inactive_half_life": 0,
     "perf_k": 7,
-    "series_temperature": {
-      "3": 0.87,
-      "5": 0.82
-    },
     "fit_through": "2025-08-31"
   }
 }

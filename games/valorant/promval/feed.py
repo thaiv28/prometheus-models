@@ -18,14 +18,14 @@ from promval.kalshi.api import Client
 from promval.kalshi.quotes import candle_quote
 from promval.link import events_from_markets, link, market_row
 from promval.ratings.models import MODELS
-from promval.ratings.replay import load_lineups, load_maps, load_performance, replay
+from promval.ratings.replay import load_lineups, load_maps, replay
 from promval.vlr import cache
 from promval.vlr.http import Fetcher
 from promval.vlr.parse import ParseError, parse_schedule_page, parse_upcoming_match
 
 REPO = Path(__file__).resolve().parents[1]
 STATE_VERSION = 1
-MODEL = "player_round_glicko_rookie_tier_revert_perf_kda"
+MODEL = "player_round_glicko_rookie_tier_revert"
 SECTIONS = {
     "INTL": "International",
     "VCT": "VCT",
@@ -274,9 +274,7 @@ def build_state(conn, data_root):
         if k not in ("fit_through", "series_temperature")
     }
     maps = load_maps(conn)
-    model = MODELS[MODEL](
-        lineups=load_lineups(conn), performance=load_performance(conn), **params
-    )
+    model = MODELS[MODEL](lineups=load_lineups(conn), **params)
     predictions = replay(maps, model)
     cursor = conn.execute("SELECT * FROM matches")
     db_matches = {

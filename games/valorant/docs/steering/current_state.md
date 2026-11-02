@@ -2,7 +2,7 @@
 
 ## Status
 
-2026-10-29: VLR backfill complete (2021 on, 28,770 matches). Model: `player_round_glicko_rookie_tier_revert_perf_kda` (player Glicko-style RD, round credit, rookie discount 200/400 maps, 20% pull toward the tier mean each Nov 1, zero-sum KDA-vs-agent bonus within each side) with a stage-1 series temperature; parameters in `promval/ratings/elo_weights.json`. Two-stage benchmark run on the full crawl ([report](../elo_backtest.md), [ledger](../research/README.md)); holdout opened 2026-10-29 for `tier_revert`, before the KDA bonus ([report](../elo_holdout.md)): raw model ≈ Kalshi; blended domestic series the only positive result.
+2026-10-29: VLR backfill complete (2021 on, 28,770 matches). Model (feed and execution): `player_round_glicko_rookie_tier_revert` (player Glicko-style RD, round credit, rookie discount 200/400 maps, 20% pull toward the tier mean each Nov 1) with a stage-1 series temperature. The `_perf_kda` variant (zero-sum KDA-vs-agent bonus) won the benchmark but is not used, by the user's choice (2026-11-02); parameters in `promval/ratings/elo_weights.json`. Two-stage benchmark run on the full crawl ([report](../elo_backtest.md), [ledger](../research/README.md)); holdout opened 2026-10-29 for `tier_revert`, before the KDA bonus ([report](../elo_holdout.md)): raw model ≈ Kalshi; blended domestic series the only positive result.
 
 - Kalshi: catalogs, final trade tapes, hourly candles and open-book snapshots save to `data/kalshi/` (scheduled every 6 h; secrets/variable are set, raw S3 seeding required). The first full backfill was started 2026-10-28.
 - Execution inputs: frozen monthly blend artifact; feed job exports private Kalshi-named series candidates; Prometheus handles blending, sizing and orders (domestic only).

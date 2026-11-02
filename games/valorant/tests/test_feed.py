@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from promval.feed import MODEL, export, series_call
+from promval.feed import export, series_call
 from promval.vlr.cache import load, save
 from promval.vlr.parse import ParseError, parse_schedule_page, parse_upcoming_match
 
@@ -49,8 +49,8 @@ def add_match(conn, mid, start, score1=13, score2=3, best_of=1):
         (mid, mid, score1, score2),
     )
     conn.executemany(
-        "INSERT INTO player_maps VALUES (?, ?, ?, '[\"jett\"]', ?, 10, 3, 1.0)",
-        [(mid, side * 10 + p, side, 8 + 2 * p) for side in (1, 2) for p in range(5)],
+        "INSERT INTO player_maps VALUES (?, ?, ?)",
+        [(mid, side * 10 + p, side) for side in (1, 2) for p in range(5)],
     )
 
 
@@ -64,8 +64,7 @@ def setup(tmp_path, monkeypatch):
           team1_id INTEGER, team2_id INTEGER, team1_name TEXT, team2_name TEXT,
           best_of INTEGER, score1 INTEGER, score2 INTEGER, winner INTEGER);
         CREATE TABLE maps(game_id INTEGER, match_id INTEGER, "order" INTEGER, map TEXT, picked_by INTEGER, score1 INTEGER, score2 INTEGER);
-        CREATE TABLE player_maps(game_id INTEGER, player_id INTEGER, team INTEGER,
-          agents TEXT, kills INTEGER, deaths INTEGER, assists INTEGER, rating REAL);
+        CREATE TABLE player_maps(game_id INTEGER, player_id INTEGER, team INTEGER);
         CREATE TABLE team_aliases(competitor_id TEXT, vlr_team_id INTEGER);
         CREATE TABLE kalshi_links(match_id INTEGER, event_ticker TEXT, kind TEXT);
         CREATE TABLE kalshi_markets(ticker TEXT, event_ticker TEXT, competitor_id TEXT);
@@ -527,25 +526,6 @@ def test_private_candidates_share_link_orientation_and_fetches(setup):
     saved = json.loads(path.read_text())["matches"][0]["execution_candidate"]
     assert saved["raw"]["Nova Esports"] == by_id(feed)["p_series"]
     assert saved["group"] == "valorant-domestic"
-    assert saved["provenance"]["model"] == MODEL
+    assert saved["provenance"]["model"] == "player_round_glicko_rookie_tier_revert"
     assert saved["start"] == by_id(feed)["start"]
     assert "international" not in by_id(feed)
-
-
-def test_feed_replays_the_live_model_with_performance(setup, monkeypatch):
-    """The KDA bonus silently turns off when the replay gets no performance rows."""
-    import promval.feed as feed
-
-    params = json.loads((feed.REPO / "promval/ratings/elo_weights.json").read_text())
-    assert set(params[MODEL]["series_temperature"]) == {"3", "5"}
-    seen = {}
-    real = feed.MODELS[MODEL]
-
-    def spy(**kwargs):
-        seen.update(kwargs)
-        return real(**kwargs)
-
-    monkeypatch.setitem(feed.MODELS, MODEL, spy)
-    conn, root = setup
-    feed.build_state(conn, root)
-    assert seen.get("performance") and seen["perf_k"] > 0
