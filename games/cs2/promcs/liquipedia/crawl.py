@@ -25,21 +25,24 @@ class Summary:
     fetched: int = 0
 
 
-def list_category(fetcher, category) -> list[str]:
-    titles, continuation = [], {}
+def category_revisions(fetcher, category) -> dict[str, int]:
+    """Category members with their latest revision ids, 500 per request."""
+    revids, continuation = {}, {}
     while True:
         result = fetcher.query(
             action="query",
-            list="categorymembers",
-            cmtitle=category,
-            cmlimit=500,
-            cmprop="title",
-            cmnamespace=0,
+            generator="categorymembers",
+            gcmtitle=category,
+            gcmlimit=500,
+            gcmnamespace=0,
+            prop="info",
             **continuation,
         )
-        titles.extend(page["title"] for page in result["query"]["categorymembers"])
-        if "cmcontinue" not in result.get("continue", {}):
-            return titles
+        for page in result.get("query", {}).get("pages", {}).values():
+            if "missing" not in page:
+                revids[page["title"]] = page["lastrevid"]
+        if "gcmcontinue" not in result.get("continue", {}):
+            return revids
         continuation = result["continue"]
 
 
@@ -103,7 +106,9 @@ def subpage_links(title, wikitext) -> set[str]:
 def crawl(fetcher, limit=None, full=False, now=utc_now) -> Summary:
     if limit is not None and limit < 0:
         raise ValueError("limit must be nonnegative")
-    titles = list(dict.fromkeys(list_category(fetcher, CATEGORY)))
+    # The listing carries category members' revids; only subpages need revisions().
+    listed = category_revisions(fetcher, CATEGORY)
+    titles = list(listed)
     cache.save_category(CATEGORY, titles)
     index = cache.load_index()
     summary = Summary(listed=len(titles))
@@ -122,10 +127,12 @@ def crawl(fetcher, limit=None, full=False, now=utc_now) -> Summary:
         nonlocal attempted
         candidates = [title for title in candidates if title not in checked]
         checked.update(candidates)
-        current = revisions(fetcher, candidates)
+        current = {t: listed[t] for t in candidates if t in listed}
+        unlisted = [t for t in candidates if t not in listed]
+        current |= {t: r for t, (_, r, _) in revisions(fetcher, unlisted).items()}
         missing.update(set(candidates) - current.keys())
         todo = []
-        for title, (_, revid, _) in current.items():
+        for title, revid in current.items():
             if title not in index or index[title]["revid"] != revid or full:
                 todo.append(title)
             else:

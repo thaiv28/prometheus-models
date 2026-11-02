@@ -13,9 +13,9 @@ from typer.testing import CliRunner
 from promcs.liquipedia import cache, cli, http
 from promcs.liquipedia.crawl import (
     CATEGORY,
+    category_revisions,
     contents,
     crawl,
-    list_category,
     revisions,
     subpage_links,
 )
@@ -48,19 +48,24 @@ class FakeGet:
         self.calls.append(params)
         assert params["action"] == "query"
         assert "redirects" not in params
-        if params.get("list") == "categorymembers":
-            assert params["cmnamespace"] == 0
-            assert params["cmlimit"] == 500
-            assert params["cmprop"] == "title"
-            if not params.get("cmcontinue") and len(self.category) > 1:
-                return {
-                    "query": {"categorymembers": [{"title": self.category[0]}]},
-                    "continue": {"cmcontinue": "next", "continue": "-||"},
+        if params.get("generator") == "categorymembers":
+            assert params["gcmnamespace"] == 0
+            assert params["gcmlimit"] == 500
+            assert params["prop"] == "info"
+            first = not params.get("gcmcontinue")
+            members = self.category[:1] if first else self.category[1:]
+            pages = {}
+            for i, title in enumerate(members):
+                title = self.normalized.get(title, title)
+                if title in self.pages:
+                    pages[str(i)] = {"title": title, "lastrevid": self.pages[title][0]}
+            result = {"query": {"pages": pages}}
+            if first and len(self.category) > 1:
+                result["continue"] = {
+                    "gcmcontinue": "next",
+                    "continue": "gcmcontinue||",
                 }
-            members = self.category[1:] if params.get("cmcontinue") else self.category
-            return {
-                "query": {"categorymembers": [{"title": title} for title in members]}
-            }
+            return result
         result = {}
         for i, title in enumerate(params["titles"].split("|")):
             title = self.normalized.get(title, title)
@@ -218,7 +223,7 @@ def test_category_and_normalized_titles():
     get = FakeGet({"A B": (7, "text"), "Other": (9, "")}, ["A_B", "Other", "Missing"])
     get.normalized = {"A_B": "A B"}
     client = fetcher(get)
-    assert list_category(client, CATEGORY) == ["A_B", "Other", "Missing"]
+    assert category_revisions(client, CATEGORY) == {"A B": 7, "Other": 9}
     assert revisions(client, ["A_B", "Missing"]) == {
         "A_B": (1, 7, "2026-10-28T00:00:00Z")
     }
@@ -339,10 +344,11 @@ def test_cache_roundtrip():
 def test_missing_and_three_rounds():
     get = FakeGet(
         {
-            "Root": (1, "|link2=Root/1"),
+            # Category listings name only existing pages; a dead subpage link is missing.
+            "Root": (1, "|link2=Root/1|link3=Root/Gone"),
             **{f"Root/{n}": (n + 1, f"|link2=Root/{n + 1}") for n in range(1, 5)},
         },
-        ["Root", "Missing"],
+        ["Root"],
     )
     result = crawl(fetcher(get))
     assert (result.fetched, result.missing, result.subpages) == (4, 1, 3)

@@ -7,9 +7,12 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from difflib import SequenceMatcher
+from functools import cache
 from itertools import permutations
 
 
+# Pure string functions, called millions of times per link run on few names.
+@cache
 def normalize(name):
     """Return accent-insensitive team tokens, retaining regional qualifiers."""
     name = "".join(
@@ -141,6 +144,7 @@ def _time(value):
         return None
 
 
+@cache
 def _variants(name):
     """Keep the full outside name and an optional trailing alternate name."""
     found = re.fullmatch(r"(.*?)\s*\(([^()]*)\)\s*", name)
@@ -238,6 +242,7 @@ def _anchors(event, candidates, aliases):
     return found, implausible
 
 
+@cache
 def _similar(a, b):
     a, b = sorted(set(normalize(a))), sorted(set(normalize(b)))
     return (
