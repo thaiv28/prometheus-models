@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-02 — Liquipedia, Kalshi and DB build
+
+Ported the Liquipedia crawler/parser, Kalshi collector, SQLite rebuild and linker to R6. Added offline fixture coverage for maps, rounds, rosters, substitutions, walkovers and Kalshi schedule variants. Checks: 119 tests passed (0.82 s; baseline four steering tests 0.13 s), including the full temporary-data DB pipeline; ruff format/check and both CLI group help commands passed. Page6 has no walkover matches; real page4 and synthetic walkovers are covered. Limit: offline only; no live crawl.
+
 ## 2026-11-02 — siege.gg roster fetcher
 
 Added `promr6 siegegg fetch/status/show`: polite cached fetcher (2 s pacing incl. redirects, backoff, one 60 s 429 retry; raw HTML gzip, atomic index; finished matches never refetch) and a pure version-1 parser for teams, siege.gg IDs, five-player rosters, scores, start time, competition and map scores. Checks: `uv run pytest -q` 24 passed; ruff clean; live fetch of matches 6168, 6100 and a 404 (99999). Limit: no loader yet; on old pages (5800, 2017) one map can be missing from map scores, which come from Liquipedia anyway.
