@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 2 in progress: Liquipedia crawler, DB and Kalshi linker built and tested offline; first live crawl not run
+Phase 2 in progress: Liquipedia crawler, DB, lineups loader and Kalshi linker built and tested offline; first live crawl not run
 
 ## Known limits
 

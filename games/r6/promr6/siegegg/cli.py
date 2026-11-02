@@ -1,6 +1,8 @@
 """Fetch siege.gg pages or inspect their cache without network access."""
 
 import json
+import os
+import sqlite3
 from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated
@@ -18,10 +20,13 @@ app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 def fetch(
     ids: Annotated[list[int] | None, typer.Argument()] = None,
     from_file: Annotated[Path | None, typer.Option()] = None,
+    from_db: Annotated[
+        bool, typer.Option(help="Also read IDs from the DB (PROMR6_DB, db/r6.db).")
+    ] = False,
     refresh: bool = False,
     limit: Annotated[int | None, typer.Option(min=0)] = None,
 ):
-    """Cache match IDs, optionally reading one ID per line from a file."""
+    """Cache match IDs from arguments, a file, or the database."""
     match_ids = list(ids or [])
     if from_file is not None:
         try:
@@ -32,8 +37,23 @@ def fetch(
             )
         except (OSError, ValueError) as exc:
             raise typer.BadParameter(str(exc), param_hint="--from-file") from exc
+    if from_db:
+        database = Path(os.environ.get("PROMR6_DB", "db/r6.db"))
+        try:
+            with sqlite3.connect(
+                database.resolve().as_uri() + "?mode=ro", uri=True
+            ) as conn:
+                match_ids.extend(
+                    row[0]
+                    for row in conn.execute(
+                        "SELECT siegegg_id FROM matches WHERE siegegg_id IS NOT NULL "
+                        "GROUP BY siegegg_id ORDER BY max(start_utc) DESC, siegegg_id"
+                    )
+                )
+        except sqlite3.Error as exc:
+            raise typer.BadParameter(str(exc), param_hint="--from-db") from exc
     if not match_ids or any(i <= 0 for i in match_ids):
-        raise typer.BadParameter("supply positive match IDs or --from-file")
+        raise typer.BadParameter("supply positive match IDs, --from-file or --from-db")
     summary = fetch_matches(match_ids, refresh=refresh, limit=limit)
     typer.echo(" ".join(f"{key}={value}" for key, value in asdict(summary).items()))
 

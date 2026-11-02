@@ -11,6 +11,6 @@ from pathlib import Path
 with sqlite3.connect(os.environ['PROMR6_DB']) as conn:
     conn.executescript(Path('scripts/001_create_tables.sql').read_text())
 PY
-for script in scripts/002_load_liquipedia.py scripts/003_load_kalshi.py scripts/004_link_kalshi.py; do
+for script in scripts/002_load_liquipedia.py scripts/003_load_kalshi.py scripts/004_link_kalshi.py scripts/005_load_lineups.py; do
     uv run --no-sync python "$script"
 done

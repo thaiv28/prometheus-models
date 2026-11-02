@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-02 — Lineups from siege.gg
+
+Added `scripts/005_load_lineups.py` (runs after 004): finished siege.gg pages give each side's lineup (oriented by team name, else score); otherwise a complete Liquipedia roster card plus that match's substitutions. Liquipedia names map to siege.gg IDs by unique folded nickname (same team within 365 days, else global). `promr6 siegegg fetch --from-db` reads the DB's siege.gg IDs. Checks: `uv run pytest -q` 146 passed; ruff clean. Limit: offline fixtures only until the live crawl lands.
+
 ## 2026-11-02 — Liquipedia, Kalshi and DB build
 
 Ported the Liquipedia crawler/parser, Kalshi collector, SQLite rebuild and linker to R6. Added offline fixture coverage for maps, rounds, rosters, substitutions, walkovers and Kalshi schedule variants. Checks: 119 tests passed (0.82 s; baseline four steering tests 0.13 s), including the full temporary-data DB pipeline; ruff format/check and both CLI group help commands passed. Page6 has no walkover matches; real page4 and synthetic walkovers are covered. Limit: offline only; no live crawl.

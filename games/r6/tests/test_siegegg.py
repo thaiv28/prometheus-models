@@ -342,3 +342,32 @@ def test_cli_cached_show_status_and_from_file(tmp_path, monkeypatch):
         == 0
     )
     assert runner.invoke(app, ["siegegg", "fetch", "-1"]).exit_code != 0
+
+
+def test_cli_from_db(tmp_path, monkeypatch):
+    import sqlite3
+
+    monkeypatch.chdir(tmp_path)
+    database = tmp_path / "db/r6.db"
+    database.parent.mkdir()
+    with sqlite3.connect(database) as conn:
+        conn.execute("CREATE TABLE matches(siegegg_id INTEGER, start_utc TEXT)")
+        conn.executemany(
+            "INSERT INTO matches VALUES (?, ?)",
+            [(6168, "2026"), (4000, "2025"), (6168, "2024"), (None, "2027")],
+        )
+    received = []
+
+    def fake(ids, **kwargs):
+        received.append(ids)
+        return fetch.Summary(requested=len(ids))
+
+    monkeypatch.setattr("promr6.siegegg.cli.fetch_matches", fake)
+    runner = CliRunner()
+    for args, expected in [
+        (["--from-db"], [6168, 4000]),
+        (["3000", "--from-db"], [3000, 6168, 4000]),
+    ]:
+        result = runner.invoke(app, ["siegegg", "fetch", *args])
+        assert result.exit_code == 0, result.output
+        assert received[-1] == expected

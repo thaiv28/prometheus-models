@@ -25,6 +25,7 @@ Python 3.12, uv, SQLite (raw SQL), typer CLI `promr6`, pytest, ruff. Ported from
 | `scripts/002_load_liquipedia.py` | Cached pages → events, matches, maps and rosters |
 | `scripts/003_load_kalshi.py` | Cached market catalogs → SQLite |
 | `scripts/004_link_kalshi.py` | Links and settlement report |
+| `scripts/005_load_lineups.py` | Cached siege.gg and complete Liquipedia cards → map lineups |
 | `scripts/setup_db.sh` | Offline database rebuild |
 | `scripts/kalshi_data.sh` | Kalshi collection and optional S3 backup |
 | `tests/test_liquipedia_crawl.py` | Offline crawl/cache/HTTP checks |
@@ -43,11 +44,11 @@ Python 3.12, uv, SQLite (raw SQL), typer CLI `promr6`, pytest, ruff. Ported from
 
 ## siege.gg fetcher
 
-Source: `https://siege.gg/matches/<id>`; callers supply IDs (later from Liquipedia's `siegegg=` field). Under `PROMR6_DATA` (default `data/`), `siegegg/matches/<id>.html.gz` preserves response bytes; atomic `siegegg/index.json` stores status, final URL, UTC fetch timestamp and finished flag. Save raw before parsing. Finished pages never refetch, even with `--refresh`; unfinished and 404 pages require `--refresh`. `--limit` caps attempted IDs, excluding cache hits; summary counts unique IDs processed.
+Source: `https://siege.gg/matches/<id>`; positional IDs and `--from-file` combine with `--from-db` (the DB at `PROMR6_DB`, default `db/r6.db`), selecting distinct non-null `matches.siegegg_id` newest first. Under `PROMR6_DATA` (default `data/`), `siegegg/matches/<id>.html.gz` preserves response bytes; atomic `siegegg/index.json` stores status, final URL, UTC fetch timestamp and finished flag. Save raw before parsing. Finished pages never refetch, even with `--refresh`; unfinished and 404 pages require `--refresh`. `--limit` caps attempted IDs, excluding cache hits; summary counts unique IDs processed.
 
 Requests and redirects are spaced at least two seconds apart. The repository User-Agent accepts contact via `SIEGEGG_CONTACT`. Timeouts, dropped connections and 5xx retry with backoff (three tries); 429 waits 60 seconds and retries once. Tests inject transports and use temporary data roots.
 
-Pure `parse_match(bytes | str)` returns immutable match/team/player dataclasses, ordered rosters deduplicated by player ID, scores, optional UTC time and competition, map scores in team order, and finished status; 404 HTML returns `None`. Finished means two numeric overview scores plus at least one game in “Game results”. `PARSER_VERSION = 1`; bump when parser output changes. Fixture 5800 has a 2–1 series score but only two recorded maps; the parser preserves those two. No loader yet.
+Pure `parse_match(bytes | str)` returns immutable match/team/player dataclasses, ordered rosters deduplicated by player ID, scores, optional UTC time and competition, map scores in team order, and finished status; 404 HTML returns `None`. Finished means two numeric overview scores plus at least one game in “Game results”. `PARSER_VERSION = 1`; bump when parser output changes. Fixture 5800 has a 2–1 series score but only two recorded maps; the parser preserves those two.
 
 ## Liquipedia crawler
 
@@ -57,13 +58,13 @@ Category:Tournaments supplies roots; namespace-0 `list=allpages` and tab links d
 
 ## Database
 
-`scripts/setup_db.sh` rebuilds `db/r6.db` offline through scripts 001–004. Tables: `events`, `teams`, `players`, `matches`, `maps`, `rosters`, `player_maps`, `match_substitutions`, `kalshi_markets`, `team_aliases`, `kalshi_links`. Parse failures are written beside the database in `parse_errors.txt`; loaders print aggregate counts.
+`scripts/setup_db.sh` rebuilds `db/r6.db` offline through scripts 001–005. Tables: `events`, `teams`, `players`, `matches`, `maps`, `rosters`, `player_maps`, `match_substitutions`, `kalshi_markets`, `team_aliases`, `kalshi_links`. Parse failures are written beside the database in `parse_errors.txt`; loaders print aggregate counts.
 
 Event IDs use page IDs; missing infobox fields inherit independently from ancestors. Only one title per page ID is loaded. Teams, players and matches use deterministic hashes, retaining Dota's duplicate rules. Tiers 1/2/3–4 map to tier1/tier2/tier3; other values are unknown. Region groups are NA, EU/MENA, SA/Brazil/LATAM, APAC and CN. Online/LAN and international classifications remain separate.
 
 Inline Match blocks contain TeamOpponent sides, optional best-of and siege.gg IDs. ISO dates and listed time zones convert to UTC; unknown zones are counted and clear `time_known`. Finished maps with unequal totals count as resolved; attack, defense and overtime rounds are summed, falling back to scores when all round fields are blank. Map IDs are match ID × 10 + map order (1–9). Series scores and winners are recomputed from maps. Walkovers retain series, discard maps and have NULL winners; unresolved series are counted separately. Substitutions store player in/out per match side.
 
-TeamCards supply five starters, excluding later slots; Persons excludes staff and players marked unplayed. Imported partial rosters retain listed players with `complete=0`. `player_maps` stays empty until the siege.gg loader supplies match lineups. No OpenDota inputs are used.
+TeamCards supply five starters, excluding later slots; Persons excludes staff and players marked unplayed. Imported partial rosters retain listed players with `complete=0`. `005_load_lineups.py` fills `player_maps` offline: finished cached siege.gg pages supply each side with at least four players (retaining extras above five); missing sides use complete Liquipedia cards from the nearest ancestor with a card, applying folded-name substitutions. Orientation uses normalized team names, then unique direct/swapped series scores or single-map rounds; unresolved orientation skips the siege.gg page. Players use `siegegg:<id>` keys and deterministic `stable_id("player:siegegg:<id>")` IDs, with the most frequent nickname. Folded Liquipedia nicknames unify to a unique siege.gg identity on the same team within 365 days, otherwise globally; ambiguous names retain `liquipedia:<folded>` keys and corresponding stable IDs. Partial cards supply no lineup.
 
 ## Kalshi collector
 

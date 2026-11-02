@@ -342,7 +342,7 @@ def main(argv=None):
     print(
         f"events={counts['events']} matches={counts['matches']} maps={counts['maps']} "
         f"unresolved_matches={counts['unresolved_matches']} walkovers={counts['walkovers']} "
-        f"player_maps=0 parse_errors={len(errors)} seconds={time.monotonic() - start:.2f}"
+        f"parse_errors={len(errors)} seconds={time.monotonic() - start:.2f}"
     )
 
 
