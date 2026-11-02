@@ -1,4 +1,4 @@
-name: Refresh DB
+name: Dota 2 Refresh DB
 
 on:
   workflow_dispatch:
@@ -10,8 +10,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: refresh-db
+  group: dota2-refresh-db
   cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: games/dota2
 
 jobs:
   refresh:
@@ -25,7 +29,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
-          cache-dependency-glob: uv.lock
+          cache-dependency-glob: games/dota2/uv.lock
       - run: uv sync --frozen --no-dev
       - uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -35,11 +39,11 @@ jobs:
         id: raw
         with:
           path: |
-            data/liquipedia
-            data/opendota
-            data/kalshi
-          key: raw-${{ github.run_id }}
-          restore-keys: raw-
+            games/dota2/data/liquipedia
+            games/dota2/data/opendota
+            games/dota2/data/kalshi
+          key: dota2-raw-${{ github.run_id }}
+          restore-keys: dota2-raw-
       - name: Seed cold raw cache
         if: steps.raw.outputs.cache-matched-key == ''
         continue-on-error: true
@@ -74,10 +78,10 @@ jobs:
         if: steps.crawl.outputs.changed == 'true'
         with:
           path: |
-            data/liquipedia
-            data/opendota
-            data/kalshi
-          key: raw-${{ github.run_id }}
+            games/dota2/data/liquipedia
+            games/dota2/data/opendota
+            games/dota2/data/kalshi
+          key: dota2-raw-${{ github.run_id }}
       - name: Refresh weekly seed
         if: steps.raw-save.outcome == 'success'
         continue-on-error: true
@@ -100,15 +104,15 @@ jobs:
       - name: Hash database inputs
         id: inputs
         env:
-          CODE_HASH: ${{ hashFiles('scripts/**', 'promdota/**', 'uv.lock') }}
+          CODE_HASH: ${{ hashFiles('games/dota2/scripts/**', 'games/dota2/promdota/**', 'games/dota2/uv.lock') }}
         run: |
           INPUTS=$({ { find data/liquipedia data/opendota data/kalshi -type f -not -path '*/books/*' -print0; } | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
           echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: database
         with:
-          path: db
-          key: db-${{ steps.inputs.outputs.hash }}
+          path: games/dota2/db
+          key: dota2-db-${{ steps.inputs.outputs.hash }}
       - name: Check published inputs
         id: skip
         env:
@@ -146,7 +150,7 @@ jobs:
       - name: Hash final database inputs
         id: final-inputs
         env:
-          CODE_HASH: ${{ hashFiles('scripts/**', 'promdota/**', 'uv.lock') }}
+          CODE_HASH: ${{ hashFiles('games/dota2/scripts/**', 'games/dota2/promdota/**', 'games/dota2/uv.lock') }}
         run: |
           INPUTS=$({ { find data/liquipedia data/opendota data/kalshi -type f -not -path '*/books/*' -print0; } | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
           echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
@@ -166,8 +170,8 @@ jobs:
       - uses: actions/cache/save@v4
         if: steps.skip.outputs.unchanged != 'true' && (steps.database.outputs.cache-hit != 'true' || steps.inputs.outputs.hash != steps.final-inputs.outputs.hash)
         with:
-          path: db
-          key: db-${{ steps.final-inputs.outputs.hash }}
+          path: games/dota2/db
+          key: dota2-db-${{ steps.final-inputs.outputs.hash }}
       - name: Build and upload blend artifact
         if: steps.skip.outputs.unchanged != 'true'
         run: |

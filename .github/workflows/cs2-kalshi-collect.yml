@@ -1,4 +1,4 @@
-name: Kalshi collect
+name: CS2 Kalshi collect
 
 on:
   schedule:
@@ -15,8 +15,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: kalshi-collect
+  group: cs2-kalshi-collect
   cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: games/cs2
 
 jobs:
   collect:
@@ -36,7 +40,7 @@ jobs:
       - name: Download manifest
         run: |
           mkdir -p data/kalshi
-          aws s3 cp "s3://$BUCKET/valorant-model/kalshi/manifest.json" data/kalshi/manifest.json || echo "no manifest yet"
+          aws s3 cp "s3://$BUCKET/cs2-model/kalshi/manifest.json" data/kalshi/manifest.json || echo "no manifest yet"
       - name: Guard against an unseeded archive
         env:
           ALLOW_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_full }}
@@ -47,7 +51,7 @@ jobs:
           fi
       - name: Collect
         id: collect
-        run: uv run promval kalshi collect
+        run: uv run promcs kalshi collect
       - name: Upload progress
         if: always() && steps.collect.outcome != 'skipped' && steps.collect.outcome != ''
-        run: aws s3 sync data/kalshi "s3://$BUCKET/valorant-model/kalshi" --only-show-errors
+        run: aws s3 sync data/kalshi "s3://$BUCKET/cs2-model/kalshi" --only-show-errors

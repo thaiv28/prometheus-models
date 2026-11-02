@@ -1,4 +1,4 @@
-name: Refresh DB
+name: CS2 Refresh DB
 
 on:
   workflow_dispatch:
@@ -10,8 +10,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: refresh-db
+  group: cs2-refresh-db
   cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: games/cs2
 
 jobs:
   refresh:
@@ -32,10 +36,10 @@ jobs:
         id: raw
         with:
           path: |
-            data/liquipedia
-            data/kalshi
-          key: raw-${{ github.run_id }}
-          restore-keys: raw-
+            games/cs2/data/liquipedia
+            games/cs2/data/kalshi
+          key: cs2-raw-${{ github.run_id }}
+          restore-keys: cs2-raw-
       - name: Seed cold raw cache
         if: steps.raw.outputs.cache-matched-key == ''
         continue-on-error: true
@@ -66,9 +70,9 @@ jobs:
         if: steps.crawl.outputs.changed == 'true'
         with:
           path: |
-            data/liquipedia
-            data/kalshi
-          key: raw-${{ github.run_id }}
+            games/cs2/data/liquipedia
+            games/cs2/data/kalshi
+          key: cs2-raw-${{ github.run_id }}
       - name: Refresh weekly seed
         if: steps.raw-save.outcome == 'success'
         continue-on-error: true
@@ -88,15 +92,15 @@ jobs:
       - name: Hash database inputs
         id: inputs
         env:
-          CODE_HASH: ${{ hashFiles('scripts/**', 'promcs/**', 'uv.lock') }}
+          CODE_HASH: ${{ hashFiles('games/cs2/scripts/**', 'games/cs2/promcs/**', 'games/cs2/uv.lock') }}
         run: |
           INPUTS=$({ { find data/liquipedia data/kalshi -type f -not -path '*/books/*' -print0; find data/kaggle -name '*.zip' -print0; } | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
           echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: database
         with:
-          path: db
-          key: db-${{ steps.inputs.outputs.hash }}
+          path: games/cs2/db
+          key: cs2-db-${{ steps.inputs.outputs.hash }}
       - name: Check published inputs
         id: skip
         env:
@@ -136,8 +140,8 @@ jobs:
       - uses: actions/cache/save@v4
         if: steps.skip.outputs.unchanged != 'true' && steps.database.outputs.cache-hit != 'true'
         with:
-          path: db
-          key: db-${{ steps.inputs.outputs.hash }}
+          path: games/cs2/db
+          key: cs2-db-${{ steps.inputs.outputs.hash }}
       - name: Build and upload blend artifact
         if: steps.skip.outputs.unchanged != 'true'
         run: |

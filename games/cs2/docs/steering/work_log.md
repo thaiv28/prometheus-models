@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-02 — Workflows run from prometheus-models
+
+Scheduled workflows moved to root `.github/workflows/cs2-{feed,kalshi-collect,refresh-db}.yml` with working directory `games/cs2`, game-prefixed concurrency groups and repo-root cache/hash paths. Raw cache keys are game-prefixed; S3 prefixes are unchanged. Per-game ci.yml is replaced by root CI, which scopes game workflow changes to that game. Checks with `UV_OFFLINE=1 UV_NO_SYNC=1`: `uv run --frozen pytest -q` (363 passed), `uv run ruff format --check .` and `uv run ruff check .` passed. Root `python3 -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"` passed; directory layout and six CI classification scenarios passed. `python3 scripts/work_log.py rotate` passed. Plain uv hit a macOS configuration panic; sandbox blocked git mv's index lock, so files were moved on disk.
+
 ## 2026-11-02 — Moved into prometheus-models
 
 Imported with full history into `prometheus-models/games/cs2/` (branch `main`, base: this repo's local `main` merged with `origin/main`; unpushed `player-stats` merge kept). `tests/test_steering.py` now finds the git repo from a subfolder and checks only this game's paths; the work-log hook moved to the repo root and the CI to a root workflow that checks only changed games. Production workflows still run from the old repo until cutover. Checks: steering guard fails without this entry and passes with it; full pytest and ruff from `games/cs2/`.

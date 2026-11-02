@@ -1,4 +1,4 @@
-name: Site feed
+name: Valorant Site feed
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: feed
+  group: valorant-feed
   cancel-in-progress: false
 
 jobs:
@@ -20,6 +20,7 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: games/valorant
     timeout-minutes: 15
     env:
       BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}

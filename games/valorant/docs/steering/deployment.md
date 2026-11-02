@@ -2,11 +2,11 @@
 
 ## CI
 
-`.github/workflows/ci.yml` runs ruff and pytest on pushes to main and pull requests.
+Root `.github/workflows/ci.yml` runs ruff and pytest on pushes to main and pull requests.
 
 ## Kalshi collection
 
-`.github/workflows/kalshi-collect.yml` runs on main at minute 23 every six hours (`23 */6 * * *`, UTC), or by manual dispatch. Runs serialize without cancellation and time out after 30 minutes.
+Root `.github/workflows/valorant-kalshi-collect.yml` runs on main at minute 23 every six hours (`23 */6 * * *`, UTC), or by manual dispatch. Runs serialize without cancellation and time out after 30 minutes.
 
 Repository variable `DATA_BACKUP_BUCKET` and secret `AWS_ROLE_ARN` are set to the shared artifacts bucket and GitHub deployment role. It trusts `thaiv28/*` repositories on main. Authentication uses GitHub OIDC (`id-token: write`); AWS region is `us-west-2`. Storage prefix: `s3://$DATA_BACKUP_BUCKET/valorant-model/kalshi/`.
 
@@ -26,7 +26,7 @@ The manifest command rebuilds from histories present locally. `scripts/kalshi_da
 
 ## Site feed
 
-`refresh-db.yml` crawls hourly; an exact input-hash DB cache hit plus matching state metadata skips rebuilding and snapshotting. `feed.yml` loads it without a DB, refreshes schedule/prices and publishes the feed. cron-job.org dispatches refresh-db hourly and feed every 10 minutes; GitHub schedules (`41 * * * *`, `7 * * * *`, UTC) are backups. Both allow manual dispatch, run only on main and serialize without cancellation.
+Root `.github/workflows/valorant-refresh-db.yml` crawls hourly; an exact input-hash DB cache hit plus matching state metadata skips rebuilding and snapshotting. Root `.github/workflows/valorant-feed.yml` loads it without a DB, refreshes schedule/prices and publishes the feed. cron-job.org dispatches refresh-db hourly and feed every 10 minutes; GitHub schedules (`41 * * * *`, `7 * * * *`, UTC) are backups. Both allow manual dispatch, run only on main and serialize without cancellation.
 
 S3 keys: `valorant-model/feed/{state.pkl.gz,predictions.json,valorant.json.gz,upcoming/}`; `valorant-model/feed/candidates.json` is private, read by Prometheus's execution Lambda; raw inputs: `valorant-model/vlr/` and `valorant-model/kalshi/` (books excluded on download). Seed the raw cache in S3 once before running refresh-db. Raw cache misses first extract `valorant-model/seed/raw.tar.zst`, then sync top-ups; successful raw cache saves refresh missing or week-old seeds. DB keys hash raw file paths/sizes (excluding books) plus scripts, package and lockfile. Rebuilds upload state with `inputs=<hash>` metadata and `valorant-model/feed/blend_artifact.json` for Prometheus’s Lambda. Prediction-log writes require an unchanged ETag; races warn and skip the save. Snapshots are trusted gzip pickles, version checked on load.
 

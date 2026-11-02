@@ -1,4 +1,4 @@
-name: Site feed
+name: CS2 Site feed
 
 on:
   workflow_dispatch:
@@ -10,8 +10,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: feed
+  group: cs2-feed
   cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: games/cs2
 
 jobs:
   feed:

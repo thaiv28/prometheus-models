@@ -2,7 +2,10 @@
 
 from pathlib import Path
 
-WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/kalshi-collect.yml"
+WORKFLOW = (
+    Path(__file__).resolve().parents[3]
+    / ".github/workflows/valorant-kalshi-collect.yml"
+)
 
 
 def test_kalshi_schedule_and_permissions():
@@ -34,12 +37,12 @@ def test_site_workflow_safeguards():
         ("refresh-db", "41 * * * *", 90),
         ("feed", "7 * * * *", 15),
     ):
-        text = (WORKFLOW.parent / f"{name}.yml").read_text()
+        text = (WORKFLOW.parent / f"valorant-{name}.yml").read_text()
         assert f'cron: "{cron}"' in text
         assert "workflow_dispatch:" in text
         assert "contents: read" in text and "id-token: write" in text
         assert "if: github.ref == 'refs/heads/main'" in text
-        assert f"group: {name}" in text
+        assert f"group: valorant-{name}" in text
         assert "cancel-in-progress: false" in text
         assert f"timeout-minutes: {timeout}" in text
         assert "${{ vars.DATA_BACKUP_BUCKET }}" in text
@@ -50,7 +53,7 @@ def test_site_workflow_safeguards():
 
 
 def test_refresh_db_storage_and_incremental_crawl():
-    text = (WORKFLOW.parent / "refresh-db.yml").read_text()
+    text = (WORKFLOW.parent / "valorant-refresh-db.yml").read_text()
     assert "uv run promval vlr crawl --since 2021-01-01" in text
     assert "--full" not in text
     assert "bash scripts/setup_db.sh" in text
@@ -63,14 +66,14 @@ def test_refresh_db_storage_and_incremental_crawl():
     assert "actions/cache/restore@v4" in text and "actions/cache/save@v4" in text
     # Save the raw cache before the DB build, so a slow build can't lose a seed.
     assert text.index("actions/cache/save@v4") < text.index("name: Build DB")
-    assert text.count("key: raw-${{ github.run_id }}") == 2
-    assert "restore-keys: raw-" in text
+    assert text.count("key: valorant-raw-${{ github.run_id }}") == 2
+    assert "restore-keys: valorant-raw-" in text
     assert "-newer" in text and "cache-matched-key" in text
     assert "if: steps.changed.outputs.save == 'true'" in text
 
 
 def test_feed_storage_and_guarded_dispatch():
-    text = (WORKFLOW.parent / "feed.yml").read_text()
+    text = (WORKFLOW.parent / "valorant-feed.yml").read_text()
     assert "PROMVAL_DATA" not in text
     assert "setup_db.sh" not in text
     assert "run refresh-db first" in text
@@ -102,7 +105,7 @@ def test_feed_storage_and_guarded_dispatch():
 def test_feed_data_shell_syntax():
     import subprocess
 
-    script = WORKFLOW.parents[2] / "scripts/feed_data.sh"
+    script = WORKFLOW.parents[2] / "games/valorant/scripts/feed_data.sh"
     subprocess.run(["bash", "-n", str(script)], check=True)
     text = script.read_text()
     assert "valorant-model/feed/predictions.json" in text
@@ -110,8 +113,11 @@ def test_feed_data_shell_syntax():
 
 
 def test_refresh_db_input_hash_and_exact_cache():
-    text = (WORKFLOW.parent / "refresh-db.yml").read_text()
-    assert "hashFiles('scripts/**', 'promval/**', 'uv.lock')" in text
+    text = (WORKFLOW.parent / "valorant-refresh-db.yml").read_text()
+    assert (
+        "hashFiles('games/valorant/scripts/**', 'games/valorant/promval/**', 'games/valorant/uv.lock')"
+        in text
+    )
     assert (
         "find data/vlr data/kalshi -type f -not -path '*/books/*' "
         "-not -path 'data/vlr/parsed/*' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum"
@@ -119,15 +125,15 @@ def test_refresh_db_input_hash_and_exact_cache():
     )
     assert "xargs -0 sha256sum; printf" in text
     assert "sha256sum" in text
-    assert text.count("key: db-${{ steps.inputs.outputs.hash }}") == 2
+    assert text.count("key: valorant-db-${{ steps.inputs.outputs.hash }}") == 2
     restore = text.split("id: db\n", 1)[1].split("      - name:", 1)[0]
-    assert "path: db" in restore
+    assert "path: games/valorant/db" in restore
     assert "restore-keys:" not in restore
     assert text.index("name: Crawl") < text.index("name: Hash DB inputs")
 
 
 def test_refresh_db_skip_requires_cache_and_matching_state():
-    text = (WORKFLOW.parent / "refresh-db.yml").read_text()
+    text = (WORKFLOW.parent / "valorant-refresh-db.yml").read_text()
     assert "DB_CACHE_HIT: ${{ steps.db.outputs.cache-hit }}" in text
     guard = text.split("name: Check rebuild", 1)[1].split("name: Build DB", 1)[0]
     assert 'if [ "$DB_CACHE_HIT" = "true" ]; then' in guard
@@ -150,7 +156,7 @@ def test_refresh_db_skip_requires_cache_and_matching_state():
 
 
 def test_refresh_db_cold_and_weekly_seeds():
-    text = (WORKFLOW.parent / "refresh-db.yml").read_text()
+    text = (WORKFLOW.parent / "valorant-refresh-db.yml").read_text()
     seed = text.split("name: Seed cold raw cache\n", 1)[1].split("      - name:", 1)[0]
     assert "if: steps.raw.outputs.cache-matched-key == ''" in seed
     assert "continue-on-error: true" in seed

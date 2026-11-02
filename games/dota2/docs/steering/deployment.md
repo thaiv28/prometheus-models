@@ -2,7 +2,7 @@
 
 ## CI
 
-`ci.yml` runs Ruff and pytest on pushes and pull requests. All fetchers are injectable and tests are offline.
+Root `.github/workflows/ci.yml` runs Ruff and pytest on pushes and pull requests. All fetchers are injectable and tests are offline.
 
 ## Site feed workflows
 
@@ -31,7 +31,7 @@ Syncs never delete remote objects. Keep candidates, state and raw inputs private
 
 ## Kalshi collection
 
-`kalshi-collect.yml` runs every six hours (`23 */6 * * *`) or manually, on main, with a 30-minute timeout. It downloads `kalshi/manifest.json`; missing manifest fails unless dispatch sets `allow_full=true`. It uploads partial progress even after collection failure. Seed a completed local archive using `promdota kalshi manifest` and `scripts/kalshi_data.sh push`; `pull` restores it. These commands are operator actions, not run during implementation.
+Root `.github/workflows/dota2-kalshi-collect.yml` runs every six hours (`23 */6 * * *`) or manually, on main, with a 30-minute timeout. It downloads `kalshi/manifest.json`; missing manifest fails unless dispatch sets `allow_full=true`. It uploads partial progress even after collection failure. Seed a completed local archive using `promdota kalshi manifest` and `scripts/kalshi_data.sh push`; `pull` restores it. These commands are operator actions, not run during implementation.
 
 ## Seeding from a Mac
 

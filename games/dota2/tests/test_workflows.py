@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOWS = ROOT / ".github/workflows"
+WORKFLOWS = Path(__file__).resolve().parents[3] / ".github/workflows"
 
 
 def test_yaml_and_shell_parse():
@@ -21,7 +21,7 @@ def test_yaml_and_shell_parse():
             "-rjson",
             "-e",
             "puts JSON.generate(ARGV.map { |p| Psych.load_file(p) })",
-            *map(str, WORKFLOWS.glob("*.yml")),
+            *map(str, [*WORKFLOWS.glob("dota2-*.yml"), WORKFLOWS / "ci.yml"]),
         ],
         check=True,
         capture_output=True,
@@ -39,13 +39,13 @@ def test_yaml_and_shell_parse():
 
 def test_site_workflow_guards():
     for name, cron in (("refresh-db", "41 */6 * * *"), ("feed", "37 * * * *")):
-        text = (WORKFLOWS / f"{name}.yml").read_text()
+        text = (WORKFLOWS / f"dota2-{name}.yml").read_text()
         for required in (
             f'cron: "{cron}"',
             "workflow_dispatch:",
             "id-token: write",
             "if: github.ref == 'refs/heads/main'",
-            f"group: {name}",
+            f"group: dota2-{name}",
             "cancel-in-progress: false",
             "secrets.AWS_ROLE_ARN",
             "vars.DATA_BACKUP_BUCKET",
@@ -56,7 +56,7 @@ def test_site_workflow_guards():
 
 
 def test_refresh_inputs_and_optional_opendota():
-    text = (WORKFLOWS / "refresh-db.yml").read_text()
+    text = (WORKFLOWS / "dota2-refresh-db.yml").read_text()
     for required in (
         "promdota liquipedia crawl --listing none",
         "promdota liquipedia crawl --listing full",
@@ -67,10 +67,10 @@ def test_refresh_inputs_and_optional_opendota():
         'if [ "$HAS_OPENDOTA" = true ]',
         "-2 months",
         "scripts/setup_db.sh",
-        "hashFiles('scripts/**', 'promdota/**', 'uv.lock')",
+        "hashFiles('games/dota2/scripts/**', 'games/dota2/promdota/**', 'games/dota2/uv.lock')",
         "sha256sum",
-        "key: db-${{ steps.inputs.outputs.hash }}",
-        "key: db-${{ steps.final-inputs.outputs.hash }}",
+        "key: dota2-db-${{ steps.inputs.outputs.hash }}",
+        "key: dota2-db-${{ steps.final-inputs.outputs.hash }}",
         "Metadata.inputs",
         'if [ "$DB_HIT" = true ] && [ "$published" = "$INPUTS" ]',
         "promdota feed-state",
@@ -93,7 +93,7 @@ def test_refresh_inputs_and_optional_opendota():
 
 
 def test_feed_is_database_free_and_persists_private_candidates():
-    text = (WORKFLOWS / "feed.yml").read_text()
+    text = (WORKFLOWS / "dota2-feed.yml").read_text()
     for required in (
         "dota2-model/feed/state.pkl.gz",
         "dota2-model/feed/dota2.json.gz",
@@ -123,10 +123,10 @@ def test_feed_is_database_free_and_persists_private_candidates():
 
 
 def test_feed_gate_precedes_dependencies_and_full_checkout():
-    text = (WORKFLOWS / "feed.yml").read_text()
+    text = (WORKFLOWS / "dota2-feed.yml").read_text()
     for required in (
         "timeout-minutes: 10",
-        "sparse-checkout: scripts/feed_gate.py",
+        "sparse-checkout: games/dota2/scripts/feed_gate.py",
         "sparse-checkout-cone-mode: false",
         "fetch-depth: 1",
         "clean: false",
@@ -157,7 +157,7 @@ def test_feed_gate_precedes_dependencies_and_full_checkout():
                 "-rjson",
                 "-e",
                 "puts JSON.generate(Psych.load_file(ARGV[0]))",
-                str(WORKFLOWS / "feed.yml"),
+                str(WORKFLOWS / "dota2-feed.yml"),
             ],
             check=True,
             capture_output=True,
@@ -173,28 +173,36 @@ def test_feed_gate_precedes_dependencies_and_full_checkout():
 
 def test_runtime_dependencies_and_cache():
     for name in ("feed", "refresh-db", "ci"):
-        text = (WORKFLOWS / f"{name}.yml").read_text()
+        text = (
+            WORKFLOWS / ("ci.yml" if name == "ci" else f"dota2-{name}.yml")
+        ).read_text()
         assert "enable-cache: true" in text
-        assert "cache-dependency-glob: uv.lock" in text
+        dependency = (
+            "games/${{ matrix.game }}/uv.lock"
+            if name == "ci"
+            else "games/dota2/uv.lock"
+        )
+        assert f"cache-dependency-glob: {dependency}" in text
         if name != "ci":
             assert "uv sync --frozen --no-dev" in text
-    assert "timeout-minutes: 45" in (WORKFLOWS / "refresh-db.yml").read_text()
+    assert "timeout-minutes: 45" in (WORKFLOWS / "dota2-refresh-db.yml").read_text()
 
 
 def test_docs_only_ci_keeps_steering_check():
     text = (WORKFLOWS / "ci.yml").read_text()
     for required in (
+        'out.append({"game": g, "docs_only": docs_only})',
         "changes:",
         "needs: changes",
         "github.event.pull_request.base.sha || github.event.before",
-        "git diff --name-only -z",
+        "git diff --name-only",
         "git merge-base",
-        'p.startswith(b"docs/")',
-        'p.endswith(b".md")',
+        'p.startswith("docs/")',
+        'p.endswith(".md")',
         "uv run ruff format --check && uv run ruff check",
-        "if: needs.changes.outputs.docs_only == 'true'",
+        "if: matrix.docs_only",
         "uv run pytest -q tests/test_steering.py",
-        "if: needs.changes.outputs.docs_only != 'true'",
+        "if: ${{ !matrix.docs_only }}",
         "run: uv run pytest -q",
     ):
         assert required in text
@@ -203,7 +211,7 @@ def test_docs_only_ci_keeps_steering_check():
 
 
 def test_refresh_rebuilds_after_top_up_only_when_games_were_saved():
-    text = (ROOT / ".github/workflows/refresh-db.yml").read_text()
+    text = (WORKFLOWS / "dota2-refresh-db.yml").read_text()
     top_up = text.index("promdota opendota games --limit 1800")
     assert "grep -qE 'saved=[1-9]' /tmp/games-summary" in text[top_up:]
     assert text[top_up:].index("saved=[1-9]") < text[top_up:].index("setup_db.sh")

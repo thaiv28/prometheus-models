@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, the checks run, remaining limits. At most 150 words.
 
+## 2026-11-02 — Workflows run from prometheus-models
+
+Scheduled workflows moved to root `.github/workflows/valorant-{feed,kalshi-collect,refresh-db}.yml` with working directory `games/valorant`, game-prefixed concurrency groups and repo-root cache/hash paths. Raw cache keys are game-prefixed; S3 prefixes are unchanged. Per-game ci.yml is replaced by root CI, which scopes game workflow changes to that game. Checks with `UV_OFFLINE=1 UV_NO_SYNC=1`: `uv run --frozen pytest -q` (420 passed), `uv run ruff format --check .` and `uv run ruff check .` passed. Root `python3 -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"` passed; directory layout and six CI classification scenarios passed. `python3 scripts/work_log.py rotate` passed. Plain uv hit a macOS configuration panic; sandbox blocked git mv's index lock, so files were moved on disk.
+
 ## 2026-11-02 — KDA model switch reverted
 
 Reverted the commit below at the user's request: the feed and execution keep `player_round_glicko_rookie_tier_revert`, its weights and the earlier `blend_artifact.json`. The KDA variant stays in `models.py` and `elo_weights.json` for research. Checks: pytest, ruff.

@@ -37,13 +37,14 @@ jobs:
           from pathlib import Path
           paths = Path("/tmp/changed").read_text().split()
           games = sorted(p.name for p in Path("games").iterdir() if p.is_dir())
-          everything = any(p.startswith(".github/") for p in paths)
+          scheduled = {g: [p for p in paths if p.startswith(f".github/workflows/{g}-") and p.endswith(".yml")] for g in games}
+          everything = any(p.startswith(".github/") and not any(p in changed for changed in scheduled.values()) for p in paths)
           out = []
           for g in games:
               own = [p.removeprefix(f"games/{g}/") for p in paths if p.startswith(f"games/{g}/")]
-              if not own and not everything:
+              if not own and not scheduled[g] and not everything:
                   continue
-              docs_only = bool(own) and not everything and all(
+              docs_only = bool(own) and not scheduled[g] and not everything and all(
                   p.startswith("docs/") or ("/" not in p and p.endswith(".md")) for p in own
               )
               out.append({"game": g, "docs_only": docs_only})

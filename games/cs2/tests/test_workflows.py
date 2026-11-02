@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
-WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/kalshi-collect.yml"
+WORKFLOW = (
+    Path(__file__).resolve().parents[3] / ".github/workflows/cs2-kalshi-collect.yml"
+)
 
 
 def test_kalshi_schedule_and_permissions():
@@ -34,13 +36,13 @@ def test_site_workflow_guards():
         ("refresh-db", "41 * * * *", 45),
         ("feed", "7 * * * *", 15),
     ):
-        text = (WORKFLOW.parent / f"{name}.yml").read_text()
+        text = (WORKFLOW.parent / f"cs2-{name}.yml").read_text()
         assert f'cron: "{cron}"' in text
         assert "workflow_dispatch:" in text
         assert "if: github.ref == 'refs/heads/main'" in text
         assert "contents: read" in text
         assert "id-token: write" in text
-        assert f"group: {name}" in text
+        assert f"group: cs2-{name}" in text
         assert "cancel-in-progress: false" in text
         assert f"timeout-minutes: {timeout}" in text
         assert "role-to-assume: ${{ secrets.AWS_ROLE_ARN }}" in text
@@ -50,11 +52,11 @@ def test_site_workflow_guards():
 
 
 def test_refresh_storage_and_incremental_crawl():
-    text = (WORKFLOW.parent / "refresh-db.yml").read_text()
+    text = (WORKFLOW.parent / "cs2-refresh-db.yml").read_text()
     assert "actions/cache/restore@v4" in text
     assert "actions/cache/save@v4" in text
-    assert "key: raw-${{ github.run_id }}" in text
-    assert "restore-keys: raw-" in text
+    assert "key: cs2-raw-${{ github.run_id }}" in text
+    assert "restore-keys: cs2-raw-" in text
     assert "steps.crawl.outputs.changed == 'true'" in text
     assert "steps.raw.outputs.cache-matched-key" in text
     assert "find data/liquipedia data/kalshi -newer /tmp/raw-marker" in text
@@ -70,7 +72,7 @@ def test_refresh_storage_and_incremental_crawl():
 
 
 def test_feed_storage_and_dispatch():
-    text = (WORKFLOW.parent / "feed.yml").read_text()
+    text = (WORKFLOW.parent / "cs2-feed.yml").read_text()
     assert "s3://$BUCKET/cs2-model/feed/state.pkl.gz" in text
     assert "run refresh-db first" in text
     assert "bash scripts/feed_data.sh restore" in text
@@ -100,19 +102,23 @@ def test_feed_data_bash_syntax():
     import subprocess
 
     subprocess.run(
-        ["bash", "-n", str(WORKFLOW.parents[2] / "scripts/feed_data.sh")], check=True
+        ["bash", "-n", str(WORKFLOW.parents[2] / "games/cs2/scripts/feed_data.sh")],
+        check=True,
     )
 
 
 def refresh_steps():
-    text = (WORKFLOW.parent / "refresh-db.yml").read_text()
+    text = (WORKFLOW.parent / "cs2-refresh-db.yml").read_text()
     return text.split("      - ")[1:]
 
 
 def test_refresh_database_input_cache():
     steps = refresh_steps()
     inputs = next(step for step in steps if "id: inputs\n" in step)
-    assert "hashFiles('scripts/**', 'promcs/**', 'uv.lock')" in inputs
+    assert (
+        "hashFiles('games/cs2/scripts/**', 'games/cs2/promcs/**', 'games/cs2/uv.lock')"
+        in inputs
+    )
     assert (
         "{ find data/liquipedia data/kalshi -type f -not -path '*/books/*' "
         "-print0; find data/kaggle -name '*.zip' -print0; } "
@@ -123,11 +129,11 @@ def test_refresh_database_input_cache():
     assert steps.index(kaggle) < steps.index(inputs)
     assert "printf '%s\\n' \"$CODE_HASH\"" in inputs
     assert "sha256sum" in inputs
-    caches = [step for step in steps if "key: db-" in step]
+    caches = [step for step in steps if "key: cs2-db-" in step]
     assert len(caches) == 2
     for step in caches:
-        assert "path: db\n" in step
-        assert "key: db-${{ steps.inputs.outputs.hash }}" in step
+        assert "path: games/cs2/db\n" in step
+        assert "key: cs2-db-${{ steps.inputs.outputs.hash }}" in step
         assert "restore-keys:" not in step
     assert "actions/cache/restore@v4" in caches[0]
     assert "actions/cache/save@v4" in caches[1]
@@ -147,7 +153,7 @@ def test_refresh_rebuild_requires_cache_and_published_state():
         "uv run promcs blend-artifact",
     ):
         matching = [
-            step for step in steps if command in step and "key: raw-" not in step
+            step for step in steps if command in step and "key: cs2-raw-" not in step
         ]
         assert len(matching) == 1
         assert "if: steps.skip.outputs.unchanged != 'true'" in matching[0]

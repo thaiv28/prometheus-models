@@ -1,4 +1,4 @@
-name: Refresh DB
+name: Valorant Refresh DB
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: refresh-db
+  group: valorant-refresh-db
   cancel-in-progress: false
 
 jobs:
@@ -20,6 +20,7 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: games/valorant
     timeout-minutes: 90
     env:
       BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
@@ -35,10 +36,10 @@ jobs:
         id: raw
         with:
           path: |
-            data/vlr
-            data/kalshi
-          key: raw-${{ github.run_id }}
-          restore-keys: raw-
+            games/valorant/data/vlr
+            games/valorant/data/kalshi
+          key: valorant-raw-${{ github.run_id }}
+          restore-keys: valorant-raw-
       - name: Mark raw cache
         env:
           RESTORED_KEY: ${{ steps.raw.outputs.cache-matched-key }}
@@ -92,9 +93,9 @@ jobs:
         if: steps.changed.outputs.save == 'true'
         with:
           path: |
-            data/vlr
-            data/kalshi
-          key: raw-${{ github.run_id }}
+            games/valorant/data/vlr
+            games/valorant/data/kalshi
+          key: valorant-raw-${{ github.run_id }}
       - name: Refresh weekly raw seed
         if: steps.raw_save.outcome == 'success'
         continue-on-error: true
@@ -106,15 +107,15 @@ jobs:
       - name: Hash DB inputs
         id: inputs
         env:
-          CODE_HASH: ${{ hashFiles('scripts/**', 'promval/**', 'uv.lock') }}
+          CODE_HASH: ${{ hashFiles('games/valorant/scripts/**', 'games/valorant/promval/**', 'games/valorant/uv.lock') }}
         run: |
           INPUTS=$({ find data/vlr data/kalshi -type f -not -path '*/books/*' -not -path 'data/vlr/parsed/*' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
           echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: db
         with:
-          path: db
-          key: db-${{ steps.inputs.outputs.hash }}
+          path: games/valorant/db
+          key: valorant-db-${{ steps.inputs.outputs.hash }}
       - name: Check rebuild
         id: rebuild
         env:
@@ -156,8 +157,8 @@ jobs:
       - uses: actions/cache/save@v4
         if: steps.rebuild.outputs.skip != 'true'
         with:
-          path: db
-          key: db-${{ steps.inputs.outputs.hash }}
+          path: games/valorant/db
+          key: valorant-db-${{ steps.inputs.outputs.hash }}
       - name: Publish blend artifact
         if: steps.rebuild.outputs.skip != 'true'
         run: |

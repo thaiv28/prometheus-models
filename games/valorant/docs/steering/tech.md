@@ -17,7 +17,7 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 | `promval/benchmark_rows.py` | Shared report/artifact series temperatures and tradeable quotes |
 | `tests/test_trading.py` | Offline causal fits and execution contract checks |
 | `scripts/feed_data.sh` | Conditional S3 prediction-log restore/save |
-| `.github/workflows/refresh-db.yml`, `feed.yml` | Hourly snapshot build and DB-free site publication |
+| root `.github/workflows/valorant-refresh-db.yml`, root `.github/workflows/valorant-feed.yml` | Hourly snapshot build and DB-free site publication |
 | `tests/test_feed.py` | Offline feed, schedule, freeze and price checks |
 | `promval/kalshi/quotes.py` | Shared benchmark/feed candle quote rules |
 | `promval/kalshi/api.py` | Public HTTP client, pacing, retries and pagination |
