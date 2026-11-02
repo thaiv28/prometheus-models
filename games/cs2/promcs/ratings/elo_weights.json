@@ -1,0 +1,41 @@
+{
+  "team_elo": {
+    "k": 32,
+    "series_temperature": {
+      "1": 1.0,
+      "3": 0.71,
+      "5": 0.63
+    },
+    "fit_through": "2025-12-31"
+  },
+  "player_round_glicko_rookie_weights": {
+    "k": 32,
+    "tau": 0.5,
+    "rd_new": 350,
+    "rd_info": 0.125,
+    "new_player": "teammates",
+    "rookie_penalty": 200,
+    "rookie_maps": 400,
+    "online_k": 1.0,
+    "tier3_k": 0.75,
+    "series_temperature": {
+      "1": 1.0,
+      "3": 0.88,
+      "5": 0.67
+    },
+    "fit_through": "2025-12-31"
+  },
+  "player_round_glicko": {
+    "k": 32,
+    "tau": 0.5,
+    "rd_new": 350,
+    "rd_info": 0.125,
+    "new_player": "teammates",
+    "series_temperature": {
+      "1": 1.0,
+      "3": 0.83,
+      "5": 0.6
+    },
+    "fit_through": "2025-12-31"
+  }
+}
