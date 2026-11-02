@@ -41,6 +41,10 @@ CREATE TABLE match_substitutions (
     player_in TEXT, player_out TEXT,
     PRIMARY KEY (match_id, side, player_in, player_out)
 );
+CREATE TABLE team_siegegg (
+    team_id INTEGER REFERENCES teams, siegegg_team_id INTEGER, name TEXT,
+    matches INTEGER NOT NULL, PRIMARY KEY (team_id, siegegg_team_id, name)
+);
 CREATE TABLE kalshi_markets (
     ticker TEXT PRIMARY KEY, series TEXT NOT NULL, event_ticker TEXT NOT NULL,
     kind TEXT NOT NULL CHECK (kind IN ('series', 'map')), map_number INTEGER,

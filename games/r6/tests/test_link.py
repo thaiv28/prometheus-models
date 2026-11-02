@@ -95,8 +95,10 @@ def test_invalid_schedule():
     assert scheduled_utc("originally scheduled for Oct 99, 2026, then") is None
 
 
-def test_date_only_schedule_is_unknown():
-    assert scheduled_utc("originally scheduled for Dec 5, 2025, then") is None
+def test_date_only_schedule_is_noon_eastern():
+    assert scheduled_utc("originally scheduled for Dec 5, 2025, then") == (
+        "2025-12-05T16:00:00Z"
+    )
     assert scheduled_utc("originally scheduled for Oct 99, 2026 at 5:00 PM EDT") is None
 
 
@@ -408,7 +410,7 @@ def test_fixture_rules_catalog():
     timed = rows[0]
     assert timed["scheduled_utc"] == "2026-10-25T16:00:00Z"
     assert timed["event_name"] == "Challenger League 2026"
-    assert rows[2]["scheduled_utc"] is None
+    assert rows[2]["scheduled_utc"] == "2025-11-15T16:00:00Z"
     assert rows[2]["event_name"] == "Blast R6 Major Munich"
     map_events = [e for e in events_from_markets(rows) if e.kind == "map"]
     assert {e.map_number for e in map_events} == {1, 2}
@@ -444,7 +446,7 @@ def test_loader_linker_fixture_catalog(tmp_path, monkeypatch, capsys):
             "INSERT INTO maps (map_id,match_id,map_order,map_name,rounds1,rounds2,winner) VALUES (11,1,1,'Villa',3,7,2)"
         )
     modules = []
-    for name in ("003_load_kalshi", "004_link_kalshi"):
+    for name in ("003_load_kalshi", "005_link_kalshi"):
         spec = importlib.util.spec_from_file_location(
             name, REPO / "scripts" / f"{name}.py"
         )
@@ -496,3 +498,11 @@ def test_fixture_market_links_to_parsed_liquipedia_series():
     assert result.links[0].match_id == candidate["match_id"]
     assert result.links[0].method == "exact"
     assert cross_check(events, result.links, [candidate]).agreements == 2
+
+
+def test_siegegg_names_link_template_codes():
+    kalshi = event(names=("Team Liquid", "LOS"), ids=("tl", "los"))
+    coded = match(names=("tl", "LOS"))
+    assert not link([kalshi], [coded]).links[0].match_id
+    coded["team1_siegegg"] = ["Team Liquid"]
+    assert link([kalshi], [coded]).links[0].match_id == 1

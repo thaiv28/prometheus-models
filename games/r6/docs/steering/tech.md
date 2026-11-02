@@ -24,8 +24,8 @@ Python 3.12, uv, SQLite (raw SQL), typer CLI `promr6`, pytest, ruff. Ported from
 | `scripts/001_create_tables.sql` | SQLite source schema |
 | `scripts/002_load_liquipedia.py` | Cached pages → events, matches, maps and rosters |
 | `scripts/003_load_kalshi.py` | Cached market catalogs → SQLite |
-| `scripts/004_link_kalshi.py` | Links and settlement report |
-| `scripts/005_load_lineups.py` | Cached siege.gg and complete Liquipedia cards → map lineups |
+| `scripts/004_load_lineups.py` | Cached siege.gg and complete Liquipedia cards → map lineups, `team_siegegg` names |
+| `scripts/005_link_kalshi.py` | Links and settlement report |
 | `scripts/setup_db.sh` | Offline database rebuild |
 | `scripts/kalshi_data.sh` | Kalshi collection and optional S3 backup |
 | `tests/test_liquipedia_crawl.py` | Offline crawl/cache/HTTP checks |
@@ -64,7 +64,7 @@ Event IDs use page IDs; missing infobox fields inherit independently from ancest
 
 Inline Match blocks contain TeamOpponent sides, optional best-of and siege.gg IDs. ISO dates and listed time zones convert to UTC; unknown zones are counted and clear `time_known`. Finished maps with unequal totals count as resolved; attack, defense and overtime rounds are summed, falling back to scores when all round fields are blank. Map IDs are match ID × 10 + map order (1–9). Series scores and winners are recomputed from maps. Walkovers retain series, discard maps and have NULL winners; unresolved series are counted separately. Substitutions store player in/out per match side.
 
-TeamCards supply five starters, excluding later slots; Persons excludes staff and players marked unplayed. Imported partial rosters retain listed players with `complete=0`. `005_load_lineups.py` fills `player_maps` offline: finished cached siege.gg pages supply each side with at least four players (retaining extras above five); missing sides use complete Liquipedia cards from the nearest ancestor with a card, applying folded-name substitutions. Orientation uses normalized team names, then unique direct/swapped series scores or single-map rounds; unresolved orientation skips the siege.gg page. Players use `siegegg:<id>` keys and deterministic `stable_id("player:siegegg:<id>")` IDs, with the most frequent nickname. Folded Liquipedia nicknames unify to a unique siege.gg identity on the same team within 365 days, otherwise globally; ambiguous names retain `liquipedia:<folded>` keys and corresponding stable IDs. Partial cards supply no lineup.
+TeamCards supply five starters, excluding later slots; Persons excludes staff and players marked unplayed. Imported partial rosters retain listed players with `complete=0`. `004_load_lineups.py` fills `player_maps` offline: finished cached siege.gg pages supply each side with at least four players (retaining extras above five); missing sides use complete Liquipedia cards from the nearest ancestor with a card, applying folded-name substitutions. Orientation uses normalized team names, then unique direct/swapped series scores or single-map rounds; unresolved orientation skips the siege.gg page. Players use `siegegg:<id>` keys and deterministic `stable_id("player:siegegg:<id>")` IDs, with the most frequent nickname. Folded Liquipedia nicknames unify to a unique siege.gg identity on the same team within 365 days, otherwise globally; ambiguous names retain `liquipedia:<folded>` keys and corresponding stable IDs. Partial cards supply no lineup.
 
 ## Kalshi collector
 
@@ -72,7 +72,7 @@ TeamCards supply five starters, excluding later slots; Persons excludes staff an
 
 ## Kalshi ↔ Liquipedia links
 
-Catalogs load from `kalshi/markets/{KXR6GAME,KXR6MAP}.json`; absent inputs load zero rows. Rules identify R6 tournaments, opponents, dates and optional EDT/EST times. Date-only schedules use open time +24 hours as the window centre, with ±30 hours around it. Map N targets `map_order=N`; map-event series lookup replaces `KXR6MAP-` with `KXR6GAME-`.
+Catalogs load from `kalshi/markets/{KXR6GAME,KXR6MAP}.json`; absent inputs load zero rows. Rules identify R6 tournaments, opponents, dates and optional EDT/EST times. Date-only schedules use noon ET (16:00Z) of that date as the window centre, ±30 hours. Team name variants are the display name, the template key and every siege.gg name in `team_siegegg` (written by 004). Map N targets `map_order=N`; map-event series lookup replaces `KXR6MAP-` with `KXR6GAME-`.
 
 Exact, alias and anchor passes repeat before fuzzy matching (both team similarities ≥0.8). Anchors require a unique confirmed team and plausible opponent; conflicting aliases are dropped, ambiguous candidates stay unresolved, and excluded events supply no candidates. Generic academy overlap protection remains. `team_aliases` retains consistent competitor identities; `kalshi_links` records match/map identity, method and failure reason. Settlements are cross-checked against winners; `db/link_report.txt` records unresolved links and mismatches.
 

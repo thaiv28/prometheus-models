@@ -197,7 +197,7 @@ def test_setup_db_offline_from_fixture_cache(tmp_path, monkeypatch):
 
 
 lineup_spec = importlib.util.spec_from_file_location(
-    "load_lineups", ROOT / "scripts/005_load_lineups.py"
+    "load_lineups", ROOT / "scripts/004_load_lineups.py"
 )
 lineups = importlib.util.module_from_spec(lineup_spec)
 lineup_spec.loader.exec_module(lineups)
@@ -244,6 +244,10 @@ def test_siege_lineups_and_score_orientation(lineup_db):
             tuple(r) for r in rows
         ]
         assert counts["siegegg_lineups"] == 2
+        siege = conn.execute(
+            "SELECT siegegg_team_id, name FROM team_siegegg"
+        ).fetchall()
+        assert {(725, "Wildcard"), (465, "DarkZero Esports")} <= set(map(tuple, siege))
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
 
 

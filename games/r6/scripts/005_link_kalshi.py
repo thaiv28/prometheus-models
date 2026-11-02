@@ -3,6 +3,7 @@
 import os
 import sqlite3
 import sys
+from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 
@@ -42,8 +43,15 @@ def main():
                 "JOIN teams t2 ON t2.team_id=m.team2_id WHERE e.excluded=0"
             )
         }
+        siege = defaultdict(list)
+        for row in conn.execute(
+            "SELECT team_id, name FROM team_siegegg ORDER BY matches DESC"
+        ):
+            siege[row["team_id"]].append(row["name"])
         for match in matches.values():
             match["maps"] = []
+            for side in (1, 2):
+                match[f"team{side}_siegegg"] = siege[match[f"team{side}_id"]]
         for row in conn.execute("SELECT * FROM maps"):
             if row["match_id"] in matches:
                 matches[row["match_id"]]["maps"].append(dict(row))

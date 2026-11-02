@@ -26,14 +26,20 @@ def normalize(name):
 
 
 def scheduled_utc(rules_primary):
-    """Read an explicit EDT/EST start; date-only rules leave time unknown."""
+    """Read an EDT/EST start; date-only rules (2025 – Mar 2026) give noon ET (16:00Z)."""
     found = re.search(
-        r"originally scheduled for (\w+ \d{1,2}, \d{4}) at "
-        r"(\d{1,2}:\d{2} [AP]M) (EDT|EST)",
+        r"originally scheduled for (\w+ \d{1,2}, \d{4})(?: at "
+        r"(\d{1,2}:\d{2} [AP]M) (EDT|EST))?",
         rules_primary or "",
     )
     if not found:
         return None
+    if not found[2]:
+        try:
+            day = datetime.strptime(found[1], "%b %d, %Y")
+        except ValueError:
+            return None
+        return day.strftime("%Y-%m-%dT16:00:00Z")
     try:
         date = datetime.strptime(f"{found[1]} {found[2]}", "%b %d, %Y %I:%M %p")
     except ValueError:
@@ -148,11 +154,15 @@ def _variants(name):
 
 
 def _side_variants(match, side):
-    """Union the roster-card display name and Liquipedia template key variants."""
+    """Union the display name, Liquipedia template key and siege.gg name variants."""
     return tuple(
         dict.fromkeys(
             variant
-            for value in (match[f"team{side}_name"], match[f"team{side}_key"])
+            for value in (
+                match[f"team{side}_name"],
+                match[f"team{side}_key"],
+                *match.get(f"team{side}_siegegg", ()),
+            )
             for variant in _variants(value or "")
         )
     )

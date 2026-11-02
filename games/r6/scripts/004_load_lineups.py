@@ -79,6 +79,7 @@ def build(conn):
     lineups, nicknames = {}, defaultdict(Counter)
     global_names, team_names = defaultdict(set), defaultdict(list)
     parsed, voted = {}, set()
+    siege_teams = Counter()
     for match in matches:
         counts["matches"] += 1
         sid, mid = match["siegegg_id"], match["match_id"]
@@ -97,6 +98,7 @@ def build(conn):
             counts["orientation_failed"] += 1
             continue
         for side, team in enumerate(oriented, 1):
+            siege_teams[match[f"team{side}_id"], team.siegegg_team_id, team.name] += 1
             for player in team.players:
                 pid, name = player.siegegg_player_id, player.nickname
                 if sid not in voted:
@@ -138,6 +140,11 @@ def build(conn):
             return stable_id(f"player:siegegg:{next(iter(hits))}")
         return player("liquipedia:" + folded, name)
 
+    conn.execute("DELETE FROM team_siegegg")
+    conn.executemany(
+        "INSERT INTO team_siegegg VALUES (?, ?, ?, ?)",
+        [(*key, n) for key, n in siege_teams.items()],
+    )
     conn.execute("DELETE FROM player_maps")
     for match in matches:
         mid = match["match_id"]

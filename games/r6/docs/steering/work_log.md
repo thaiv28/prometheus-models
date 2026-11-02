@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-02 — Linker: date-only rules, siege.gg team names
+
+Date-only Kalshi rules (2025 – Mar 2026) now centre the ±30 h window on noon ET (16:00Z) of their date instead of open time + 24 h (these markets open ~3 days early). Lineups now run before linking (`004_load_lineups.py`, `005_link_kalshi.py`) and record each team's oriented siege.gg names in `team_siegegg`; the linker adds them as name variants, so template codes (`tl`, `bd`, `cag by varrel`) match Kalshi names. Checks: `uv run pytest -q`; ruff. Limit: siege.gg pages still being fetched (5,306 IDs, ~4 s each with the redirect).
+
 ## 2026-11-02 — First live crawl; parser version 2
 
 Live crawl: 4,804 tournaments listed, 6,161 pages (1,357 subpages), 13.5 min, 32 MB. Kalshi: 1,438 series and 828 map markets, 17 min (4 map markets errored). Parser v2: `liquipediatier=5` → tier3 (was unknown: 30k series); series with opponent scores but no map details keep those scores and winner (unresolved 19,617 → 11,682, of which 9,317 walkovers); BRST and IRDT zones. Rebuild: 80,762 series, 86,058 maps, 0 parse errors; series links 623/719, map links 360/414. Checks: `uv run pytest -q`. Limit: unlinked series come from date-only rules and template-code team names (`tl`, `bd`).
