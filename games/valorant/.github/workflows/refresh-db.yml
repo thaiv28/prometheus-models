@@ -1,0 +1,166 @@
+name: Refresh DB
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 * * * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: refresh-db
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    timeout-minutes: 90
+    env:
+      BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --frozen --no-dev
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - uses: actions/cache/restore@v4
+        id: raw
+        with:
+          path: |
+            data/vlr
+            data/kalshi
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+      - name: Mark raw cache
+        env:
+          RESTORED_KEY: ${{ steps.raw.outputs.cache-matched-key }}
+        run: |
+          if [ -n "$RESTORED_KEY" ]; then
+            echo "Raw cache: hit" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Raw cache: miss" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          touch "$RUNNER_TEMP/raw-marker"
+          mkdir -p data/vlr data/kalshi
+          find data/vlr data/kalshi -type f -printf '%p %s %T@\n' | sort > "$RUNNER_TEMP/raw-before"
+      - name: Seed cold raw cache
+        if: steps.raw.outputs.cache-matched-key == ''
+        continue-on-error: true
+        run: |
+          aws s3 cp "s3://$BUCKET/valorant-model/seed/raw.tar.zst" - | tar -I zstd -xf -
+      - name: Top up raw cache
+        env:
+          RESTORED_KEY: ${{ steps.raw.outputs.cache-matched-key }}
+        run: |
+          # Only this workflow writes the VLR objects, so a restored cache is current;
+          # listing 77k objects to compare them took 7.5 min.
+          if [ -z "$RESTORED_KEY" ]; then
+            aws s3 sync "s3://$BUCKET/valorant-model/vlr" data/vlr --only-show-errors
+          fi
+          aws s3 sync "s3://$BUCKET/valorant-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
+          # Neither S3 nor the Actions cache keeps file times, which leaves parsed
+          # pickles looking older than their raw pages (a full 50-minute reparse).
+          # They were valid when saved, so mark them newer before the crawl; pages
+          # the crawl changes afterwards are newer again and reparse.
+          find data/vlr/parsed -type f -exec touch {} + 2>/dev/null || true
+      - name: Crawl
+        run: |
+          uv run promval vlr crawl --since 2021-01-01 | tee "$RUNNER_TEMP/crawl.log"
+          tail -n 1 "$RUNNER_TEMP/crawl.log" >> "$GITHUB_STEP_SUMMARY"
+          aws s3 sync data/vlr "s3://$BUCKET/valorant-model/vlr" --size-only --only-show-errors
+      - name: Check raw cache changes
+        id: changed
+        env:
+          RESTORED_KEY: ${{ steps.raw.outputs.cache-matched-key }}
+        run: |
+          changed=$(find data/vlr data/kalshi -newer "$RUNNER_TEMP/raw-marker" -type f -print -quit)
+          # S3 preserves old LastModified times, so also compare file inventories.
+          find data/vlr data/kalshi -type f -printf '%p %s %T@\n' | sort > "$RUNNER_TEMP/raw-after"
+          if [ -n "$changed" ] || [ -z "$RESTORED_KEY" ] || ! cmp -s "$RUNNER_TEMP/raw-before" "$RUNNER_TEMP/raw-after"; then
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/cache/save@v4
+        id: raw_save
+        if: steps.changed.outputs.save == 'true'
+        with:
+          path: |
+            data/vlr
+            data/kalshi
+          key: raw-${{ github.run_id }}
+      - name: Refresh weekly raw seed
+        if: steps.raw_save.outcome == 'success'
+        continue-on-error: true
+        run: |
+          modified=$(aws s3api head-object --bucket "$BUCKET" --key valorant-model/seed/raw.tar.zst --query LastModified --output text 2>/dev/null || true)
+          if [ -z "$modified" ] || [ "$modified" = "None" ] || [ "$(( $(date +%s) - $(date -d "$modified" +%s) ))" -gt 604800 ]; then
+            tar -I 'zstd -T0 -3' -cf - --exclude='*/books/*' data/vlr data/kalshi | aws s3 cp - "s3://$BUCKET/valorant-model/seed/raw.tar.zst" --expected-size 3000000000 --only-show-errors
+          fi
+      - name: Hash DB inputs
+        id: inputs
+        env:
+          CODE_HASH: ${{ hashFiles('scripts/**', 'promval/**', 'uv.lock') }}
+        run: |
+          INPUTS=$({ find data/vlr data/kalshi -type f -not -path '*/books/*' -not -path 'data/vlr/parsed/*' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; printf '%s\n' "$CODE_HASH"; } | sha256sum | cut -d ' ' -f 1)
+          echo "hash=$INPUTS" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: db
+        with:
+          path: db
+          key: db-${{ steps.inputs.outputs.hash }}
+      - name: Check rebuild
+        id: rebuild
+        env:
+          DB_CACHE_HIT: ${{ steps.db.outputs.cache-hit }}
+          INPUTS: ${{ steps.inputs.outputs.hash }}
+        run: |
+          if [ "$DB_CACHE_HIT" = "true" ]; then
+            echo "DB cache: hit" >> "$GITHUB_STEP_SUMMARY"
+            state_inputs=$(aws s3api head-object --bucket "$BUCKET" --key valorant-model/feed/state.pkl.gz --query Metadata.inputs --output text 2>/dev/null || true)
+            if [ "$state_inputs" = "$INPUTS" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Unchanged inputs; skipped rebuild" >> "$GITHUB_STEP_SUMMARY"
+              echo "DB build: 0s (skipped)" >> "$GITHUB_STEP_SUMMARY"
+              echo "Artifact snapshots: skipped (unchanged inputs)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "DB cache: miss" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Build DB
+        if: steps.rebuild.outputs.skip != 'true'
+        run: |
+          started=$SECONDS
+          bash scripts/setup_db.sh
+          echo "DB build: $((SECONDS - started))s" >> "$GITHUB_STEP_SUMMARY"
+          echo "Rebuilt DB" >> "$GITHUB_STEP_SUMMARY"
+      # Builds can outlast the hour-long OIDC session; log in again for the uploads.
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - name: Save ratings snapshot
+        if: steps.rebuild.outputs.skip != 'true'
+        env:
+          INPUTS: ${{ steps.inputs.outputs.hash }}
+        run: |
+          uv run promval feed-state | tee "$RUNNER_TEMP/state.log"
+          tail -n 1 "$RUNNER_TEMP/state.log" >> "$GITHUB_STEP_SUMMARY"
+          aws s3 cp data/feed/state.pkl.gz "s3://$BUCKET/valorant-model/feed/state.pkl.gz" --metadata inputs="$INPUTS" --only-show-errors
+      - uses: actions/cache/save@v4
+        if: steps.rebuild.outputs.skip != 'true'
+        with:
+          path: db
+          key: db-${{ steps.inputs.outputs.hash }}
+      - name: Publish blend artifact
+        if: steps.rebuild.outputs.skip != 'true'
+        run: |
+          uv run promval blend-artifact --out data/feed/blend_artifact.json | tee "$RUNNER_TEMP/artifact.log"
+          tail -n 1 "$RUNNER_TEMP/artifact.log" >> "$GITHUB_STEP_SUMMARY"
+          aws s3 cp data/feed/blend_artifact.json "s3://$BUCKET/valorant-model/feed/blend_artifact.json" --content-type application/json --only-show-errors

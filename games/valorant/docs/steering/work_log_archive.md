@@ -10,6 +10,36 @@ Branch `form-grid`, base `main`. Expanded rookie penalty/map grids while fixing 
 
 Branch `realism`, base `main`. Added cent-ceiling order fees, $1 contract stakes with fee-inclusive flat ROI, rounded-fee Kelly cash sizing, and tape-volume depth caps (6 hours, 50%; missing tapes unfilled). Returns pair unlimited and capped fills. Added 24/6-hour quote rules, frozen-model quote robustness, and standalone/in-report series calibration, conditional map-2 and decider residual checks. Tests cover fees, depth/orientation, cash caps, quote cutoffs, report assembly without retuning, planted dependence and calibration counts. Baseline: 235 tests in 26.19s. Checks: `uv run pytest -q` (252 passed, 22.38s), `uv run ruff format --check`, `uv run ruff check`, and `git diff --check` passed. Plain offline `uv run` hits the local startup panic; checks use `UV_OFFLINE=1 UV_NO_SYNC=1`. Limits: no network, real-data benchmark or holdout evaluation; tape volume is a fill proxy without queue position/slippage. Changes uncommitted as requested.
 
+## 2026-10-29 — refresh-db: fresh AWS login before uploads
+
+Branch `game-candidates`, base `main`. The first Valorant run with the speedups spent 52 min reparsing every match (`cached=0`: restored pickles looked older than their raw pages, since neither S3 nor the Actions cache keeps file times), then its snapshot upload failed with `ExpiredToken` (the OIDC session lasts an hour). Parsed pickles are now touched before every crawl, not only on a cache miss, and the job logs in to AWS again before the uploads. Checks: workflow tests, YAML parse.
+
+## 2026-10-29 — refresh-db: no VLR S3 listing on a cache hit
+
+Branch `game-candidates`, base `main`. With the raw Actions cache restored, the VLR `aws s3 sync` still listed and compared ~77k objects (7.5 min of a run). Only this workflow writes them, so the sync now runs only on a cache miss; Kalshi data (written by the collector) still syncs every run. Checks: workflow tests, YAML parse. Timing to confirm on the next run.
+
+## 2026-10-29 — Refresh speed (requested branch refresh-speed, base main)
+
+Cache built DBs by input inventory and code hash; unchanged hours skip rebuilds when S3 state metadata `inputs=<hash>` matches. Cold raw-cache misses extract `valorant-model/seed/raw.tar.zst` before sync; successful raw-cache saves refresh missing or week-old seeds. Rebuilds publish the walk-forward artifact to `valorant-model/feed/blend_artifact.json`, without changing the committed artifact. Workflow tests cover cache keys, skip guards, uploads and seed guards. Checks: offline no-sync pytest: 393 passed (81.58s); workflow tests: 9 passed (0.06s). Ruff format/check, cached-PyYAML parsing and Bash syntax pass. Standard uv/uvx hit sandbox/runtime errors; checks use offline no-sync and cached PyYAML. Runner timings must be measured after merge. Sandbox blocked Git metadata writes, so fetch/branch creation failed; edits remain in the existing game-feed checkout.
+
+The DB cache key hashes file contents (not sizes), so a same-size page revision still rebuilds. Workflow tests updated for the content hash.
+
+## 2026-10-29 — Game execution inputs
+
+Branch `game-candidates`, base `main`. Added frozen `promval/blend_artifact.json` and atomic private `data/feed/candidates.json`, uploaded to private `valorant-model/feed/candidates.json` for Prometheus's execution Lambda. Shared benchmark row construction preserves quote rules, stage-1 temperatures and orientation. Candidates validate paired rules, names and starts; export both international and domestic groups. Artifact: 7 snapshots; latest November 1, 2026, a=1.069742465, b=0.535410478, n=1263. Checks (UV_OFFLINE=1 UV_NO_SYNC=1; plain uv startup panics): pytest 390 passed in 25.56s versus existing 373 in 27.69s; 16 new trading tests 0.18s; Ruff format/check and diff check passed. Real blend-artifact, feed-state and offline snapshot export passed (5 upcoming, 2,457 finals, 1,287 prices, zero candidates). No network or commits; Prometheus packaging/deployment remains external.
+
+## 2026-10-29 — refresh-db: save the raw cache before the DB build
+
+Branch `game-feed`, base `main`. The first `refresh-db` run spent 35 min seeding ~1 GB from S3, then timed out (45 min) in the DB build, so the Actions cache was never saved. The raw cache is now saved right after the crawl; on a cache miss, parsed pickles are touched after the S3 download (S3 sets mtimes to upload time, which made valid pickles look older than their raw pages and forced a full reparse); timeout 90 min. Checks: workflow tests (new order guard), YAML parse. Run timing to follow on GitHub.
+
+## 2026-10-29 — Snapshot site feed workflows
+
+Branch `game-feed`, base phase-1 commit `45b5ba5`. Split DB replay/closing quotes into an atomic, versioned gzip-pickle snapshot; exports load it without SQLite. Added hourly refresh-db and 10-minute feed dispatch workflows (GitHub schedules are backups), raw Actions cache and conditional S3 prediction-log persistence. S3: `valorant-model/{vlr/,kalshi/,feed/{state.pkl.gz,predictions.json,valorant.json.gz,upcoming/}}`. Checks: offline/no-sync uv pytest (369 passed, 27.81 s), Ruff format/check, shell syntax, diff check and real-DB snapshot/export passed; 1,890,179-byte state built in 3.83 s; export 0.54 s versus DB 4.68 s, identical after removing generated. Plain uv startup panics on macOS. Limits: workflows not yet run on GitHub; runner times unmeasured; raw cache must be seeded in S3 once. No network or commits. Merged main: the feed now replays the adopted `player_round_glicko_rookie_tier_revert`; its stage-1 series temperatures (Bo3 0.91, Bo5 0.84, from docs/elo_backtest.md) are stored in elo_weights.json.
+
+## 2026-10-29 — Website prediction feed
+
+Branch `game-feed`, base `main`. Added `promval export` for the Prometheus feed: upcoming/live matches, replayed results, section filters and oriented Kalshi current/closing prices. Future calls refresh in `data/predictions.json`, then freeze at start; missing future listings are removed. Upcoming pages use a separate cache; `--no-fetch` is offline. Stored existing series temperatures and retained them on refits; shared candle helpers preserve benchmark behavior. Checks (UV_OFFLINE=1 UV_NO_SYNC=1; plain uv startup panics): pytest 363 passed, Ruff format/check, diff check, real-DB offline export (2,457 finals; 1,287 prices). Observed suite timing: 347 existing tests 66.17s → 363 tests 76.04s; 16 feed tests alone 2.38s. Limits: DB only as fresh as the last crawl + `setup_db`; VLR skips same-day results, so finished matches await a result until ingested; TBD sides omitted. No commits.
+
 ## 2026-10-28 — First two-stage benchmark (partial crawl)
 
 Data and docs only. Rebuilt on the crawl so far (7,597 matches from 2024-06) and ran the two-stage benchmark: stage 1 Oct 2024 – Aug 2025, stage 2 Sep 2025 – Jun 2026. Adopted (candidates, to rerun on full history): rookie discount (stage 1 −0.0046, stage 2 −0.0070, both significant) and the form layer (−0.0030 / −0.0027). Rejected: tier moves (no effect). Regional calibration not significant on 327 cross-region maps. Best, `player_round_glicko_rookie+form`: blended series vs Kalshi −0.017 (significant). Committed `docs/elo_backtest.md`; ledger updated. Checks: pytest.
