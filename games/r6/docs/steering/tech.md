@@ -11,6 +11,20 @@ Python 3.12, uv, SQLite (raw SQL), typer CLI `promr6`, pytest, ruff. Ported from
 | `promr6/main.py` | CLI entry point |
 | `scripts/work_log.py` | Work-log reader and rotation (pre-commit hook) |
 | `tests/test_steering.py` | Work-log and doc-budget guard |
+| `promr6/siegegg/http.py` | Polite urllib requests, redirects and retries |
+| `promr6/siegegg/cache.py` | Atomic raw HTML and fetch metadata |
+| `promr6/siegegg/parse.py` | Pure typed match and roster parser |
+| `promr6/siegegg/fetch.py` | Injectable, cache-aware match fetching and summaries |
+| `promr6/siegegg/cli.py` | `siegegg fetch/status/show` commands |
+| `tests/test_siegegg.py` | Offline fixtures and temporary-cache transport tests |
+
+## siege.gg fetcher
+
+Source: `https://siege.gg/matches/<id>`; callers supply IDs (later from Liquipedia's `siegegg=` field). Under `PROMR6_DATA` (default `data/`), `siegegg/matches/<id>.html.gz` preserves response bytes; atomic `siegegg/index.json` stores status, final URL, UTC fetch timestamp and finished flag. Save raw before parsing. Finished pages never refetch, even with `--refresh`; unfinished and 404 pages require `--refresh`. `--limit` caps attempted IDs, excluding cache hits; summary counts unique IDs processed.
+
+Requests and redirects are spaced at least two seconds apart. The repository User-Agent accepts contact via `SIEGEGG_CONTACT`. Timeouts, dropped connections and 5xx retry with backoff (three tries); 429 waits 60 seconds and retries once. Tests inject transports and use temporary data roots.
+
+Pure `parse_match(bytes | str)` returns immutable match/team/player dataclasses, ordered rosters deduplicated by player ID, scores, optional UTC time and competition, map scores in team order, and finished status; 404 HTML returns `None`. Finished means two numeric overview scores plus at least one game in “Game results”. `PARSER_VERSION = 1`; bump when parser output changes. Fixture 5800 has a 2–1 series score but only two recorded maps; the parser preserves those two. No loader yet.
 
 ## Model change rules
 
