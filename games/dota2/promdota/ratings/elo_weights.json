@@ -1,0 +1,23 @@
+{
+  "team_elo": {
+    "k": 32,
+    "series_temperature": {
+      "1": 1.0,
+      "3": 0.68,
+      "5": 0.61
+    },
+    "fit_through": "2025-10-31"
+  },
+  "player_glicko": {
+    "k": 24,
+    "new_player": "fixed",
+    "rd_info": 0.0625,
+    "rd_new": 280,
+    "series_temperature": {
+      "1": 1.0,
+      "3": 0.69,
+      "5": 0.82
+    },
+    "fit_through": "2025-10-31"
+  }
+}

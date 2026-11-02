@@ -1,0 +1,50 @@
+{
+ "batchcomplete": "",
+ "continue": {
+  "gapcontinue": "ID_0nCiE8M2bR_R01-M004",
+  "continue": "gapcontinue||"
+ },
+ "query": {
+  "pages": {
+   "182101": {
+    "pageid": 182101,
+    "ns": 130,
+    "title": "Match:ID 0nCiE8M2bR R01-M001",
+    "contentmodel": "wikitext",
+    "pagelanguage": "en",
+    "pagelanguagehtmlcode": "en",
+    "pagelanguagedir": "ltr",
+    "touched": "2026-10-29T10:19:39Z",
+    "lastrevid": 2277647,
+    "length": 303,
+    "new": ""
+   },
+   "182102": {
+    "pageid": 182102,
+    "ns": 130,
+    "title": "Match:ID 0nCiE8M2bR R01-M002",
+    "contentmodel": "wikitext",
+    "pagelanguage": "en",
+    "pagelanguagehtmlcode": "en",
+    "pagelanguagedir": "ltr",
+    "touched": "2026-10-29T10:19:39Z",
+    "lastrevid": 2277648,
+    "length": 328,
+    "new": ""
+   },
+   "181535": {
+    "pageid": 181535,
+    "ns": 130,
+    "title": "Match:ID 0nCiE8M2bR R01-M003",
+    "contentmodel": "wikitext",
+    "pagelanguage": "en",
+    "pagelanguagehtmlcode": "en",
+    "pagelanguagedir": "ltr",
+    "touched": "2026-10-29T10:19:36Z",
+    "lastrevid": 2271637,
+    "length": 332,
+    "new": ""
+   }
+  }
+ }
+}
