@@ -15,6 +15,8 @@ concurrency:
 
 defaults:
   run:
+    # bash = -eo pipefail: a command piped through tee must fail its step.
+    shell: bash
     working-directory: games/dota2
 
 jobs:
@@ -26,15 +28,10 @@ jobs:
       BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: ./.github/actions/setup-game
         with:
-          enable-cache: true
-          cache-dependency-glob: games/dota2/uv.lock
-      - run: uv sync --frozen --no-dev
-      - uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
+          game: dota2
+          role: ${{ secrets.AWS_ROLE_ARN }}
       - uses: actions/cache/restore@v4
         id: raw
         with:
@@ -61,10 +58,15 @@ jobs:
             aws s3 sync "s3://$BUCKET/dota2-model/liquipedia" data/liquipedia --only-show-errors
           fi
           aws s3 sync "s3://$BUCKET/dota2-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
+          crawl() {
+            if ! uv run promdota liquipedia crawl --listing "$1" | tee /tmp/crawl-summary; then
+              echo "::warning::Liquipedia crawl failed (often a 429 on the runner's IP); building from cached pages"
+            fi
+          }
           if [[ "$(date -u +%H)" =~ ^0[345]$ ]]; then
-            uv run promdota liquipedia crawl --listing full | tee /tmp/crawl-summary
+            crawl full
           else
-            uv run promdota liquipedia crawl --listing none | tee /tmp/crawl-summary
+            crawl none
           fi
           aws s3 sync data/liquipedia "s3://$BUCKET/dota2-model/liquipedia" --size-only --only-show-errors
           changed=$(find data/liquipedia data/opendota data/kalshi -newer /tmp/raw-marker -type f -print -quit)
@@ -99,7 +101,8 @@ jobs:
           # Monthly bulk refresh works without a key (six requests). Single-game
           # top-ups are skipped without a key to preserve the daily free budget.
           month=$(date -u -d "$(date -u +%Y-%m-01) -2 months" +%Y-%m)
-          uv run promdota opendota bulk --from "$month" | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run promdota opendota bulk --from "$month" | tee -a "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning::OpenDota bulk refresh failed; using cached data"
           aws s3 sync data/opendota "s3://$BUCKET/dota2-model/opendota" --only-show-errors
       - name: Hash database inputs
         id: inputs
@@ -120,14 +123,18 @@ jobs:
           DB_HIT: ${{ steps.database.outputs.cache-hit }}
           RAW_HIT: ${{ steps.raw.outputs.cache-matched-key }}
         run: |
-          echo "Raw cache: $([ -n "$RAW_HIT" ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
-          echo "DB cache: $([ "$DB_HIT" = true ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Raw cache: $([ -n "$RAW_HIT" ] && echo hit || echo miss)"
+            echo "DB cache: $([ "$DB_HIT" = true ] && echo hit || echo miss)"
+          } >> "$GITHUB_STEP_SUMMARY"
           published=$(aws s3api head-object --bucket "$BUCKET" --key dota2-model/feed/state.pkl.gz --query Metadata.inputs --output text 2>/dev/null || true)
           if [ "$DB_HIT" = true ] && [ "$published" = "$INPUTS" ]; then
             echo "unchanged=true" >> "$GITHUB_OUTPUT"
-            echo "Unchanged inputs; skipped rebuild" >> "$GITHUB_STEP_SUMMARY"
-            echo "DB build: 0 seconds (skipped)" >> "$GITHUB_STEP_SUMMARY"
-            echo "Artifact snapshots: 0 (skipped)" >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "Unchanged inputs; skipped rebuild"
+              echo "DB build: 0 seconds (skipped)"
+              echo "Artifact snapshots: 0 (skipped)"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Rebuild database
         env:
@@ -138,15 +145,18 @@ jobs:
           started=$SECONDS
           bash scripts/setup_db.sh
           if [ "$HAS_OPENDOTA" = true ]; then
-            uv run promdota opendota games --limit 1800 | tee /tmp/games-summary | tee -a "$GITHUB_STEP_SUMMARY"
+            uv run promdota opendota games --limit 1800 | tee /tmp/games-summary | tee -a "$GITHUB_STEP_SUMMARY" \
+              || echo "::warning::OpenDota top-up failed; using cached games"
             # Rebuild only when the top-up saved games (a build is ~80 s).
             if grep -qE 'saved=[1-9]' /tmp/games-summary; then
               aws s3 sync data/opendota "s3://$BUCKET/dota2-model/opendota" --only-show-errors
               bash scripts/setup_db.sh
             fi
           fi
-          echo "Rebuilt database" >> "$GITHUB_STEP_SUMMARY"
-          echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Rebuilt database"
+            echo "DB build: $((SECONDS - started)) seconds"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Hash final database inputs
         id: final-inputs
         env:

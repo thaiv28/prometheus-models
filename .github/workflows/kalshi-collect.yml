@@ -1,4 +1,4 @@
-name: Dota 2 Kalshi collect
+name: Kalshi collect
 
 on:
   schedule:
@@ -14,33 +14,39 @@ permissions:
   contents: read
   id-token: write
 
-concurrency:
-  group: dota2-kalshi-collect
-  cancel-in-progress: false
-
-defaults:
-  run:
-    working-directory: games/dota2
-
 jobs:
   collect:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - game: cs2
+            cli: promcs
+          - game: dota2
+            cli: promdota
+          - game: valorant
+            cli: promval
+    concurrency:
+      group: kalshi-collect-${{ matrix.game }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: games/${{ matrix.game }}
     env:
       BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv sync --frozen --no-dev
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: ./.github/actions/setup-game
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
+          game: ${{ matrix.game }}
+          role: ${{ secrets.AWS_ROLE_ARN }}
       - name: Download manifest
         run: |
           mkdir -p data/kalshi
-          aws s3 cp "s3://$BUCKET/dota2-model/kalshi/manifest.json" data/kalshi/manifest.json || echo "no manifest yet"
+          aws s3 cp "s3://$BUCKET/${{ matrix.game }}-model/kalshi/manifest.json" data/kalshi/manifest.json || echo "no manifest yet"
       - name: Guard against an unseeded archive
         env:
           ALLOW_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_full }}
@@ -51,7 +57,7 @@ jobs:
           fi
       - name: Collect
         id: collect
-        run: uv run promdota kalshi collect
+        run: uv run ${{ matrix.cli }} kalshi collect
       - name: Upload progress
         if: always() && steps.collect.outcome != 'skipped' && steps.collect.outcome != ''
-        run: aws s3 sync data/kalshi "s3://$BUCKET/dota2-model/kalshi" --only-show-errors
+        run: aws s3 sync data/kalshi "s3://$BUCKET/${{ matrix.game }}-model/kalshi" --only-show-errors

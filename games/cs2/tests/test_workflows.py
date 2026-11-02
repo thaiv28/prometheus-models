@@ -1,10 +1,11 @@
 """Offline checks for the scheduled collector's storage safeguards."""
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
 
-WORKFLOW = (
-    Path(__file__).resolve().parents[3] / ".github/workflows/cs2-kalshi-collect.yml"
-)
+WORKFLOW = Path(__file__).resolve().parents[3] / ".github/workflows/kalshi-collect.yml"
 
 
 def test_kalshi_schedule_and_permissions():
@@ -45,9 +46,11 @@ def test_site_workflow_guards():
         assert f"group: cs2-{name}" in text
         assert "cancel-in-progress: false" in text
         assert f"timeout-minutes: {timeout}" in text
-        assert "role-to-assume: ${{ secrets.AWS_ROLE_ARN }}" in text
-        assert "aws-region: us-west-2" in text
-        assert "uv sync --frozen --no-dev" in text
+        assert "role: ${{ secrets.AWS_ROLE_ARN }}" in text
+        assert "uses: ./.github/actions/setup-game" in text
+        assert "game: cs2" in text
+        assert "aws-region: us-west-2" in setup_action()
+        assert "uv sync --frozen --no-dev" in setup_action()
         assert "--delete" not in text
 
 
@@ -77,17 +80,17 @@ def test_feed_storage_and_dispatch():
     assert "run refresh-db first" in text
     assert "bash scripts/feed_data.sh restore" in text
     assert "bash scripts/feed_data.sh save" in text
-    assert text.count("s3://$BUCKET/cs2-model/feed/upcoming") == 2
+    assert "cs2-model/feed/upcoming/latest.json.gz" in text
     assert (
         "uv run promcs export --state data/feed/state.pkl.gz --out data/feed/cs2.json"
         in text
     )
     assert (
-        'aws s3 cp data/feed/candidates.json "s3://$BUCKET/cs2-model/feed/candidates.json" --content-type application/json --only-show-errors'
+        "upload data/feed/candidates.json cs2-model/feed/candidates.json application/json"
         in text
     )
-    assert "gzip -9 -c" in text
-    assert "s3://$BUCKET/cs2-model/feed/cs2.json.gz" in text
+    assert "gzip -n -9 -c" in text
+    assert "cs2-model/feed/cs2.json.gz" in text
     assert "--content-type application/json" in text
     assert "gh workflow run games.yml -R thaiv28/Prometheus --ref main" in text
     assert "if: env.HAS_DISPATCH == 'true'" in text
@@ -194,3 +197,161 @@ def test_refresh_seed_guards_and_raw_save_order():
     assert "-gt 604800" in weekly
     assert "tar -I 'zstd -T0 -3' -cf - --exclude='*/books/*'" in weekly
     assert "--expected-size 3000000000 --only-show-errors" in weekly
+
+
+def setup_action():
+    return (
+        Path(__file__).resolve().parents[3] / ".github/actions/setup-game/action.yml"
+    ).read_text()
+
+
+def test_shared_setup_preserves_runtime_cache_and_aws():
+    text = setup_action()
+    for required in (
+        "name: Set up a game",
+        "required: true",
+        "default: ''",
+        "default: 'true'",
+        "using: composite",
+        "astral-sh/setup-uv@v10.2.0",
+        "enable-cache: true",
+        "cache-dependency-glob: games/${{ inputs.game }}/uv.lock",
+        "if: inputs.install == 'true'",
+        "working-directory: games/${{ inputs.game }}",
+        "shell: bash",
+        "uv sync --frozen --no-dev",
+        "if: inputs.role != ''",
+        "aws-actions/configure-aws-credentials@v6",
+        "role-to-assume: ${{ inputs.role }}",
+        "aws-region: us-west-2",
+    ):
+        assert required in text
+    assert text.index("uv sync") < text.index("configure-aws-credentials")
+
+
+def test_shared_kalshi_matrix():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/kalshi-collect.yml"
+    ).read_text()
+    for required in (
+        "name: Kalshi collect",
+        "fail-fast: false",
+        "group: kalshi-collect-${{ matrix.game }}",
+        "cancel-in-progress: false",
+        "working-directory: games/${{ matrix.game }}",
+        "timeout-minutes: 30",
+        "game: ${{ matrix.game }}",
+        "role: ${{ secrets.AWS_ROLE_ARN }}",
+        "uv run ${{ matrix.cli }} kalshi collect",
+        "s3://$BUCKET/${{ matrix.game }}-model/kalshi",
+        "if: always() && steps.collect.outcome != 'skipped' && steps.collect.outcome != ''",
+    ):
+        assert required in text
+    for game, cli in (
+        ("cs2", "promcs"),
+        ("dota2", "promdota"),
+        ("valorant", "promval"),
+    ):
+        assert f"- game: {game}\n            cli: {cli}" in text
+
+
+def test_feed_dispatch_requires_content_change():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/cs2-feed.yml"
+    ).read_text()
+    assert "id: upload" in text
+    assert "steps.upload.outputs.feed_changed == 'true'" in text
+    assert "env.HAS_DISPATCH == 'true' &&" in text
+    assert 'd.pop("generated",None)' in text
+    assert "json.dumps(d,sort_keys=True)" in text
+    assert """--query 'Metadata."content-sha256"'""" in text
+    assert "content-sha256=" in text
+    assert 'if [ "$content_hash" != "$previous_content" ]; then' in text
+    assert 'echo "feed_changed=true" >> "$GITHUB_OUTPUT"' in text
+
+
+def test_feed_gate_precedes_dependencies_and_full_checkout():
+    text = (WORKFLOW.parent / "cs2-feed.yml").read_text()
+    for required in (
+        "timeout-minutes: 15",
+        "sparse-checkout: |",
+        "/games/cs2/scripts/feed_gate.py",
+        "/.github/actions/*",
+        "sparse-checkout-cone-mode: false",
+        "fetch-depth: 1",
+        "clean: false",
+        "python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz",
+        "cs2-model/feed/gate.json",
+        "cs2-model/feed/upcoming/latest.json.gz",
+        "--mark-export",
+        "Metadata.sha256",
+        'metadata="sha256=$hash"',
+        'if [ "$hash" != "$previous" ]',
+        "steps.upload.outputs.feed_changed == 'true'",
+    ):
+        assert required in text
+    initial_setup = text.split("uses: ./.github/actions/setup-game", 1)[1].split(
+        "      - ", 1
+    )[0]
+    assert "install: 'false'" in initial_setup
+    assert "role: ${{ secrets.AWS_ROLE_ARN }}" in initial_setup
+    full_setup = text.rsplit("uses: ./.github/actions/setup-game", 1)[1].split(
+        "      - ", 1
+    )[0]
+    assert "if: steps.gate.outputs.run == 'true'" in full_setup
+    assert "role:" not in full_setup
+    assert text.count("/.github/actions/*") == 2
+    assert text.index("Restore gate inputs") < text.index("id: gate")
+    assert text.index("id: gate") < text.index("Full checkout")
+    assert text.index("Full checkout") < text.rindex(
+        "uses: ./.github/actions/setup-game"
+    )
+    assert text.index("id: gate") < text.rindex("uses: ./.github/actions/setup-game")
+    assert text.index("upload data/feed/candidates.json") < text.index("--mark-export")
+    assert text.index("upload data/feed/upcoming/latest.json.gz") < text.index(
+        "--mark-export"
+    )
+    # Every step after the gate either saves its skipped state or needs a full run.
+    if shutil.which("ruby"):
+        parsed = subprocess.run(
+            [
+                "ruby",
+                "-rpsych",
+                "-rjson",
+                "-e",
+                "puts JSON.generate(Psych.load_file(ARGV[0]))",
+                str(WORKFLOW.parent / "cs2-feed.yml"),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        steps = json.loads(parsed.stdout)["jobs"]["feed"]["steps"]
+        gate_index = next(i for i, step in enumerate(steps) if step.get("id") == "gate")
+        for step in steps[gate_index + 1 :]:
+            assert "if" in step
+            if step.get("name") != "Dispatch Prometheus":
+                assert "steps.gate.outputs.run" in step["if"]
+
+
+def test_gate_tracks_ratings_etag_and_guards_all_full_run_steps():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/cs2-feed.yml"
+    ).read_text()
+    check = text.split("id: gate\n", 1)[1].split("      - name:", 1)[0]
+    assert (
+        "--key cs2-model/feed/state.pkl.gz --query ETag --output text 2>/dev/null || true"
+        in check
+    )
+    assert '--state-etag "$state_etag"' in check
+    assert 'echo "state_etag=$state_etag" >> "$GITHUB_OUTPUT"' in check
+    assert "STATE_ETAG: ${{ steps.gate.outputs.state_etag }}" in text
+    assert '--state-etag "$STATE_ETAG" --mark-export' in text
+    assert "install: 'false'" in text
+    assert "/.github/actions/*" in text
+    after_gate = text.split("      - name: Save unchanged gate", 1)[1]
+    steps = after_gate.split("      - ")
+    assert "if: steps.gate.outputs.run == 'false'" in steps[0]
+    assert 'if [ "$hash" != "$previous" ]' in steps[0]
+    for step in steps[1:]:
+        assert "steps.gate.outputs.run == 'true'" in step

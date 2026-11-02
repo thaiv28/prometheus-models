@@ -15,6 +15,8 @@ concurrency:
 
 defaults:
   run:
+    # bash = -eo pipefail: a command piped through tee must fail its step.
+    shell: bash
     working-directory: games/cs2
 
 jobs:
@@ -26,12 +28,10 @@ jobs:
       BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv sync --frozen --no-dev
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: ./.github/actions/setup-game
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
+          game: cs2
+          role: ${{ secrets.AWS_ROLE_ARN }}
       - uses: actions/cache/restore@v4
         id: raw
         with:
@@ -57,7 +57,9 @@ jobs:
             aws s3 sync "s3://$BUCKET/cs2-model/liquipedia" data/liquipedia --only-show-errors
           fi
           aws s3 sync "s3://$BUCKET/cs2-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
-          uv run promcs liquipedia crawl | tee /tmp/crawl-summary
+          if ! uv run promcs liquipedia crawl | tee /tmp/crawl-summary; then
+            echo "::warning::Liquipedia crawl failed (often a 429 on the runner's IP); building from cached pages"
+          fi
           aws s3 sync data/liquipedia "s3://$BUCKET/cs2-model/liquipedia" --size-only --only-show-errors
           changed=$(find data/liquipedia data/kalshi -newer /tmp/raw-marker -type f -print -quit)
           find data/liquipedia data/kalshi -type f -printf '%p %s %T@\n' | sort > /tmp/raw-after
@@ -108,22 +110,28 @@ jobs:
           DB_HIT: ${{ steps.database.outputs.cache-hit }}
           RAW_HIT: ${{ steps.raw.outputs.cache-matched-key }}
         run: |
-          echo "Raw cache: $([ -n "$RAW_HIT" ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
-          echo "DB cache: $([ "$DB_HIT" = true ] && echo hit || echo miss)" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Raw cache: $([ -n "$RAW_HIT" ] && echo hit || echo miss)"
+            echo "DB cache: $([ "$DB_HIT" = true ] && echo hit || echo miss)"
+          } >> "$GITHUB_STEP_SUMMARY"
           published=$(aws s3api head-object --bucket "$BUCKET" --key cs2-model/feed/state.pkl.gz --query Metadata.inputs --output text 2>/dev/null || true)
           if [ "$DB_HIT" = true ] && [ "$published" = "$INPUTS" ]; then
             echo "unchanged=true" >> "$GITHUB_OUTPUT"
-            echo "Unchanged inputs; skipped rebuild" >> "$GITHUB_STEP_SUMMARY"
-            echo "DB build: 0 seconds (skipped)" >> "$GITHUB_STEP_SUMMARY"
-            echo "Artifact snapshots: 0 (skipped)" >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "Unchanged inputs; skipped rebuild"
+              echo "DB build: 0 seconds (skipped)"
+              echo "Artifact snapshots: 0 (skipped)"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Rebuild database
         if: steps.skip.outputs.unchanged != 'true'
         run: |
           started=$SECONDS
           bash scripts/setup_db.sh
-          echo "Rebuilt database" >> "$GITHUB_STEP_SUMMARY"
-          echo "DB build: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Rebuilt database"
+            echo "DB build: $((SECONDS - started)) seconds"
+          } >> "$GITHUB_STEP_SUMMARY"
       # Builds can outlast the hour-long OIDC session; log in again for the uploads.
       - uses: aws-actions/configure-aws-credentials@v6
         with:

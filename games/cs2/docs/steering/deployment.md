@@ -8,7 +8,7 @@ Root `.github/workflows/ci.yml` runs ruff and pytest on pushes and pull requests
 
 Repository variable `DATA_BACKUP_BUCKET` and secret `AWS_ROLE_ARN` are set for AWS OIDC.
 
-Root `.github/workflows/cs2-kalshi-collect.yml` is intended to run on main every six hours or by manual dispatch. Runs serialize without cancellation and time out after 30 minutes.
+The `cs2` matrix job in root `.github/workflows/kalshi-collect.yml` is intended to run on main every six hours or by manual dispatch. Runs serialize without cancellation and time out after 30 minutes.
 
 Set repository variable `DATA_BACKUP_BUCKET` and secret `AWS_ROLE_ARN` for GitHub OIDC; AWS region is `us-west-2`. Storage prefix: `s3://$DATA_BACKUP_BUCKET/cs2-model/kalshi/`.
 
@@ -16,11 +16,13 @@ Each runner should download only `manifest.json`; a missing manifest should fail
 
 ## Site feed
 
-Root `.github/workflows/cs2-refresh-db.yml` crawls hourly; unchanged input hashes with an exact DB-cache hit and matching S3 state metadata (`inputs`) skip the rebuild and snapshots. Root `.github/workflows/cs2-feed.yml` loads the ratings snapshot without a DB, refreshes schedule/prices and publishes every 10 minutes. cron-job.org dispatches both on main; GitHub schedules (`41 * * * *`, `7 * * * *`) are hourly backups. Both allow manual dispatch, serialize without cancellation and use OIDC in us-west-2.
+The sparse-checkout stdlib gate runs before installation: changed Liquipedia revisions, open Kalshi events, ratings-state ETag, passed starts, missing state, clock skew, failures or two hours since export force a run. Otherwise install/export/publication/dispatch are skipped; only changed gate bytes are saved.
+
+Root `.github/workflows/cs2-refresh-db.yml` crawls hourly; unchanged input hashes with an exact DB-cache hit and matching S3 state metadata (`inputs`) skip the rebuild and snapshots. Root `.github/workflows/cs2-feed.yml` loads the ratings snapshot without a DB, checks for schedule/ratings changes every 10 minutes. cron-job.org dispatches both on main; GitHub schedules (`41 * * * *`, `7 * * * *`) are hourly backups. Both allow manual dispatch, serialize without cancellation and use OIDC in us-west-2.
 
 S3 keys under `cs2-model/`: `feed/{state.pkl.gz,predictions.json,cs2.json.gz,upcoming/}`, `liquipedia/`, `kalshi/` and `kaggle/`. `cs2-model/feed/candidates.json` is private, read by Prometheus’s execution Lambda and uploaded after each public feed. Cold raw-cache misses try `cs2-model/seed/raw.tar.zst` before S3 top-ups; successful raw-cache saves refresh missing or week-old seeds. Books are excluded. `kaggle/` holds dated Kaggle zips and a `last_checked` day marker: refresh-db syncs it from S3, checks Kaggle at most once per UTC day, stores a zip only when it changed, falls back to the cached archive if the download fails, and syncs it back. DB caches hash raw paths/sizes, Kaggle zips, scripts, package and lockfile. Rebuilds publish state with `inputs` metadata and `cs2-model/feed/blend_artifact.json` for Prometheus’s Lambda. Feed logs use conditional ETag writes; concurrent changes skip saving. Snapshot download failure requires refresh-db first.
 
-Set `PROMETHEUS_DISPATCH_TOKEN` to dispatch `thaiv28/Prometheus`'s `games.yml`; absent tokens skip dispatch and dispatch failures do not fail publication. Workflows have not run on GitHub; runner times remain unmeasured.
+Set `PROMETHEUS_DISPATCH_TOKEN` to dispatch `thaiv28/Prometheus`'s `games.yml` only when public feed content changes, excluding the top-level `generated` timestamp; absent tokens skip dispatch and dispatch failures do not fail publication. Workflows have not run on GitHub; runner times remain unmeasured.
 
 ## Seeding and local copies
 

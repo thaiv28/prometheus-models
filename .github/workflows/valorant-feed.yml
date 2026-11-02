@@ -13,57 +13,125 @@ concurrency:
   group: valorant-feed
   cancel-in-progress: false
 
+defaults:
+  run:
+    working-directory: games/valorant
+    shell: bash
+
 jobs:
   feed:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: games/valorant
     timeout-minutes: 15
     env:
       BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
       HAS_DISPATCH: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv sync --frozen --no-dev
-      - uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
-      - name: Download ratings snapshot
+          sparse-checkout: |
+            /games/valorant/scripts/feed_gate.py
+            /.github/actions/*
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+      - uses: ./.github/actions/setup-game
+        with:
+          game: valorant
+          install: 'false'
+          role: ${{ secrets.AWS_ROLE_ARN }}
+      - name: Restore gate inputs
         run: |
           mkdir -p data/feed
+          aws s3 cp "s3://$BUCKET/valorant-model/feed/gate.json" data/feed/gate.json --only-show-errors || rm -f data/feed/gate.json
+          aws s3 cp "s3://$BUCKET/valorant-model/feed/valorant.json.gz" data/feed/valorant.json.gz --only-show-errors || rm -f data/feed/valorant.json.gz
+      - name: Check feed changes
+        id: gate
+        run: |
+          state_etag=$(aws s3api head-object --bucket "$BUCKET" --key valorant-model/feed/state.pkl.gz --query ETag --output text 2>/dev/null || true)
+          echo "state_etag=$state_etag" >> "$GITHUB_OUTPUT"
+          python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/valorant.json.gz --state-etag "$state_etag"
+      - name: Save unchanged gate
+        if: steps.gate.outputs.run == 'false'
+        run: |
+          hash=$(sha256sum data/feed/gate.json | cut -d ' ' -f 1)
+          previous=$(aws s3api head-object --bucket "$BUCKET" --key valorant-model/feed/gate.json --query Metadata.sha256 --output text 2>/dev/null || true)
+          if [ "$hash" != "$previous" ]; then
+            aws s3 cp data/feed/gate.json "s3://$BUCKET/valorant-model/feed/gate.json" --metadata sha256="$hash" --content-type application/json --only-show-errors
+          fi
+      - name: Full checkout
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            /games/valorant/*
+            /.github/actions/*
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          clean: false
+      - uses: ./.github/actions/setup-game
+        if: steps.gate.outputs.run == 'true'
+        with:
+          game: valorant
+      - name: Download ratings snapshot
+        if: steps.gate.outputs.run == 'true'
+        run: |
           if ! aws s3 cp "s3://$BUCKET/valorant-model/feed/state.pkl.gz" data/feed/state.pkl.gz --only-show-errors; then
-            echo "::error::Cannot download ratings snapshot; run refresh-db first"
+            echo "::error::Unable to load ratings snapshot; run refresh-db first"
             exit 1
           fi
       - name: Restore prediction log
+        if: steps.gate.outputs.run == 'true'
         env:
           DATA_BACKUP_BUCKET: ${{ env.BUCKET }}
         run: bash scripts/feed_data.sh restore
       - name: Restore schedule cache
+        if: steps.gate.outputs.run == 'true'
         run: aws s3 sync "s3://$BUCKET/valorant-model/feed/upcoming" data/upcoming --only-show-errors
       - name: Export feed
+        if: steps.gate.outputs.run == 'true'
+        shell: bash  # pipefail: a failed export must fail this step, not the upload
         run: |
-          uv run promval export --state data/feed/state.pkl.gz --out data/feed/valorant.json | tee "$RUNNER_TEMP/export.log"
-          tail -n 1 "$RUNNER_TEMP/export.log" >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload feed
-        run: |
-          gzip -9 -c data/feed/valorant.json > data/feed/valorant.json.gz
-          aws s3 cp data/feed/valorant.json.gz "s3://$BUCKET/valorant-model/feed/valorant.json.gz" --content-type application/json --only-show-errors
-      - name: Upload execution candidates
-        run: aws s3 cp data/feed/candidates.json "s3://$BUCKET/valorant-model/feed/candidates.json" --content-type application/json --only-show-errors
+          uv run promval export --state data/feed/state.pkl.gz --out data/feed/valorant.json | tee /tmp/export-summary
+          tail -1 /tmp/export-summary >> "$GITHUB_STEP_SUMMARY"
       - name: Save prediction log
+        if: steps.gate.outputs.run == 'true'
         env:
           DATA_BACKUP_BUCKET: ${{ env.BUCKET }}
         run: bash scripts/feed_data.sh save
       - name: Save schedule cache
+        if: steps.gate.outputs.run == 'true'
         run: aws s3 sync data/upcoming "s3://$BUCKET/valorant-model/feed/upcoming" --only-show-errors
+      - name: Upload changed feed objects
+        if: steps.gate.outputs.run == 'true'
+        id: upload
+        env:
+          STATE_ETAG: ${{ steps.gate.outputs.state_etag }}
+        run: |
+          content_hash=$(python3 -c 'import json,sys,hashlib; d=json.load(open(sys.argv[1])); d.pop("generated",None); print(hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest())' data/feed/valorant.json)
+          previous_content=$(aws s3api head-object --bucket "$BUCKET" --key valorant-model/feed/valorant.json.gz --query 'Metadata."content-sha256"' --output text 2>/dev/null || true)
+          if [ "$content_hash" != "$previous_content" ]; then
+            echo "feed_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          gzip -n -9 -c data/feed/valorant.json > data/feed/valorant.json.gz
+          # Candidates and snapshot must publish before advancing the export clock.
+          upload() {
+            local file="$1" key="$2" type="$3" hash previous metadata
+            hash=$(sha256sum "$file" | cut -d ' ' -f 1)
+            previous=$(aws s3api head-object --bucket "$BUCKET" --key "$key" --query Metadata.sha256 --output text 2>/dev/null || true)
+            metadata="sha256=$hash"
+            if [ "$key" = valorant-model/feed/valorant.json.gz ]; then
+              metadata="$metadata,content-sha256=$content_hash"
+            fi
+            if [ "$hash" != "$previous" ] || { [ "$key" = valorant-model/feed/valorant.json.gz ] && [ "$content_hash" != "$previous_content" ]; }; then
+              aws s3 cp "$file" "s3://$BUCKET/$key" --metadata "$metadata" --content-type "$type" --only-show-errors
+            fi
+          }
+          upload data/feed/valorant.json.gz valorant-model/feed/valorant.json.gz application/json
+          upload data/feed/candidates.json valorant-model/feed/candidates.json application/json
+          python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/valorant.json.gz --state-etag "$STATE_ETAG" --mark-export
+          upload data/feed/gate.json valorant-model/feed/gate.json application/json
       - name: Dispatch Prometheus
-        if: env.HAS_DISPATCH == 'true'
+        if: env.HAS_DISPATCH == 'true' && steps.upload.outputs.feed_changed == 'true' && steps.gate.outputs.run == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN }}

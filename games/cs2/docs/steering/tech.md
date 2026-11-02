@@ -37,7 +37,7 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 | `tests/test_liquipedia_crawl.py` | Offline crawler, HTTP, cache and CLI tests |
 | `promcs/kalshi/cli.py` | Collector, manifest and book-loop commands |
 | `scripts/kalshi_data.sh`, `feed_data.sh` | S3 archives and conditional prediction-log persistence |
-| root `.github/workflows/ci.yml`, root `.github/workflows/cs2-kalshi-collect.yml` | CI and scheduled Kalshi collection |
+| root `.github/workflows/ci.yml`, root `.github/workflows/kalshi-collect.yml` | CI and scheduled Kalshi collection |
 | root `.github/workflows/cs2-refresh-db.yml`, root `.github/workflows/cs2-feed.yml` | Hourly ratings snapshot and frequent DB-free site feed |
 | `.githooks/pre-commit`, `scripts/work_log.py` | Work-log rotation and tooling |
 | `tests/test_kalshi_collect.py` | Offline fixture-based collector and CLI tests |
@@ -112,12 +112,14 @@ Layers retain fit/apply/describe factories with connection/lineup context. --lay
 
 ## Site feed
 
+The sparse-checkout stdlib gate runs before installation: changed Liquipedia revisions, open Kalshi events, ratings-state ETag, passed starts, missing state, clock skew, failures or two hours since export force a run. Otherwise install/export/publication/dispatch are skipped; only changed gate bytes are saved.
+
 `promcs blend-artifact` writes `promcs/blend_artifact.json`: adopted-model benchmark series odds with stored stage-1 temperatures and tradeable quotes, oriented to team1. Monthly no-intercept fits from 2026-01-01 require 300 earlier series; no holdout exclusion. Prometheus packages a copy of this frozen artifact.
 
 `export --candidates PATH` also atomically writes private `data/feed/candidates.json`, raw six-decimal series chances keyed by validated Kalshi rules names, with provenance. Only future upcoming known-best-of matches linked to both open contracts qualify; rules starts must agree within 18 hours of our start. All groups are `cs2-series`; Prometheus handles blending, edge, sizing and orders. `--no-fetch` emits no candidates.
 
 `promcs feed-state` builds `feed/state.pkl.gz`: atomic gzip-6 pickle, version 1, replayed model/rated teams, temperatures, reconstructed finals/closes, match joins, lookups/aliases and data-through. Load only trusted internal snapshots; incompatible versions fail. `promcs export --state PATH` bypasses SQLite and candles; the DB wrapper remains available.
 
-`promcs export [--out PATH] [--no-fetch]` atomically writes `PROMCS_DATA/feed/cs2.json` (default root `data/`) for Prometheus. Replays the adopted player_round_glicko_rookie_weights with its stored stage-1 weights; no refit. Upcoming named teams use latest rated lineups; unknown/even lengths emit null and use untempered Bo3 odds. Active DB events within the UTC date window supply revision-content queries in batches of 50. Raw snapshots go to `upcoming/latest.json.gz`; `--no-fetch` uses that snapshot and omits current prices. If Liquipedia still fails after the fetcher's retries (e.g. a 429), export uses that snapshot too and logs `liquipedia_stale=1`. Raw Liquipedia/Kalshi caches stay read-only.
+`promcs export [--out PATH] [--no-fetch]` atomically writes `PROMCS_DATA/feed/cs2.json` (default root `data/`) for Prometheus. Replays the adopted player_round_glicko_rookie_weights with its stored stage-1 weights; no refit. Upcoming named teams use latest rated lineups; unknown/even lengths emit null and use untempered Bo3 odds. Active DB events supply revision probes in batches of 50; only changed/new pages fetch content. Version 2 `feed/upcoming/latest.json.gz` stores page revision IDs/wikitext and future starts; `--no-fetch` uses that snapshot and omits current prices. If Liquipedia still fails after the fetcher's retries (e.g. a 429), export uses that snapshot too and logs `liquipedia_stale=1`. Raw Liquipedia/Kalshi caches stay read-only.
 
 `predictions.json` saves upcoming calls by page/team IDs/ordinal, refreshes future calls and prunes disappeared future entries. Calls freeze once their saved start passes. Results join the closest unordered team pair within 36 hours once, flipping reversed probabilities; otherwise replay reconstructs them. Page results require a saved call. Missing started calls show live for six hours, then pending finals for seven days. Current Kalshi series prices use the offline linker's passes/window plus DB aliases, spread ≤0.10; finals use cached prestart candle mids. Only present sections are emitted. Ratings depend on crawl + setup_db freshness; tournaments absent from the DB are not scanned; TBD sides are omitted.

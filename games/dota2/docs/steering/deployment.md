@@ -10,7 +10,7 @@ Configure cron-job.org dispatches on main: feed every 15 minutes, refresh every 
 
 Refresh restores raw caches or the cold seed, then tops up S3. Liquipedia uses `--listing none`, except full listings during 03:00–05:59 UTC. OpenDota bulk covers three months; keyed runs fetch missing games (limit 1,800) between rebuilds. Raw caches/seeds exclude books. Sorted input hashes plus code/lockfile key the DB cache; matching published `inputs` metadata skips rebuild and snapshots. Rehash after enrichment.
 
-Feed's sparse checkout runs a stdlib gate before uv installation. Cached page revision IDs and open Kalshi event tickers detect changes; passed starts, request failures, missing state, or two hours since export force a run. Successful candidate publication advances `last_export_at`, leaving an hour below Prometheus's three-hour candidate age limit. Full runs restore ratings/predictions, export without a DB, and persist the upcoming snapshot. Missing ratings fail. SHA-256 S3 metadata skips identical uploads; deterministic feed gzip supports comparison. Prediction saves retain ETag concurrency checks. Dispatch Prometheus only when the public feed hash changes. uv caches use `uv.lock`; production installs exclude dev dependencies.
+Feed's sparse checkout runs a stdlib gate before uv installation. Cached page revision IDs, open Kalshi event tickers and the ratings-state S3 ETag detect changes; passed starts, request failures, missing state, or two hours since export force a run. Successful candidate publication advances `last_export_at`, leaving an hour below Prometheus's three-hour candidate age limit. Full runs restore ratings/predictions, export without a DB, and persist the upcoming snapshot. Missing ratings fail. SHA-256 S3 metadata skips identical uploads; deterministic feed gzip supports comparison. Prediction saves retain ETag concurrency checks. Dispatch Prometheus only when public feed content changes, excluding the top-level `generated` timestamp (`content-sha256` S3 metadata). uv caches use `uv.lock`; production installs exclude dev dependencies.
 
 ## Credentials and storage
 
@@ -31,7 +31,7 @@ Syncs never delete remote objects. Keep candidates, state and raw inputs private
 
 ## Kalshi collection
 
-Root `.github/workflows/dota2-kalshi-collect.yml` runs every six hours (`23 */6 * * *`) or manually, on main, with a 30-minute timeout. It downloads `kalshi/manifest.json`; missing manifest fails unless dispatch sets `allow_full=true`. It uploads partial progress even after collection failure. Seed a completed local archive using `promdota kalshi manifest` and `scripts/kalshi_data.sh push`; `pull` restores it. These commands are operator actions, not run during implementation.
+The `dota2` matrix job in root `.github/workflows/kalshi-collect.yml` runs every six hours (`23 */6 * * *`) or manually, on main, with a 30-minute timeout. It downloads `kalshi/manifest.json`; missing manifest fails unless dispatch sets `allow_full=true`. It uploads partial progress even after collection failure. Seed a completed local archive using `promdota kalshi manifest` and `scripts/kalshi_data.sh push`; `pull` restores it. These commands are operator actions, not run during implementation.
 
 ## Seeding from a Mac
 

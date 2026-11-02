@@ -50,8 +50,15 @@ jobs:
               out.append({"game": g, "docs_only": docs_only})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"games={json.dumps(out)}\n")
+              f.write(f"github_changed={str(any(p.startswith('.github/') for p in paths)).lower()}\n")
           print(out)
           PYTHON
+
+      - name: Lint all workflows
+        if: steps.diff.outputs.github_changed == 'true'
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
 
   check:
     needs: changes

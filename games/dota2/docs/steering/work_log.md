@@ -1,5 +1,17 @@
 # Work log
 
+## 2026-11-02 — refresh-db runs with pipefail
+
+Steps piped through `tee` (crawl, OpenDota bulk and top-up, feed-state) could fail without failing the job. refresh-db now runs bash with pipefail; a failed crawl or OpenDota fetch posts a warning and builds from cached data; feed-state still fails the job. Checks: actionlint, pytest, ruff.
+
+## 2026-11-02 — Feed gate re-exports on new ratings
+
+The stdlib feed gate compares the ratings-state S3 ETag and re-exports when refresh-db publishes new ratings, including when the previous gate lacks an ETag. Successful publication records the ETag captured before export; skipped probes retain the successful export clock and ratings marker. Checks: full pytest, ruff format/check, actionlint and work-log rotation passed. Live runner timings remain unmeasured; existing revision/event probes and skip behavior remain unchanged.
+
+## 2026-11-02 — CI: shared setup, one Kalshi workflow, actionlint, dispatch on change
+
+Scheduled jobs use the shared setup-game composite with uv download caching; Kalshi collection uses one matrix with independent game concurrency and unchanged S3 prefixes. Feeds store content-sha256 metadata excluding the top-level generated timestamp and dispatch Prometheus only on content changes; Dota retains byte-hash upload skips and its early gate. CI runs actionlint for .github changes while preserving game scoping. Checks passed: actionlint 1.7.12; full pytest; ruff format/check; eight CI-scope and fifteen mocked feed-upload scenarios; work-log rotation. Plain uv triggers a macOS configuration panic, so checks use UV_OFFLINE=1 UV_NO_SYNC=1.
+
 ## 2026-11-02 — Workflows run from prometheus-models
 
 Scheduled workflows moved to root `.github/workflows/dota2-{feed,kalshi-collect,refresh-db}.yml` with working directory `games/dota2`, game-prefixed concurrency groups and repo-root cache/hash paths. Raw cache keys are game-prefixed; S3 prefixes are unchanged. Per-game ci.yml is replaced by root CI, which scopes game workflow changes to that game. Checks with `UV_OFFLINE=1 UV_NO_SYNC=1`: `uv run --frozen pytest -q` (380 passed), `uv run ruff format --check .` and `uv run ruff check .` passed. Root `python3 -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"` passed; directory layout and six CI classification scenarios passed. `python3 scripts/work_log.py rotate` passed. Plain uv hit a macOS configuration panic; sandbox blocked git mv's index lock, so files were moved on disk.
