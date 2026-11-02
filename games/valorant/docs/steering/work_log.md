@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, the checks run, remaining limits. At most 150 words.
 
+## 2026-11-02 — Feed and execution use the KDA model
+
+Branch `valorant-kda`, base `main`. `feed.py` and `trading.py` now replay `player_round_glicko_rookie_tier_revert_perf_kda` with `load_performance` (without it the bonus silently switches off; a new test guards both). Weights gain its stage-1 series temperatures (Bo3 0.87, Bo5 0.82, from a rerun on a rebuilt DB matching the perf-share report). `blend_artifact.json` refit: latest gap slope 0.583 (was 0.535). Stage 2 vs Kalshi, KDA vs `tier_revert`: series −0.0119 vs −0.0093, map −0.0122 vs −0.0108 (neither significant); full Kelly series+map $6,737 vs $5,490, depth-capped $543 vs $495. Checks: pytest 421, ruff. Limit: production still runs from `valorant-model` until cutover.
+
 ## 2026-11-02 — Moved into prometheus-models
 
 Imported with full history into `prometheus-models/games/valorant/` (branch `main`, base: this repo's local `main` merged with `origin/main`; unpushed `perf-share` merge kept, conflicts in `elo_weights.json` (both keys kept) and the work log (entries pooled) resolved). `tests/test_steering.py` now finds the git repo from a subfolder and checks only this game's paths; the work-log hook moved to the repo root and the CI to a root workflow that checks only changed games. Production workflows still run from the old repo until cutover. Checks: steering guard fails without this entry and passes with it; full pytest and ruff from `games/valorant/`.

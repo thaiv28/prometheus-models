@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from promval import blend
-from promval.trading import build_blend_artifact, candidates
+from promval.trading import MODEL, build_blend_artifact, candidates
 
 NOW = datetime(2026, 10, 29, 18, tzinfo=UTC)
 
@@ -115,7 +115,7 @@ def test_candidate_orientation_identity_and_validation_shape(inputs):
         ).hexdigest()
     )
     assert record["provenance"] == {
-        "model": "player_round_glicko_rookie_tier_revert",
+        "model": MODEL,
         "match_id": "42",
         "p_game": 0.6,
         "p_series": 0.64,
