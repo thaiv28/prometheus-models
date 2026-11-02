@@ -1,5 +1,8 @@
 """Offline checks for the scheduled collector's storage safeguards."""
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
 
 WORKFLOW = Path(__file__).resolve().parents[3] / ".github/workflows/kalshi-collect.yml"
@@ -80,20 +83,17 @@ def test_feed_storage_and_guarded_dispatch():
         "uv run promval export --state data/feed/state.pkl.gz --out data/feed/valorant.json"
         in text
     )
-    for key in ("state.pkl.gz", "upcoming", "valorant.json.gz", "candidates.json"):
+    for key in ("state.pkl.gz", "upcoming", "valorant.json.gz"):
         assert f"s3://$BUCKET/valorant-model/feed/{key}" in text
     assert "bash scripts/feed_data.sh restore" in text
     assert "bash scripts/feed_data.sh save" in text
     assert "--content-type application/json" in text
-    upload = 'aws s3 cp data/feed/candidates.json "s3://$BUCKET/valorant-model/feed/candidates.json" --content-type application/json --only-show-errors'
-    assert upload in text
     assert (
-        text.index("name: Upload feed")
-        < text.index(upload)
-        < text.index("name: Dispatch Prometheus")
+        "upload data/feed/candidates.json valorant-model/feed/candidates.json application/json"
+        in text
     )
     assert "--acl" not in text
-    assert "gzip -9 -c" in text
+    assert "gzip -n -9 -c" in text
     assert "HAS_DISPATCH: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN != '' }}" in text
     assert "if: env.HAS_DISPATCH == 'true'" in text
     assert "GH_TOKEN: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN }}" in text
@@ -253,3 +253,88 @@ def test_feed_dispatch_requires_content_change():
     assert "content-sha256=" in text
     assert 'if [ "$content_hash" != "$previous_content" ]; then' in text
     assert 'echo "feed_changed=true" >> "$GITHUB_OUTPUT"' in text
+
+
+def test_feed_gate_precedes_dependencies_and_full_checkout():
+    text = (WORKFLOW.parent / "valorant-feed.yml").read_text()
+    for required in (
+        "timeout-minutes: 15",
+        "sparse-checkout: |",
+        "/games/valorant/scripts/feed_gate.py",
+        "/.github/actions/*",
+        "sparse-checkout-cone-mode: false",
+        "fetch-depth: 1",
+        "clean: false",
+        "python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/valorant.json.gz",
+        "valorant-model/feed/gate.json",
+        "valorant-model/feed/valorant.json.gz",
+        "--mark-export",
+        "Metadata.sha256",
+        'metadata="sha256=$hash"',
+        'if [ "$hash" != "$previous" ]',
+        "steps.upload.outputs.feed_changed == 'true'",
+    ):
+        assert required in text
+    initial_setup = text.split("uses: ./.github/actions/setup-game", 1)[1].split(
+        "      - ", 1
+    )[0]
+    assert "install: 'false'" in initial_setup
+    assert "role: ${{ secrets.AWS_ROLE_ARN }}" in initial_setup
+    full_setup = text.rsplit("uses: ./.github/actions/setup-game", 1)[1].split(
+        "      - ", 1
+    )[0]
+    assert "if: steps.gate.outputs.run == 'true'" in full_setup
+    assert "role:" not in full_setup
+    assert text.count("/.github/actions/*") == 2
+    assert text.index("Restore gate inputs") < text.index("id: gate")
+    assert text.index("id: gate") < text.index("Full checkout")
+    assert text.index("Full checkout") < text.rindex(
+        "uses: ./.github/actions/setup-game"
+    )
+    assert text.index("id: gate") < text.rindex("uses: ./.github/actions/setup-game")
+    assert text.index("upload data/feed/candidates.json") < text.index("--mark-export")
+    assert text.index("upload data/feed/valorant.json.gz") < text.index("--mark-export")
+    # Every step after the gate either saves its skipped state or needs a full run.
+    if shutil.which("ruby"):
+        parsed = subprocess.run(
+            [
+                "ruby",
+                "-rpsych",
+                "-rjson",
+                "-e",
+                "puts JSON.generate(Psych.load_file(ARGV[0]))",
+                str(WORKFLOW.parent / "valorant-feed.yml"),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        steps = json.loads(parsed.stdout)["jobs"]["feed"]["steps"]
+        gate_index = next(i for i, step in enumerate(steps) if step.get("id") == "gate")
+        for step in steps[gate_index + 1 :]:
+            assert "if" in step
+            if step.get("name") != "Dispatch Prometheus":
+                assert "steps.gate.outputs.run" in step["if"]
+
+
+def test_gate_tracks_ratings_etag_and_guards_all_full_run_steps():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/valorant-feed.yml"
+    ).read_text()
+    check = text.split("id: gate\n", 1)[1].split("      - name:", 1)[0]
+    assert (
+        "--key valorant-model/feed/state.pkl.gz --query ETag --output text 2>/dev/null || true"
+        in check
+    )
+    assert '--state-etag "$state_etag"' in check
+    assert 'echo "state_etag=$state_etag" >> "$GITHUB_OUTPUT"' in check
+    assert "STATE_ETAG: ${{ steps.gate.outputs.state_etag }}" in text
+    assert '--state-etag "$STATE_ETAG" --mark-export' in text
+    assert "install: 'false'" in text
+    assert "/.github/actions/*" in text
+    after_gate = text.split("      - name: Save unchanged gate", 1)[1]
+    steps = after_gate.split("      - ")
+    assert "if: steps.gate.outputs.run == 'false'" in steps[0]
+    assert 'if [ "$hash" != "$previous" ]' in steps[0]
+    for step in steps[1:]:
+        assert "steps.gate.outputs.run == 'true'" in step

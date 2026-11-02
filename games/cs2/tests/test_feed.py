@@ -1,6 +1,7 @@
 """Offline schedule, frozen-call lifecycle and market feed checks."""
 
 import gzip
+import hashlib
 import json
 import re
 import sqlite3
@@ -29,9 +30,23 @@ NOW = datetime(2026, 10, 29, 12, tzinfo=UTC)
 def response(text, title="P"):
     return {
         "query": {
-            "pages": [
-                {"title": title, "revisions": [{"slots": {"main": {"content": text}}}]}
-            ]
+            "pages": {
+                "1": {
+                    "title": title,
+                    "pageid": 1
+                    if title == "P"
+                    else int(hashlib.sha1(title.encode()).hexdigest()[:8], 16),
+                    "revisions": [
+                        {
+                            "revid": int(
+                                hashlib.sha1(text.encode()).hexdigest()[:8], 16
+                            ),
+                            "timestamp": "2026-10-29T12:00:00Z",
+                            "slots": {"main": {"content": text}},
+                        }
+                    ],
+                }
+            }
         }
     }
 
@@ -258,7 +273,20 @@ def test_fetch_batches_pagination_and_current_price(database, tmp_path):
 
     def lp(**kw):
         lp_queries.append(kw)
-        return response(scheduled()) if "P" in kw["titles"].split("|") else response("")
+        return {
+            "query": {
+                "pages": {
+                    title: next(
+                        iter(
+                            response(scheduled() if title == "P" else "", title)[
+                                "query"
+                            ]["pages"].values()
+                        )
+                    )
+                    for title in kw["titles"].split("|")
+                }
+            }
+        }
 
     def kalshi(**kw):
         k_queries.append(kw)
@@ -284,8 +312,11 @@ def test_fetch_batches_pagination_and_current_price(database, tmp_path):
         liquipedia_fetcher=lp,
         kalshi_fetcher=kalshi,
     )
-    assert [len(q["titles"].split("|")) for q in lp_queries] == [50, 2]
-    assert all(q["action"] == "query" and q["rvslots"] == "main" for q in lp_queries)
+    assert [len(q["titles"].split("|")) for q in lp_queries] == [50, 50, 2, 2]
+    assert all(
+        q["action"] == "query" and q.get("rvslots", "main") == "main"
+        for q in lp_queries
+    )
     assert [q["cursor"] for q in k_queries] == [None, "next"]
     upcoming = next(r for r in feed["matches"] if r["status"] == "upcoming")
     assert upcoming["market"]["p"] == 0.62
@@ -295,8 +326,8 @@ def test_fetch_batches_pagination_and_current_price(database, tmp_path):
     assert saved["start"] == "2026-10-30T12:00Z"
     assert saved["provenance"]["match_id"] == upcoming["match_id"]
     assert saved["raw"]["Alpha"] == round(saved["provenance"]["p_series"], 6)
-    with gzip.open(tmp_path / "data/upcoming/latest.json.gz", "rt") as handle:
-        assert len(json.load(handle)) == 2
+    with gzip.open(tmp_path / "data/feed/upcoming/latest.json.gz", "rt") as handle:
+        assert len(json.load(handle)["pages"]) == 52
 
 
 def test_page_final_requires_prior_call_and_unrated_skips(database, tmp_path, capsys):
@@ -445,3 +476,80 @@ def test_snapshot_cli_never_opens_db(database, tmp_path, monkeypatch):
     actual.pop("generated")
     expected.pop("generated")
     assert actual == expected
+
+
+def test_incremental_snapshot_preserves_feed_bytes(database, tmp_path):
+    from promcs.feed import build_state
+
+    with sqlite3.connect(database) as conn:
+        state = build_state(conn, tmp_path)
+    queries = []
+    text = scheduled()
+
+    def fetch(**kw):
+        queries.append(kw)
+        return response(text)
+
+    def perform():
+        return export(
+            state,
+            data=tmp_path / "data",
+            now=NOW,
+            liquipedia_fetcher=fetch,
+            kalshi_fetcher=lambda **kw: {"markets": []},
+        )
+
+    cold = perform()
+    root = tmp_path / "data/feed"
+    names = ("cs2.json", "candidates.json", "upcoming/latest.json.gz")
+    original = [(root / name).read_bytes() for name in names]
+    with gzip.open(root / "upcoming/latest.json.gz", "rt") as handle:
+        snapshot = json.load(handle)
+    assert snapshot["version"] == 2
+    assert snapshot["starts"] == ["2026-10-30T12:00:00+00:00"]
+    assert snapshot["pages"]["P"]["revid"] is not None
+    queries.clear()
+    assert perform() == cold
+    assert [q["rvprop"] for q in queries] == ["ids|timestamp"]
+    assert [(root / name).read_bytes() for name in names] == original
+    queries.clear()
+    text = scheduled(date="Oct 31, 2026 - 12:00")
+    perform()
+    assert [q["rvprop"] for q in queries] == ["ids|timestamp", "ids|timestamp|content"]
+    with gzip.open(root / "upcoming/latest.json.gz", "rt") as handle:
+        changed = json.load(handle)
+    assert changed["starts"] == ["2026-10-31T12:00:00+00:00"]
+    assert changed["pages"]["P"]["revid"] != snapshot["pages"]["P"]["revid"]
+
+
+def test_legacy_snapshot_upgrades_and_content_revision_wins(database, tmp_path):
+    root = tmp_path / "data"
+    path = root / "feed/upcoming/latest.json.gz"
+    path.parent.mkdir(parents=True)
+    # The previously published CS2 snapshot was a list of content responses.
+    with gzip.open(path, "wt") as handle:
+        json.dump([response(scheduled())], handle)
+    cached = export(db=database, data=root, now=NOW, no_fetch=True)
+    queries = []
+
+    def fetch(**kw):
+        queries.append(kw)
+        result = response(scheduled())
+        if kw["rvprop"] == "ids|timestamp|content":
+            # An edit can race the lightweight revision request.
+            next(iter(result["query"]["pages"].values()))["revisions"][0]["revid"] = 999
+        return result
+
+    actual = export(
+        db=database,
+        data=root,
+        now=NOW,
+        liquipedia_fetcher=fetch,
+        kalshi_fetcher=lambda **kw: {"markets": []},
+    )
+    assert actual == cached
+    assert [q["rvprop"] for q in queries] == ["ids|timestamp", "ids|timestamp|content"]
+    with gzip.open(path, "rt") as handle:
+        snapshot = json.load(handle)
+    assert snapshot["version"] == 2
+    assert snapshot["pages"]["P"]["revid"] == 999

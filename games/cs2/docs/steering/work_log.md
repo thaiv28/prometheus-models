@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-02 — Feed gate before install
+
+Added a stdlib pre-install gate and revision-aware versioned upcoming snapshot with match starts. Unchanged runs skip install/export/publication/dispatch; state ETag changes force export, marked only after uploads. Existing page scope, pricing and feed/candidate schema remain unchanged. Checks: full pytest, ruff format/check, system-python gate help, actionlint, work-log rotation and four differential cases against the original exporter (cold/warm/live, with Kalshi quotes) passed with byte-identical feed, candidates and predictions. Live runner savings remain unmeasured; warm fixtures use one revision probe and no content fetch.
+
 ## 2026-11-02 — CI: shared setup, one Kalshi workflow, actionlint, dispatch on change
 
 Scheduled jobs use the shared setup-game composite with uv download caching; Kalshi collection uses one matrix with independent game concurrency and unchanged S3 prefixes. Feeds store content-sha256 metadata excluding the top-level generated timestamp and dispatch Prometheus only on content changes; Dota retains byte-hash upload skips and its early gate. CI runs actionlint for .github changes while preserving game scoping. Checks passed: actionlint 1.7.12; full pytest; ruff format/check; eight CI-scope and fifteen mocked feed-upload scenarios; work-log rotation. Plain uv triggers a macOS configuration panic, so checks use UV_OFFLINE=1 UV_NO_SYNC=1.
@@ -35,15 +39,3 @@ Branch `game-candidates`, base `main`. A long Valorant rebuild outlasted the hou
 ## 2026-10-29 — refresh-db: no Liquipedia S3 listing on a cache hit
 
 Branch `game-candidates`, base `main`. The Liquipedia `aws s3 sync` from S3 now runs only on a raw-cache miss (only this workflow writes those objects, so a restored cache is current); Kalshi data, written by the collector, still syncs every run. Matches valorant-model, where the same listing took 7.5 min. Checks: workflow tests, YAML parse.
-
-## 2026-10-29 — Refresh speed (requested branch `refresh-speed`, base `main`)
-
-Added an exact input-hash DB cache and state `inputs` metadata check: unchanged hours skip rebuilds and snapshots. Cold raw-cache misses try `cs2-model/seed/raw.tar.zst` before sync; successful raw-cache saves refresh missing or week-old seeds. Rebuilds publish the walk-forward artifact to `cs2-model/feed/blend_artifact.json` for Prometheus. Raw saves precede DB builds; summaries report cache results, crawl, build seconds and snapshot count. Added offline workflow safeguards.
-
-Checks: 300 pytest tests passed with offline/no-sync uv; Ruff format/check passed. System PyYAML parse, nine shell syntax checks and four skip-check cases passed. Requested uvx validation was blocked by sandbox/uv failure. Runner timings and CI before/after durations must be measured after merge. Sandbox blocked the requested git fetch/branch setup; no commit made.
-
-Newest first. Each entry: what changed, checks run, remaining limits. At most 150 words. The DB cache key hashes file contents (not sizes), so a same-size page revision still rebuilds. Workflow tests updated for the content hash.
-
-## 2026-10-29 — Execution inputs
-
-Branch `game-candidates`, base `main`. Added frozen `promcs/blend_artifact.json`, private atomic candidates with Kalshi rules names/start checks and raw series provenance; shared benchmark helpers are unchanged. Feed uploads `cs2-model/feed/candidates.json` for Prometheus's Lambda. Real artifact: 8 snapshots; latest a=1.243027236, b=0.653439642, n=4136. Checks: pytest 297 passed/15.06 s versus 283 existing tests/13.60 s (+1.46 s locally); 14 new tests alone 0.18 s; ruff format/check, diff check and helper syntax-tree equality passed. Artifact, feed-state (8.33 s) and snapshot no-fetch export (0.42 s, candidates=0, skipped_candidates=0) passed. Used UV_NO_SYNC/UV_OFFLINE after plain uv's macOS panic. Limits: GitHub/S3/Lambda execution and runner timings unverified. No network or commits.

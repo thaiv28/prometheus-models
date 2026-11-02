@@ -55,7 +55,7 @@ def atomic(path, value, compressed=False):
         value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
     ).encode()
     if compressed:
-        raw = gzip.compress(raw)
+        raw = gzip.compress(raw, mtime=0)
     fd, temporary = tempfile.mkstemp(dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as handle:
@@ -257,6 +257,85 @@ def feed_row(
     return row
 
 
+UPCOMING_VERSION = 2
+
+
+def upcoming_pages(fetch, titles, cached):
+    """Probe the existing event pages and fetch only changed revision content.
+
+    Keep API page order within each original batch so feed/candidate bytes retain
+    the exporter's ordering, including when some pages are reused.
+    """
+    previous = (
+        cached.get("pages", {}) if cached.get("version") == UPCOMING_VERSION else {}
+    )
+    pages, responses, fetched, reused = {}, [], 0, 0
+    for offset in range(0, len(titles), 50):
+        batch = titles[offset : offset + 50]
+        probe = fetch(
+            action="query",
+            prop="revisions",
+            titles="|".join(batch),
+            rvprop="ids|timestamp",
+        )
+        current = list(pages_in(probe))
+        changed = [
+            p["title"]
+            for p in current
+            if p["title"] not in previous
+            or not p.get("revisions")
+            or previous[p["title"]]["revid"] != p["revisions"][0]["revid"]
+        ]
+        downloaded = {}
+        if changed:
+            response = fetch(
+                action="query",
+                prop="revisions",
+                titles="|".join(changed),
+                rvprop="ids|timestamp|content",
+                rvslots="main",
+            )
+            downloaded = {p["title"]: p for p in pages_in(response)}
+            fetched += len(changed)
+        ordered = []
+        for page in current:
+            title = page["title"]
+            if title in downloaded:
+                page = downloaded[title]
+                revision = next(iter(page.get("revisions", [])), {})
+                saved = {
+                    "revid": revision.get("revid"),
+                    "pageid": page.get("pageid"),
+                    "wikitext": page_text(page),
+                }
+            elif title in changed:
+                # A page disappeared between the revision and content requests.
+                continue
+            else:
+                saved = previous[title]
+                reused += 1
+            pages[title] = saved
+            ordered.append(
+                {
+                    "title": title,
+                    "pageid": saved["pageid"],
+                    "revisions": [
+                        {
+                            "revid": saved["revid"],
+                            "slots": {"main": {"content": saved["wikitext"]}},
+                        }
+                    ],
+                }
+            )
+        responses.append({"query": {"pages": ordered}})
+    return (
+        {"version": UPCOMING_VERSION, "pages": pages, "responses": responses},
+        len(titles),
+        fetched,
+        reused,
+    )
+
+
 def build_state(conn, data_root=None) -> dict:
     """Replay ratings and closing prices into a portable, versioned snapshot."""
     root = Path(data_root or os.environ.get("PROMCS_DATA", "data"))
@@ -392,7 +471,7 @@ def export(
     now = (now or datetime.now(UTC)).astimezone(UTC)
     root = Path(data or os.environ.get("PROMCS_DATA", "data"))
     out = Path(out) if out is not None else root / "feed/cs2.json"
-    cache = root / "upcoming/latest.json.gz"
+    cache = root / "feed/upcoming/latest.json.gz"
     log_path = root / "predictions.json"
     calls = json.loads(log_path.read_text()) if log_path.exists() else {}
     if state is None:
@@ -411,36 +490,28 @@ def export(
         and e["start_date"] <= (now + timedelta(days=7)).date().isoformat()
         and e["end_date"] >= (now - timedelta(days=1)).date().isoformat()
     )
-    responses, fetched, stale = [], 0, False
+    responses, checked, fetched, reused, stale = [], 0, 0, 0, False
+    cached = {}
+    if cache.exists():
+        with gzip.open(cache, "rt") as handle:
+            cached = json.load(handle)
+        if isinstance(cached, list):
+            cached = {"responses": cached}  # Legacy content-only snapshot.
     if not no_fetch:
         fetch = liquipedia_fetcher or Fetcher().query
         try:
-            for offset in range(0, len(titles), 50):
-                batch = titles[offset : offset + 50]
-                responses.append(
-                    fetch(
-                        action="query",
-                        prop="revisions",
-                        titles="|".join(batch),
-                        rvprop="ids|timestamp|content",
-                        rvslots="main",
-                    )
-                )
-                fetched += len(batch)
+            cached, checked, fetched, reused = upcoming_pages(fetch, titles, cached)
         except (URLError, TimeoutError) as exc:
             # Liquipedia can rate-limit shared runner IPs past the fetcher's
             # retries; the last good schedule beats a failed feed.
             if not cache.exists():
                 raise
             print(f"Liquipedia fetch failed ({exc}); using cached schedule")
-            responses, fetched, stale = [], 0, True
-        else:
-            atomic(cache, responses, compressed=True)
-    if (no_fetch or stale) and cache.exists():
-        with gzip.open(cache, "rt") as handle:
-            responses = json.load(handle)
+            stale = True
+    responses = cached.get("responses", [])
     skipped = Counter()
     schedule = {}
+    page_starts = set()
     for page in pages_in(responses):
         title = page["title"]
         if title not in events and page.get("pageid") in events_by_id:
@@ -457,6 +528,8 @@ def export(
                     skipped["tbd"] += 1
                     break
         for match in parse_scheduled(title, text):
+            if match.start_utc > now:
+                page_starts.add(match.start_utc.isoformat())
             ids = [
                 int(hashlib.sha1(("team:" + key).encode()).hexdigest()[:12], 16)
                 for key in (match.team1_key, match.team2_key)
@@ -617,9 +690,12 @@ def export(
         ],
         "matches": rows,
     }
+    if not no_fetch and not stale:
+        cached["starts"] = sorted(page_starts)
+        atomic(cache, cached, compressed=True)
     atomic(out, feed)
     counts = Counter(r["status"] for r in rows)
     print(
-        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_fetched={fetched} liquipedia_stale={int(stale)} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
+        f"upcoming={counts['upcoming']} live={counts['live']} final={counts['final']} kalshi_priced={sum(r['market'] is not None for r in rows)} candidates={len(private['matches'])} skipped_candidates={skipped['candidates']} skipped_unrated={skipped['unrated']} skipped_tbd={skipped['tbd']} pages_checked={checked} pages_fetched={fetched} pages_reused={reused} liquipedia_stale={int(stale)} bytes={out.stat().st_size} seconds={time.monotonic() - started:.2f}"
     )
     return feed

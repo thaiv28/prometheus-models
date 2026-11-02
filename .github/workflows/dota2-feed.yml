@@ -45,7 +45,10 @@ jobs:
           aws s3 cp "s3://$BUCKET/dota2-model/feed/upcoming/latest.json.gz" data/feed/upcoming/latest.json.gz --only-show-errors || rm -f data/feed/upcoming/latest.json.gz
       - name: Check feed changes
         id: gate
-        run: python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz
+        run: |
+          state_etag=$(aws s3api head-object --bucket "$BUCKET" --key dota2-model/feed/state.pkl.gz --query ETag --output text 2>/dev/null || true)
+          echo "state_etag=$state_etag" >> "$GITHUB_OUTPUT"
+          python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz --state-etag "$state_etag"
       - name: Save unchanged gate
         if: steps.gate.outputs.run == 'false'
         run: |
@@ -88,6 +91,8 @@ jobs:
       - name: Upload changed feed objects
         if: steps.gate.outputs.run == 'true'
         id: upload
+        env:
+          STATE_ETAG: ${{ steps.gate.outputs.state_etag }}
         run: |
           content_hash=$(python3 -c 'import json,sys,hashlib; d=json.load(open(sys.argv[1])); d.pop("generated",None); print(hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest())' data/feed/dota2.json)
           previous_content=$(aws s3api head-object --bucket "$BUCKET" --key dota2-model/feed/dota2.json.gz --query 'Metadata."content-sha256"' --output text 2>/dev/null || true)
@@ -111,10 +116,10 @@ jobs:
           upload data/feed/dota2.json.gz dota2-model/feed/dota2.json.gz application/json
           upload data/feed/candidates.json dota2-model/feed/candidates.json application/json
           upload data/feed/upcoming/latest.json.gz dota2-model/feed/upcoming/latest.json.gz application/gzip
-          python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz --mark-export
+          python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz --state-etag "$STATE_ETAG" --mark-export
           upload data/feed/gate.json dota2-model/feed/gate.json application/json
       - name: Dispatch Prometheus
-        if: env.HAS_DISPATCH == 'true' && steps.upload.outputs.feed_changed == 'true'
+        if: env.HAS_DISPATCH == 'true' && steps.upload.outputs.feed_changed == 'true' && steps.gate.outputs.run == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN }}

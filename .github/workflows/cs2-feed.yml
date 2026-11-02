@@ -27,39 +27,99 @@ jobs:
       HAS_DISPATCH: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            /games/cs2/scripts/feed_gate.py
+            /.github/actions/*
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
       - uses: ./.github/actions/setup-game
         with:
           game: cs2
+          install: 'false'
           role: ${{ secrets.AWS_ROLE_ARN }}
-      - name: Download ratings snapshot
+      - name: Restore gate inputs
         run: |
-          mkdir -p data/feed
+          mkdir -p data/feed/upcoming
+          aws s3 cp "s3://$BUCKET/cs2-model/feed/gate.json" data/feed/gate.json --only-show-errors || rm -f data/feed/gate.json
+          aws s3 cp "s3://$BUCKET/cs2-model/feed/upcoming/latest.json.gz" data/feed/upcoming/latest.json.gz --only-show-errors || rm -f data/feed/upcoming/latest.json.gz
+      - name: Check feed changes
+        id: gate
+        run: |
+          state_etag=$(aws s3api head-object --bucket "$BUCKET" --key cs2-model/feed/state.pkl.gz --query ETag --output text 2>/dev/null || true)
+          echo "state_etag=$state_etag" >> "$GITHUB_OUTPUT"
+          python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz --state-etag "$state_etag"
+      - name: Save unchanged gate
+        if: steps.gate.outputs.run == 'false'
+        run: |
+          hash=$(sha256sum data/feed/gate.json | cut -d ' ' -f 1)
+          previous=$(aws s3api head-object --bucket "$BUCKET" --key cs2-model/feed/gate.json --query Metadata.sha256 --output text 2>/dev/null || true)
+          if [ "$hash" != "$previous" ]; then
+            aws s3 cp data/feed/gate.json "s3://$BUCKET/cs2-model/feed/gate.json" --metadata sha256="$hash" --content-type application/json --only-show-errors
+          fi
+      - name: Full checkout
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            /games/cs2/*
+            /.github/actions/*
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          clean: false
+      - uses: ./.github/actions/setup-game
+        if: steps.gate.outputs.run == 'true'
+        with:
+          game: cs2
+      - name: Download ratings snapshot
+        if: steps.gate.outputs.run == 'true'
+        run: |
           if ! aws s3 cp "s3://$BUCKET/cs2-model/feed/state.pkl.gz" data/feed/state.pkl.gz --only-show-errors; then
             echo "::error::Unable to load ratings snapshot; run refresh-db first"
             exit 1
           fi
-      - run: bash scripts/feed_data.sh restore
-      - run: aws s3 sync "s3://$BUCKET/cs2-model/feed/upcoming" data/upcoming --only-show-errors
+      - if: steps.gate.outputs.run == 'true'
+        run: bash scripts/feed_data.sh restore
       - name: Export feed
+        if: steps.gate.outputs.run == 'true'
         shell: bash  # pipefail: a failed export must fail this step, not the upload
         run: |
           uv run promcs export --state data/feed/state.pkl.gz --out data/feed/cs2.json | tee /tmp/export-summary
           tail -1 /tmp/export-summary >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload feed
+      - if: steps.gate.outputs.run == 'true'
+        run: bash scripts/feed_data.sh save
+      - name: Upload changed feed objects
+        if: steps.gate.outputs.run == 'true'
         id: upload
+        env:
+          STATE_ETAG: ${{ steps.gate.outputs.state_etag }}
         run: |
           content_hash=$(python3 -c 'import json,sys,hashlib; d=json.load(open(sys.argv[1])); d.pop("generated",None); print(hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest())' data/feed/cs2.json)
           previous_content=$(aws s3api head-object --bucket "$BUCKET" --key cs2-model/feed/cs2.json.gz --query 'Metadata."content-sha256"' --output text 2>/dev/null || true)
           if [ "$content_hash" != "$previous_content" ]; then
             echo "feed_changed=true" >> "$GITHUB_OUTPUT"
           fi
-          gzip -9 -c data/feed/cs2.json > data/feed/cs2.json.gz
-          aws s3 cp data/feed/cs2.json.gz "s3://$BUCKET/cs2-model/feed/cs2.json.gz" --metadata content-sha256="$content_hash" --content-type application/json --only-show-errors
-          aws s3 cp data/feed/candidates.json "s3://$BUCKET/cs2-model/feed/candidates.json" --content-type application/json --only-show-errors
-      - run: bash scripts/feed_data.sh save
-      - run: aws s3 sync data/upcoming "s3://$BUCKET/cs2-model/feed/upcoming" --only-show-errors
+          gzip -n -9 -c data/feed/cs2.json > data/feed/cs2.json.gz
+          # Candidates and snapshot must publish before advancing the export clock.
+          upload() {
+            local file="$1" key="$2" type="$3" hash previous metadata
+            hash=$(sha256sum "$file" | cut -d ' ' -f 1)
+            previous=$(aws s3api head-object --bucket "$BUCKET" --key "$key" --query Metadata.sha256 --output text 2>/dev/null || true)
+            metadata="sha256=$hash"
+            if [ "$key" = cs2-model/feed/cs2.json.gz ]; then
+              metadata="$metadata,content-sha256=$content_hash"
+            fi
+            if [ "$hash" != "$previous" ] || { [ "$key" = cs2-model/feed/cs2.json.gz ] && [ "$content_hash" != "$previous_content" ]; }; then
+              aws s3 cp "$file" "s3://$BUCKET/$key" --metadata "$metadata" --content-type "$type" --only-show-errors
+            fi
+          }
+          upload data/feed/cs2.json.gz cs2-model/feed/cs2.json.gz application/json
+          upload data/feed/candidates.json cs2-model/feed/candidates.json application/json
+          upload data/feed/upcoming/latest.json.gz cs2-model/feed/upcoming/latest.json.gz application/gzip
+          python3 scripts/feed_gate.py --gate data/feed/gate.json --snapshot data/feed/upcoming/latest.json.gz --state-etag "$STATE_ETAG" --mark-export
+          upload data/feed/gate.json cs2-model/feed/gate.json application/json
       - name: Dispatch Prometheus
-        if: env.HAS_DISPATCH == 'true' && steps.upload.outputs.feed_changed == 'true'
+        if: env.HAS_DISPATCH == 'true' && steps.upload.outputs.feed_changed == 'true' && steps.gate.outputs.run == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN }}

@@ -20,6 +20,7 @@ def state():
             "last_export_at": (NOW - timedelta(minutes=15)).isoformat(),
             "revids": {"P": 1},
             "event_tickers": ["E"],
+            "state_etag": "",
         },
         {"version": 2, "pages": {"P": {"revid": 1}}, "starts": []},
     )
@@ -32,7 +33,20 @@ def fake(url, params):
 
 
 @pytest.mark.parametrize(
-    "change", [None, "revision", "event", "start", "age", "failure", "missing", "old"]
+    "change",
+    [
+        None,
+        "revision",
+        "event",
+        "start",
+        "age",
+        "failure",
+        "missing",
+        "old",
+        "etag",
+        "missing_etag",
+        "future",
+    ],
 )
 def test_probe(change):
     previous, snapshot = state()
@@ -42,6 +56,12 @@ def test_probe(change):
         previous["last_export_at"] = (NOW - timedelta(hours=2)).isoformat()
     if change == "missing":
         previous = {}
+    if change == "etag":
+        previous["state_etag"] = "old"
+    if change == "missing_etag":
+        previous.pop("state_etag")
+    if change == "future":
+        previous["last_export_at"] = (NOW + timedelta(minutes=1)).isoformat()
     if change == "old":
         snapshot["version"] = 1
 
@@ -111,9 +131,12 @@ def test_cli_missing_inputs_and_export_marker(tmp_path, monkeypatch):
     path.write_text(json.dumps(previous))
     with gzip.open(snapshot, "wt") as handle:
         json.dump(cached, handle)
-    monkeypatch.setattr(sys, "argv", sys.argv + ["--mark-export"])
+    monkeypatch.setattr(
+        sys, "argv", sys.argv + ["--mark-export", "--state-etag", "new-etag"]
+    )
     gate.main()
     marked = json.loads(path.read_text())
+    assert marked["state_etag"] == "new-etag"
     assert marked["event_tickers"] == previous["event_tickers"]
     assert marked["revids"] == previous["revids"]
     assert gate.instant(marked["last_export_at"]) >= NOW
@@ -124,3 +147,39 @@ def test_broken_snapshot_is_missing(tmp_path, raw):
     path = tmp_path / "snapshot.gz"
     path.write_bytes(raw)
     assert gate.read(path, compressed=True) == {}
+
+
+def test_unchanged_cli_keeps_gate_bytes(tmp_path, monkeypatch):
+    import gzip
+    import json
+    import sys
+
+    previous, snapshot = state()
+    path, cached, output = (
+        tmp_path / n for n in ("gate.json", "snapshot.gz", "output")
+    )
+    path.write_text(json.dumps(previous, sort_keys=True) + "\n")
+    with gzip.open(cached, "wt") as handle:
+        json.dump(snapshot, handle)
+    original = path.read_bytes()
+    probe = gate.probe
+    monkeypatch.setattr(
+        gate, "probe", lambda p, s, **kw: probe(p, s, get=fake, now=NOW, **kw)
+    )
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "feed_gate.py",
+            "--gate",
+            str(path),
+            "--snapshot",
+            str(cached),
+            "--state-etag",
+            previous["state_etag"],
+        ],
+    )
+    gate.main()
+    assert output.read_text() == "run=false\n"
+    assert path.read_bytes() == original

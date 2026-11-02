@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Cheap, fail-open feed probe. Deliberately stdlib-only for system Python 3.12."""
+"""Cheap, fail-open feed probe. Deliberately stdlib-only for system Python 3."""
 
 import argparse
 import gzip
 import json
 import os
 import time
-from datetime import UTC, datetime, timedelta
+import zlib
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+UTC = timezone.utc  # noqa: UP017 -- runner/local system Python may be 3.9.
 LP_API = "https://liquipedia.net/dota2/api.php"
 KALSHI_API = "https://api.elections.kalshi.com/trade-api/v2/events"
 
@@ -39,7 +41,14 @@ def fetch(url, params):
 
 
 def probe(
-    previous, snapshot, *, get=fetch, now=None, sleep=time.sleep, clock=time.monotonic
+    previous,
+    snapshot,
+    *,
+    state_etag="",
+    get=fetch,
+    now=None,
+    sleep=time.sleep,
+    clock=time.monotonic,
 ):
     """Return (run, gate); retain export time until export actually succeeds."""
     now = now or datetime.now(UTC)
@@ -92,6 +101,7 @@ def probe(
             exported is None
             or now - exported >= timedelta(hours=2)
             or exported > now
+            or state_etag != previous.get("state_etag")
             or ids != previous.get("revids")
             or ids != {t: p["revid"] for t, p in snapshot["pages"].items()}
             or sorted(tickers) != previous.get("event_tickers")
@@ -111,7 +121,7 @@ def read(path, compressed=False):
         with gzip.open(path, "rt") if compressed else path.open() as handle:
             value = json.load(handle)
             return value if isinstance(value, dict) else {}
-    except (OSError, ValueError, EOFError):
+    except (OSError, ValueError, EOFError, zlib.error):
         return {}
 
 
@@ -119,16 +129,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gate", type=Path, required=True)
     parser.add_argument("--snapshot", type=Path, required=True)
+    parser.add_argument("--state-etag", default="")
     parser.add_argument("--mark-export", action="store_true")
     args = parser.parse_args()
     previous, snapshot = read(args.gate), read(args.snapshot, True)
     if args.mark_export:
         gate = previous | {
             "last_export_at": datetime.now(UTC).isoformat(),
+            "state_etag": args.state_etag,
             "revids": {t: p["revid"] for t, p in snapshot["pages"].items()},
         }
     else:
-        run, gate = probe(previous, snapshot)
+        run, gate = probe(previous, snapshot, state_etag=args.state_etag)
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:
             output.write(f"run={str(run).lower()}\n")
     args.gate.parent.mkdir(parents=True, exist_ok=True)

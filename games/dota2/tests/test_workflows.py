@@ -312,3 +312,26 @@ def test_feed_dispatch_requires_content_change():
     assert "content-sha256=" in text
     assert 'if [ "$content_hash" != "$previous_content" ]; then' in text
     assert 'echo "feed_changed=true" >> "$GITHUB_OUTPUT"' in text
+
+
+def test_gate_tracks_ratings_etag_and_guards_all_full_run_steps():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/dota2-feed.yml"
+    ).read_text()
+    check = text.split("id: gate\n", 1)[1].split("      - name:", 1)[0]
+    assert (
+        "--key dota2-model/feed/state.pkl.gz --query ETag --output text 2>/dev/null || true"
+        in check
+    )
+    assert '--state-etag "$state_etag"' in check
+    assert 'echo "state_etag=$state_etag" >> "$GITHUB_OUTPUT"' in check
+    assert "STATE_ETAG: ${{ steps.gate.outputs.state_etag }}" in text
+    assert '--state-etag "$STATE_ETAG" --mark-export' in text
+    assert "install: 'false'" in text
+    assert "/.github/actions/*" in text
+    after_gate = text.split("      - name: Save unchanged gate", 1)[1]
+    steps = after_gate.split("      - ")
+    assert "if: steps.gate.outputs.run == 'false'" in steps[0]
+    assert 'if [ "$hash" != "$previous" ]' in steps[0]
+    for step in steps[1:]:
+        assert "steps.gate.outputs.run == 'true'" in step
