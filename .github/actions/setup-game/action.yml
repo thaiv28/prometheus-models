@@ -1,0 +1,29 @@
+name: Set up a game
+description: Install a game's runtime dependencies and optionally assume its AWS role
+inputs:
+  game:
+    description: Game project directory
+    required: true
+  role:
+    description: AWS role ARN
+    default: ''
+  install:
+    description: Install runtime dependencies
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v10.2.0
+      if: inputs.install == 'true'
+      with:
+        enable-cache: true
+        cache-dependency-glob: games/${{ inputs.game }}/uv.lock
+    - if: inputs.install == 'true'
+      shell: bash
+      working-directory: games/${{ inputs.game }}
+      run: uv sync --frozen --no-dev
+    - uses: aws-actions/configure-aws-credentials@v6
+      if: inputs.role != ''
+      with:
+        role-to-assume: ${{ inputs.role }}
+        aws-region: us-west-2

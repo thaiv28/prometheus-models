@@ -1,8 +1,8 @@
 # Work log
 
-## 2026-11-02 — refresh-db: faster crawl and Kalshi linking
+## 2026-11-02 — CI: shared setup, one Kalshi workflow, actionlint, dispatch on change
 
-CI refresh-db took ~10 min hourly: crawl ~250 s, Kalshi linking ~190 s. The crawler now reads category members' revids from the category listing (500 per request) instead of ~95 batched revision queries; linking caches its pure string helpers (`normalize`, `_variants`, `_similar`). Checks: link tables, aliases and `link_report.txt` byte-identical before/after; local link 190 s → 28 s; real steady-state crawl 48 s (listed=4561, unchanged=4736, missing=363, as before); pytest, ruff. Runner timings to confirm after merge.
+Scheduled jobs use the shared setup-game composite with uv download caching; Kalshi collection uses one matrix with independent game concurrency and unchanged S3 prefixes. Feeds store content-sha256 metadata excluding the top-level generated timestamp and dispatch Prometheus only on content changes; Dota retains byte-hash upload skips and its early gate. CI runs actionlint for .github changes while preserving game scoping. Checks passed: actionlint 1.7.12; full pytest; ruff format/check; eight CI-scope and fifteen mocked feed-upload scenarios; work-log rotation. Plain uv triggers a macOS configuration panic, so checks use UV_OFFLINE=1 UV_NO_SYNC=1.
 
 ## 2026-11-02 — Moved Liquipedia pages no longer break the DB build
 
@@ -15,6 +15,10 @@ Scheduled workflows moved to root `.github/workflows/cs2-{feed,kalshi-collect,re
 ## 2026-11-02 — Moved into prometheus-models
 
 Imported with full history into `prometheus-models/games/cs2/` (branch `main`, base: this repo's local `main` merged with `origin/main`; unpushed `player-stats` merge kept). `tests/test_steering.py` now finds the git repo from a subfolder and checks only this game's paths; the work-log hook moved to the repo root and the CI to a root workflow that checks only changed games. Production workflows still run from the old repo until cutover. Checks: steering guard fails without this entry and passes with it; full pytest and ruff from `games/cs2/`.
+
+## 2026-11-02 — refresh-db: faster crawl and Kalshi linking
+
+CI refresh-db took ~10 min hourly: crawl ~250 s, Kalshi linking ~190 s. The crawler now reads category members' revids from the category listing (500 per request) instead of ~95 batched revision queries; linking caches its pure string helpers (`normalize`, `_variants`, `_similar`). Checks: link tables, aliases and `link_report.txt` byte-identical before/after; local link 190 s → 28 s; real steady-state crawl 48 s (listed=4561, unchanged=4736, missing=363, as before); pytest, ruff. Runner timings to confirm after merge.
 
 ## 2026-10-30 — feed: pipefail on the export step
 

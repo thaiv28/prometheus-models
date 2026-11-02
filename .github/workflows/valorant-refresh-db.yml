@@ -26,12 +26,10 @@ jobs:
       BUCKET: ${{ vars.DATA_BACKUP_BUCKET }}
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv sync --frozen --no-dev
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: ./.github/actions/setup-game
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
+          game: valorant
+          role: ${{ secrets.AWS_ROLE_ARN }}
       - uses: actions/cache/restore@v4
         id: raw
         with:
@@ -127,9 +125,11 @@ jobs:
             state_inputs=$(aws s3api head-object --bucket "$BUCKET" --key valorant-model/feed/state.pkl.gz --query Metadata.inputs --output text 2>/dev/null || true)
             if [ "$state_inputs" = "$INPUTS" ]; then
               echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "Unchanged inputs; skipped rebuild" >> "$GITHUB_STEP_SUMMARY"
-              echo "DB build: 0s (skipped)" >> "$GITHUB_STEP_SUMMARY"
-              echo "Artifact snapshots: skipped (unchanged inputs)" >> "$GITHUB_STEP_SUMMARY"
+              {
+                echo "Unchanged inputs; skipped rebuild"
+                echo "DB build: 0s (skipped)"
+                echo "Artifact snapshots: skipped (unchanged inputs)"
+              } >> "$GITHUB_STEP_SUMMARY"
             fi
           else
             echo "DB cache: miss" >> "$GITHUB_STEP_SUMMARY"
@@ -139,8 +139,10 @@ jobs:
         run: |
           started=$SECONDS
           bash scripts/setup_db.sh
-          echo "DB build: $((SECONDS - started))s" >> "$GITHUB_STEP_SUMMARY"
-          echo "Rebuilt DB" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "DB build: $((SECONDS - started))s"
+            echo "Rebuilt DB"
+          } >> "$GITHUB_STEP_SUMMARY"
       # Builds can outlast the hour-long OIDC session; log in again for the uploads.
       - uses: aws-actions/configure-aws-credentials@v6
         with:

@@ -37,7 +37,7 @@ Python ≥ 3.12 with uv; SQLite rebuilt from raw caches; raw SQL; Typer CLI (`pr
 | `tests/test_liquipedia_crawl.py` | Offline crawler, HTTP, cache and CLI tests |
 | `promcs/kalshi/cli.py` | Collector, manifest and book-loop commands |
 | `scripts/kalshi_data.sh`, `feed_data.sh` | S3 archives and conditional prediction-log persistence |
-| root `.github/workflows/ci.yml`, root `.github/workflows/cs2-kalshi-collect.yml` | CI and scheduled Kalshi collection |
+| root `.github/workflows/ci.yml`, root `.github/workflows/kalshi-collect.yml` | CI and scheduled Kalshi collection |
 | root `.github/workflows/cs2-refresh-db.yml`, root `.github/workflows/cs2-feed.yml` | Hourly ratings snapshot and frequent DB-free site feed |
 | `.githooks/pre-commit`, `scripts/work_log.py` | Work-log rotation and tooling |
 | `tests/test_kalshi_collect.py` | Offline fixture-based collector and CLI tests |

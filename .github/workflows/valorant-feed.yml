@@ -27,12 +27,10 @@ jobs:
       HAS_DISPATCH: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv sync --frozen --no-dev
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: ./.github/actions/setup-game
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-west-2
+          game: valorant
+          role: ${{ secrets.AWS_ROLE_ARN }}
       - name: Download ratings snapshot
         run: |
           mkdir -p data/feed
@@ -51,9 +49,15 @@ jobs:
           uv run promval export --state data/feed/state.pkl.gz --out data/feed/valorant.json | tee "$RUNNER_TEMP/export.log"
           tail -n 1 "$RUNNER_TEMP/export.log" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload feed
+        id: upload
         run: |
+          content_hash=$(python3 -c 'import json,sys,hashlib; d=json.load(open(sys.argv[1])); d.pop("generated",None); print(hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest())' data/feed/valorant.json)
+          previous_content=$(aws s3api head-object --bucket "$BUCKET" --key valorant-model/feed/valorant.json.gz --query 'Metadata."content-sha256"' --output text 2>/dev/null || true)
+          if [ "$content_hash" != "$previous_content" ]; then
+            echo "feed_changed=true" >> "$GITHUB_OUTPUT"
+          fi
           gzip -9 -c data/feed/valorant.json > data/feed/valorant.json.gz
-          aws s3 cp data/feed/valorant.json.gz "s3://$BUCKET/valorant-model/feed/valorant.json.gz" --content-type application/json --only-show-errors
+          aws s3 cp data/feed/valorant.json.gz "s3://$BUCKET/valorant-model/feed/valorant.json.gz" --metadata content-sha256="$content_hash" --content-type application/json --only-show-errors
       - name: Upload execution candidates
         run: aws s3 cp data/feed/candidates.json "s3://$BUCKET/valorant-model/feed/candidates.json" --content-type application/json --only-show-errors
       - name: Save prediction log
@@ -63,7 +67,7 @@ jobs:
       - name: Save schedule cache
         run: aws s3 sync data/upcoming "s3://$BUCKET/valorant-model/feed/upcoming" --only-show-errors
       - name: Dispatch Prometheus
-        if: env.HAS_DISPATCH == 'true'
+        if: env.HAS_DISPATCH == 'true' && steps.upload.outputs.feed_changed == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.PROMETHEUS_DISPATCH_TOKEN }}

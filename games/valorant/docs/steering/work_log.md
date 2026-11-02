@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-02 — CI: shared setup, one Kalshi workflow, actionlint, dispatch on change
+
+Scheduled jobs use the shared setup-game composite with uv download caching; Kalshi collection uses one matrix with independent game concurrency and unchanged S3 prefixes. Feeds store content-sha256 metadata excluding the top-level generated timestamp and dispatch Prometheus only on content changes; Dota retains byte-hash upload skips and its early gate. CI runs actionlint for .github changes while preserving game scoping. Checks passed: actionlint 1.7.12; full pytest; ruff format/check; eight CI-scope and fifteen mocked feed-upload scenarios; work-log rotation. Plain uv triggers a macOS configuration panic, so checks use UV_OFFLINE=1 UV_NO_SYNC=1.
+
 Newest first. Each entry: what changed, the checks run, remaining limits. At most 150 words.
 
 ## 2026-11-02 — Workflows run from prometheus-models

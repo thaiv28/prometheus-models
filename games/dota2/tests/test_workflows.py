@@ -21,7 +21,14 @@ def test_yaml_and_shell_parse():
             "-rjson",
             "-e",
             "puts JSON.generate(ARGV.map { |p| Psych.load_file(p) })",
-            *map(str, [*WORKFLOWS.glob("dota2-*.yml"), WORKFLOWS / "ci.yml"]),
+            *map(
+                str,
+                [
+                    *WORKFLOWS.glob("dota2-*.yml"),
+                    WORKFLOWS / "ci.yml",
+                    WORKFLOWS / "kalshi-collect.yml",
+                ],
+            ),
         ],
         check=True,
         capture_output=True,
@@ -49,7 +56,8 @@ def test_site_workflow_guards():
             "cancel-in-progress: false",
             "secrets.AWS_ROLE_ARN",
             "vars.DATA_BACKUP_BUCKET",
-            "aws-region: us-west-2",
+            "uses: ./.github/actions/setup-game",
+            "game: dota2",
         ):
             assert required in text
         assert "--delete" not in text
@@ -126,7 +134,9 @@ def test_feed_gate_precedes_dependencies_and_full_checkout():
     text = (WORKFLOWS / "dota2-feed.yml").read_text()
     for required in (
         "timeout-minutes: 10",
-        "sparse-checkout: games/dota2/scripts/feed_gate.py",
+        "sparse-checkout: |",
+        "/games/dota2/scripts/feed_gate.py",
+        "/.github/actions/*",
         "sparse-checkout-cone-mode: false",
         "fetch-depth: 1",
         "clean: false",
@@ -135,15 +145,28 @@ def test_feed_gate_precedes_dependencies_and_full_checkout():
         "dota2-model/feed/upcoming/latest.json.gz",
         "--mark-export",
         "Metadata.sha256",
-        '--metadata sha256="$hash"',
+        'metadata="sha256=$hash"',
         'if [ "$hash" != "$previous" ]',
         "steps.upload.outputs.feed_changed == 'true'",
     ):
         assert required in text
+    initial_setup = text.split("uses: ./.github/actions/setup-game", 1)[1].split(
+        "      - ", 1
+    )[0]
+    assert "install: 'false'" in initial_setup
+    assert "role: ${{ secrets.AWS_ROLE_ARN }}" in initial_setup
+    full_setup = text.rsplit("uses: ./.github/actions/setup-game", 1)[1].split(
+        "      - ", 1
+    )[0]
+    assert "if: steps.gate.outputs.run == 'true'" in full_setup
+    assert "role:" not in full_setup
+    assert text.count("/.github/actions/*") == 2
     assert text.index("Restore gate inputs") < text.index("id: gate")
     assert text.index("id: gate") < text.index("Full checkout")
-    assert text.index("Full checkout") < text.index("setup-uv")
-    assert text.index("id: gate") < text.index("uv sync")
+    assert text.index("Full checkout") < text.rindex(
+        "uses: ./.github/actions/setup-game"
+    )
+    assert text.index("id: gate") < text.rindex("uses: ./.github/actions/setup-game")
     assert text.index("upload data/feed/candidates.json") < text.index("--mark-export")
     assert text.index("upload data/feed/upcoming/latest.json.gz") < text.index(
         "--mark-export"
@@ -176,15 +199,18 @@ def test_runtime_dependencies_and_cache():
         text = (
             WORKFLOWS / ("ci.yml" if name == "ci" else f"dota2-{name}.yml")
         ).read_text()
-        assert "enable-cache: true" in text
+        runtime = text if name == "ci" else setup_action()
+        assert "enable-cache: true" in runtime
         dependency = (
             "games/${{ matrix.game }}/uv.lock"
             if name == "ci"
-            else "games/dota2/uv.lock"
+            else "games/${{ inputs.game }}/uv.lock"
         )
-        assert f"cache-dependency-glob: {dependency}" in text
+        assert f"cache-dependency-glob: {dependency}" in runtime
         if name != "ci":
-            assert "uv sync --frozen --no-dev" in text
+            assert "uv sync --frozen --no-dev" in runtime
+            assert "uses: ./.github/actions/setup-game" in text
+            assert "game: dota2" in text
     assert "timeout-minutes: 45" in (WORKFLOWS / "dota2-refresh-db.yml").read_text()
 
 
@@ -215,3 +241,74 @@ def test_refresh_rebuilds_after_top_up_only_when_games_were_saved():
     top_up = text.index("promdota opendota games --limit 1800")
     assert "grep -qE 'saved=[1-9]' /tmp/games-summary" in text[top_up:]
     assert text[top_up:].index("saved=[1-9]") < text[top_up:].index("setup_db.sh")
+
+
+def setup_action():
+    return (
+        Path(__file__).resolve().parents[3] / ".github/actions/setup-game/action.yml"
+    ).read_text()
+
+
+def test_shared_setup_preserves_runtime_cache_and_aws():
+    text = setup_action()
+    for required in (
+        "name: Set up a game",
+        "required: true",
+        "default: ''",
+        "default: 'true'",
+        "using: composite",
+        "astral-sh/setup-uv@v10.2.0",
+        "enable-cache: true",
+        "cache-dependency-glob: games/${{ inputs.game }}/uv.lock",
+        "if: inputs.install == 'true'",
+        "working-directory: games/${{ inputs.game }}",
+        "shell: bash",
+        "uv sync --frozen --no-dev",
+        "if: inputs.role != ''",
+        "aws-actions/configure-aws-credentials@v6",
+        "role-to-assume: ${{ inputs.role }}",
+        "aws-region: us-west-2",
+    ):
+        assert required in text
+    assert text.index("uv sync") < text.index("configure-aws-credentials")
+
+
+def test_shared_kalshi_matrix():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/kalshi-collect.yml"
+    ).read_text()
+    for required in (
+        "name: Kalshi collect",
+        "fail-fast: false",
+        "group: kalshi-collect-${{ matrix.game }}",
+        "cancel-in-progress: false",
+        "working-directory: games/${{ matrix.game }}",
+        "timeout-minutes: 30",
+        "game: ${{ matrix.game }}",
+        "role: ${{ secrets.AWS_ROLE_ARN }}",
+        "uv run ${{ matrix.cli }} kalshi collect",
+        "s3://$BUCKET/${{ matrix.game }}-model/kalshi",
+        "if: always() && steps.collect.outcome != 'skipped' && steps.collect.outcome != ''",
+    ):
+        assert required in text
+    for game, cli in (
+        ("cs2", "promcs"),
+        ("dota2", "promdota"),
+        ("valorant", "promval"),
+    ):
+        assert f"- game: {game}\n            cli: {cli}" in text
+
+
+def test_feed_dispatch_requires_content_change():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/dota2-feed.yml"
+    ).read_text()
+    assert "id: upload" in text
+    assert "steps.upload.outputs.feed_changed == 'true'" in text
+    assert "env.HAS_DISPATCH == 'true' &&" in text
+    assert 'd.pop("generated",None)' in text
+    assert "json.dumps(d,sort_keys=True)" in text
+    assert """--query 'Metadata."content-sha256"'""" in text
+    assert "content-sha256=" in text
+    assert 'if [ "$content_hash" != "$previous_content" ]; then' in text
+    assert 'echo "feed_changed=true" >> "$GITHUB_OUTPUT"' in text

@@ -2,10 +2,7 @@
 
 from pathlib import Path
 
-WORKFLOW = (
-    Path(__file__).resolve().parents[3]
-    / ".github/workflows/valorant-kalshi-collect.yml"
-)
+WORKFLOW = Path(__file__).resolve().parents[3] / ".github/workflows/kalshi-collect.yml"
 
 
 def test_kalshi_schedule_and_permissions():
@@ -47,7 +44,9 @@ def test_site_workflow_safeguards():
         assert f"timeout-minutes: {timeout}" in text
         assert "${{ vars.DATA_BACKUP_BUCKET }}" in text
         assert "${{ secrets.AWS_ROLE_ARN }}" in text
-        assert "aws-region: us-west-2" in text
+        assert "uses: ./.github/actions/setup-game" in text
+        assert "game: valorant" in text
+        assert "aws-region: us-west-2" in setup_action()
         assert "--delete" not in text
         assert "shell: bash" in text
 
@@ -183,3 +182,74 @@ def test_refresh_db_cold_and_weekly_seeds():
     )
     assert "--expected-size 3000000000" in weekly
     assert text.index("id: raw_save") < text.index("name: Build DB")
+
+
+def setup_action():
+    return (
+        Path(__file__).resolve().parents[3] / ".github/actions/setup-game/action.yml"
+    ).read_text()
+
+
+def test_shared_setup_preserves_runtime_cache_and_aws():
+    text = setup_action()
+    for required in (
+        "name: Set up a game",
+        "required: true",
+        "default: ''",
+        "default: 'true'",
+        "using: composite",
+        "astral-sh/setup-uv@v10.2.0",
+        "enable-cache: true",
+        "cache-dependency-glob: games/${{ inputs.game }}/uv.lock",
+        "if: inputs.install == 'true'",
+        "working-directory: games/${{ inputs.game }}",
+        "shell: bash",
+        "uv sync --frozen --no-dev",
+        "if: inputs.role != ''",
+        "aws-actions/configure-aws-credentials@v6",
+        "role-to-assume: ${{ inputs.role }}",
+        "aws-region: us-west-2",
+    ):
+        assert required in text
+    assert text.index("uv sync") < text.index("configure-aws-credentials")
+
+
+def test_shared_kalshi_matrix():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/kalshi-collect.yml"
+    ).read_text()
+    for required in (
+        "name: Kalshi collect",
+        "fail-fast: false",
+        "group: kalshi-collect-${{ matrix.game }}",
+        "cancel-in-progress: false",
+        "working-directory: games/${{ matrix.game }}",
+        "timeout-minutes: 30",
+        "game: ${{ matrix.game }}",
+        "role: ${{ secrets.AWS_ROLE_ARN }}",
+        "uv run ${{ matrix.cli }} kalshi collect",
+        "s3://$BUCKET/${{ matrix.game }}-model/kalshi",
+        "if: always() && steps.collect.outcome != 'skipped' && steps.collect.outcome != ''",
+    ):
+        assert required in text
+    for game, cli in (
+        ("cs2", "promcs"),
+        ("dota2", "promdota"),
+        ("valorant", "promval"),
+    ):
+        assert f"- game: {game}\n            cli: {cli}" in text
+
+
+def test_feed_dispatch_requires_content_change():
+    text = (
+        Path(__file__).resolve().parents[3] / ".github/workflows/valorant-feed.yml"
+    ).read_text()
+    assert "id: upload" in text
+    assert "steps.upload.outputs.feed_changed == 'true'" in text
+    assert "env.HAS_DISPATCH == 'true' &&" in text
+    assert 'd.pop("generated",None)' in text
+    assert "json.dumps(d,sort_keys=True)" in text
+    assert """--query 'Metadata."content-sha256"'""" in text
+    assert "content-sha256=" in text
+    assert 'if [ "$content_hash" != "$previous_content" ]; then' in text
+    assert 'echo "feed_changed=true" >> "$GITHUB_OUTPUT"' in text
