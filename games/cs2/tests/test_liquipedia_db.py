@@ -462,3 +462,15 @@ def test_bare_key_roster_uses_event_start_and_frozen_evidence(conn):
         "SELECT player_id FROM rosters WHERE event_id=3 AND slot=1 AND team_id=?",
         (loader.stable_id("team:alpha"),),
     ).fetchone() == (sibling,)
+
+
+def test_moved_page_keeps_newest_title(conn):
+    # Liquipedia moved "Kleverr/A Lyga" to "Esporto A Lyga": both titles cached, one page id.
+    old = record("Old/Event", 7, "{{Infobox league|liquipediatier=B-Tier}}" + match())
+    new = record("New/Event", 7, "{{Infobox league|liquipediatier=B-Tier}}" + match())
+    new["revid"] = 2
+    counts, errors = loader.build(conn, {"Old/Event": old, "New/Event": new})
+    assert errors == [] and counts["moved"] == 1
+    assert conn.execute("SELECT event_id, title FROM events").fetchall() == [
+        (7, "New/Event")
+    ]

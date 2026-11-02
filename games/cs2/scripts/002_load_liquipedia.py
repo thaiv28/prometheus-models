@@ -202,10 +202,27 @@ def resolve_bare_keys(conn):
     return resolved, len(touched)
 
 
+def latest_titles(pages: dict) -> dict:
+    """Drop stale titles of moved pages: each page id keeps its newest revision."""
+    newest, kept = {}, set()
+    for title, record in pages.items():
+        try:
+            key = int(record["pageid"])
+        except (KeyError, TypeError, ValueError):
+            kept.add(title)  # build() reports the bad identity
+            continue
+        rank = (int(record.get("revid") or -1), title)
+        newest[key] = max(newest.get(key, rank), rank)
+    kept.update(title for _, title in newest.values())
+    return {title: record for title, record in pages.items() if title in kept}
+
+
 def build(conn, pages: dict):
     """Load records into an empty schema; return counters and per-page errors."""
     conn.execute("PRAGMA foreign_keys = ON")
-    counts, errors = Counter(pages=len(pages)), []
+    latest = latest_titles(pages)
+    counts, errors = Counter(pages=len(pages), moved=len(pages) - len(latest)), []
+    pages = latest
     parsed = {}
     for title, record in sorted(pages.items()):
         try:
@@ -449,7 +466,7 @@ def main(argv=None):
     errors = read_errors + errors
     (args.db.parent / "parse_errors.txt").write_text("".join(e + "\n" for e in errors))
     print(
-        f"pages={len(pages) + len(read_errors)} events={counts['events']} excluded={counts['excluded']}"
+        f"pages={len(pages) + len(read_errors)} moved={counts['moved']} events={counts['events']} excluded={counts['excluded']}"
     )
     print(
         f"matches={counts['matches']} maps={counts['maps']} duplicates={counts['duplicates']}"

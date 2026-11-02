@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-02 — Moved Liquipedia pages no longer break the DB build
+
+`refresh-db` failed from 17:35 UTC on `UNIQUE constraint failed: events.event_id`: Liquipedia moved `Kleverr/A Lyga/…` to `Esporto A Lyga/…`, so four page ids were cached under both titles. `002_load_liquipedia.py` now keeps each page id's newest revision (`latest_titles`) and logs `moved=`. Checks: new test fails before the fix and passes after; real S3 cache: pages=4742 moved=4 events=4738 parse_errors=0; pytest, ruff.
+
 ## 2026-11-02 — Workflows run from prometheus-models
 
 Scheduled workflows moved to root `.github/workflows/cs2-{feed,kalshi-collect,refresh-db}.yml` with working directory `games/cs2`, game-prefixed concurrency groups and repo-root cache/hash paths. Raw cache keys are game-prefixed; S3 prefixes are unchanged. Per-game ci.yml is replaced by root CI, which scopes game workflow changes to that game. Checks with `UV_OFFLINE=1 UV_NO_SYNC=1`: `uv run --frozen pytest -q` (363 passed), `uv run ruff format --check .` and `uv run ruff check .` passed. Root `python3 -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"` passed; directory layout and six CI classification scenarios passed. `python3 scripts/work_log.py rotate` passed. Plain uv hit a macOS configuration panic; sandbox blocked git mv's index lock, so files were moved on disk.
