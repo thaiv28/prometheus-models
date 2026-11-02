@@ -145,7 +145,18 @@ def test_map_scores_finished_and_unresolved():
     assert not parse.parse_matches(
         "P", match("|map1={{Map|finished=true|score1=6|score2=6}}")
     )
-    assert parse.PARSER_VERSION == 1
+    assert parse.PARSER_VERSION == 2
+
+
+def test_series_score_without_maps_and_tiers():
+    (m,) = parse.parse_matches("P", match("|finished=true", "|score=2", "|score=0"))
+    assert (m.score1, m.score2, m.winner, m.maps) == (2, 0, 1, [])
+    (m,) = parse.parse_matches("P", match("|finished=true", "|score=1", "|score=1"))
+    assert m.winner is None
+    (m,) = parse.parse_matches("P", match("|finished=true", "|score=W", "|score=FF"))
+    assert m.walkover and m.winner is None
+    assert parse.normalize_tier("5") == "tier3"
+    assert parse.parse_date("2026-01-01 10:00 {{Abbr/BRST}}")[0].hour == 12
 
 
 def test_nested_params_and_zones():

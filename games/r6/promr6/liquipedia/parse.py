@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
-PARSER_VERSION = 1
+PARSER_VERSION = 2
 TZ = dict(
     zip(
         "UTC GMT WET WEST BST CET CEST EET EEST MSK TRT AST GST IST ICT SGT PHT HKT AWST KST JST AEST AEDT NZST NZDT EST EDT CST CDT MST MDT PST PDT BRT ART CLT CLST".split(),
@@ -53,6 +53,7 @@ TZ = dict(
     )
 )
 # Less common zones seen in the cache (2026-10-29 tally); ALMT is +5 since March 2024.
+TZ.update({"BRST": -2, "IRDT": 4.5})
 TZ.update(
     ALMT=5,
     AQTT=5,
@@ -149,7 +150,7 @@ def fold(value):
 
 
 def normalize_tier(value):
-    return {"1": "tier1", "2": "tier2", "3": "tier3", "4": "tier3"}.get(
+    return {"1": "tier1", "2": "tier2", "3": "tier3", "4": "tier3", "5": "tier3"}.get(
         str(value), "unknown"
     )
 
@@ -289,6 +290,9 @@ class ParsedMatch:
     siegegg_id: int | None
     walkover: int
     substitutions: dict[int, list[tuple[str, str]]]
+    # Map wins, or the opponents' series scores when no map is recorded.
+    score1: int = 0
+    score2: int = 0
 
 
 def _number(p, key):
@@ -379,6 +383,10 @@ def _read_match(block, ordinal, counts):
         elif not walkover and (m := _map(order, p[key])):
             maps.append(m)
     wins1, wins2 = sum(m.winner == 1 for m in maps), sum(m.winner == 2 for m in maps)
+    if not maps and not walkover:
+        scores = [_number(op, "score") for op in opponents]
+        if None not in scores:
+            wins1, wins2 = scores
     winner = None if wins1 == wins2 or walkover else 1 if wins1 > wins2 else 2
     return ParsedMatch(
         ordinal,
@@ -391,6 +399,8 @@ def _read_match(block, ordinal, counts):
         _number(p, "siegegg"),
         walkover,
         substitutions,
+        wins1,
+        wins2,
     )
 
 

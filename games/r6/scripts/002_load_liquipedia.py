@@ -225,13 +225,7 @@ def build(conn, pages: dict):
                                 f"INSERT OR IGNORE INTO {table} VALUES (?, ?, ?)",
                                 tuple(row.values()),
                             )
-                wins1 = sum(g.winner == 1 for g in m.maps)
-                wins2 = sum(g.winner == 2 for g in m.maps)
-                winner = (
-                    (1 if wins1 > wins2 else 2 if wins2 > wins1 else None)
-                    if not m.walkover
-                    else None
-                )
+                wins1, wins2, winner = m.score1, m.score2, m.winner
                 page_counts["walkovers"] += int(bool(m.walkover))
                 page_counts["unresolved_matches"] += int(winner is None)
                 insert(

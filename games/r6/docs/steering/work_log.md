@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-02 — First live crawl; parser version 2
+
+Live crawl: 4,804 tournaments listed, 6,161 pages (1,357 subpages), 13.5 min, 32 MB. Kalshi: 1,438 series and 828 map markets, 17 min (4 map markets errored). Parser v2: `liquipediatier=5` → tier3 (was unknown: 30k series); series with opponent scores but no map details keep those scores and winner (unresolved 19,617 → 11,682, of which 9,317 walkovers); BRST and IRDT zones. Rebuild: 80,762 series, 86,058 maps, 0 parse errors; series links 623/719, map links 360/414. Checks: `uv run pytest -q`. Limit: unlinked series come from date-only rules and template-code team names (`tl`, `bd`).
+
 ## 2026-11-02 — Lineups from siege.gg
 
 Added `scripts/005_load_lineups.py` (runs after 004): finished siege.gg pages give each side's lineup (oriented by team name, else score); otherwise a complete Liquipedia roster card plus that match's substitutions. Liquipedia names map to siege.gg IDs by unique folded nickname (same team within 365 days, else global). `promr6 siegegg fetch --from-db` reads the DB's siege.gg IDs. Checks: `uv run pytest -q` 146 passed; ruff clean. Limit: offline fixtures only until the live crawl lands.
