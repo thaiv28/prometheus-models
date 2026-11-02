@@ -66,8 +66,11 @@ def test_site_workflow_guards():
 def test_refresh_inputs_and_optional_opendota():
     text = (WORKFLOWS / "dota2-refresh-db.yml").read_text()
     for required in (
-        "promdota liquipedia crawl --listing none",
-        "promdota liquipedia crawl --listing full",
+        'promdota liquipedia crawl --listing "$1"',
+        "crawl full",
+        "crawl none",
+        "::warning::Liquipedia crawl failed",
+        "shell: bash",
         'date -u +%H)" =~ ^0[345]$',
         'promdota opendota bulk --from "$month"',
         "promdota opendota games --limit 1800",

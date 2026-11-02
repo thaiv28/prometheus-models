@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-02 — refresh-db fails loudly; runner timings after the speed-up
+
+A Liquipedia 429 on the first listing request crashed the crawl, and `| tee` without pipefail hid it: the run passed and rebuilt from cached pages. refresh-db now runs bash with pipefail; a failed crawl posts a warning and builds from cached pages; Kaggle's fallback warning now fires. Runner timings after the crawl/link speed-up (run of 22:41 UTC): crawl 48 s (was ~250 s), linking ~67 s (was ~190 s), whole run 5.2 min (was ~10). Checks: actionlint, pytest, ruff.
+
 ## 2026-11-02 — Feed gate before install
 
 Added a stdlib pre-install gate and revision-aware versioned upcoming snapshot with match starts. Unchanged runs skip install/export/publication/dispatch; state ETag changes force export, marked only after uploads. Existing page scope, pricing and feed/candidate schema remain unchanged. Checks: full pytest, ruff format/check, system-python gate help, actionlint, work-log rotation and four differential cases against the original exporter (cold/warm/live, with Kalshi quotes) passed with byte-identical feed, candidates and predictions. Live runner savings remain unmeasured; warm fixtures use one revision probe and no content fetch.

@@ -15,6 +15,8 @@ concurrency:
 
 defaults:
   run:
+    # bash = -eo pipefail: a command piped through tee must fail its step.
+    shell: bash
     working-directory: games/cs2
 
 jobs:
@@ -55,7 +57,9 @@ jobs:
             aws s3 sync "s3://$BUCKET/cs2-model/liquipedia" data/liquipedia --only-show-errors
           fi
           aws s3 sync "s3://$BUCKET/cs2-model/kalshi" data/kalshi --only-show-errors --exclude "books/*"
-          uv run promcs liquipedia crawl | tee /tmp/crawl-summary
+          if ! uv run promcs liquipedia crawl | tee /tmp/crawl-summary; then
+            echo "::warning::Liquipedia crawl failed (often a 429 on the runner's IP); building from cached pages"
+          fi
           aws s3 sync data/liquipedia "s3://$BUCKET/cs2-model/liquipedia" --size-only --only-show-errors
           changed=$(find data/liquipedia data/kalshi -newer /tmp/raw-marker -type f -print -quit)
           find data/liquipedia data/kalshi -type f -printf '%p %s %T@\n' | sort > /tmp/raw-after

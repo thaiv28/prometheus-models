@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-02 — refresh-db runs with pipefail
+
+Steps piped through `tee` (crawl, OpenDota bulk and top-up, feed-state) could fail without failing the job. refresh-db now runs bash with pipefail; a failed crawl or OpenDota fetch posts a warning and builds from cached data; feed-state still fails the job. Checks: actionlint, pytest, ruff.
+
 ## 2026-11-02 — Feed gate re-exports on new ratings
 
 The stdlib feed gate compares the ratings-state S3 ETag and re-exports when refresh-db publishes new ratings, including when the previous gate lacks an ETag. Successful publication records the ETag captured before export; skipped probes retain the successful export clock and ratings marker. Checks: full pytest, ruff format/check, actionlint and work-log rotation passed. Live runner timings remain unmeasured; existing revision/event probes and skip behavior remain unchanged.
