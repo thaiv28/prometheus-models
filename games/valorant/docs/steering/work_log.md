@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, the checks run, remaining limits. At most 150 words.
 
+## 2026-11-02 — Moved into prometheus-models
+
+Imported with full history into `prometheus-models/games/valorant/` (branch `main`, base: this repo's local `main` merged with `origin/main`; unpushed `perf-share` merge kept, conflicts in `elo_weights.json` (both keys kept) and the work log (entries pooled) resolved). `tests/test_steering.py` now finds the git repo from a subfolder and checks only this game's paths; the work-log hook moved to the repo root and the CI to a root workflow that checks only changed games. Production workflows still run from the old repo until cutover. Checks: steering guard fails without this entry and passes with it; full pytest and ruff from `games/valorant/`.
+
 ## 2026-10-29 — KDA performance bonus adopted
 
 Branch `perf-share`, base `main`. Player updates add a zero-sum bonus within each side: perf_k·(stat − causal agent EMA, centred on teammates), RD-weighted, off by default. Stat is KDA=(K+0.5A−D)/rounds or VLR rating; `load_performance` feeds it through the benchmark scripts. Two variants on the frozen `tier_revert` base, perf_k grid 1–20 (first grid 5–160 hit its low edge). Both chose 7: stage 1 −0.0030 (significant), stage 2 −0.0012 (KDA) / −0.0009 (rating), n.s., no section worse; KDA is better vs Kalshi on stage 2. Adopted the KDA variant; weights and `docs/elo_backtest.md` regenerated. Checks: pytest 351 → 378 tests (32.0 s → 25.4 s; timing noise), ruff, full benchmark (16.6 min). Codex wrote the code. Limit: no holdout left; confirm on the forward window from 2026-10-29.

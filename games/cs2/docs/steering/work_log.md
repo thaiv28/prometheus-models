@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-02 — Moved into prometheus-models
+
+Imported with full history into `prometheus-models/games/cs2/` (branch `main`, base: this repo's local `main` merged with `origin/main`; unpushed `player-stats` merge kept). `tests/test_steering.py` now finds the git repo from a subfolder and checks only this game's paths; the work-log hook moved to the repo root and the CI to a root workflow that checks only changed games. Production workflows still run from the old repo until cutover. Checks: steering guard fails without this entry and passes with it; full pytest and ruff from `games/cs2/`.
+
 ## 2026-10-30 — feed: pipefail on the export step
 
 Branch `pipefail`, base `origin/main`. The export step piped through `tee` under the default `bash -e`, so a crashed export passed and the upload step failed instead. The step now uses `shell: bash` (pipefail). Checks: full pytest, ruff, YAML parse.

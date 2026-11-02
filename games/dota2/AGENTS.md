@@ -21,11 +21,11 @@ Read large docs by section (`grep -n '^## '`), not whole. Code and built data ar
 - Feature status and limits: `current_state.md`; sources, tables, algorithms and layout: `tech.md`; schedules, storage, secrets and AWS: `deployment.md`.
 - Every tested model idea: `docs/research/README.md` with stage-1 and stage-2 numbers. Model or benchmark changes also regenerate `docs/elo_backtest.md` when the benchmark exists.
 
-`uv run pytest -q` includes `tests/test_steering.py`, which requires a work-log update for code changes and enforces doc budgets. The pre-commit hook rotates the work log. Enable with `git config core.hooksPath .githooks`.
+`uv run pytest -q` includes `tests/test_steering.py`, which requires a work-log update for code changes and enforces doc budgets. The repo-root pre-commit hook rotates the work log. Enable once per clone: `git config core.hooksPath .githooks`.
 
 ## What this is
 
-A pre-game trading model for Dota 2 esports: player-based game Elo priced against Kalshi's Dota 2 series (`KXDOTA2GAME`) and game-winner (`KXDOTA2MAP`) markets. Built by following Prometheus's `docs/playbooks/new_game.md` (`../Prometheus`); it reuses cs2-model's (`../cs2-model`) Liquipedia, Kalshi, linking and benchmark code. The playbook phase is in Current state.
+A pre-game trading model for Dota 2 esports: player-based game Elo priced against Kalshi's Dota 2 series (`KXDOTA2GAME`) and game-winner (`KXDOTA2MAP`) markets. Built by following Prometheus's `docs/playbooks/new_game.md` (the sibling `Prometheus` repo); it reuses CS2's (`../cs2`) Liquipedia, Kalshi, linking and benchmark code. The playbook phase is in Current state.
 
 ## Quick commands
 

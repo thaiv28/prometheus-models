@@ -1,0 +1,22 @@
+# AGENTS.md
+
+Esports trading models priced against Kalshi, one folder per game. League of Legends lives in the separate `Prometheus` repo (model, website and the shared execution service).
+
+| Path | Game | Package |
+|---|---|---|
+| `games/cs2/` | Counter-Strike 2 | `promcs` |
+| `games/dota2/` | Dota 2 | `promdota` |
+| `games/valorant/` | Valorant | `promval` |
+
+Each game is its own uv project with its own `AGENTS.md`, steering docs, work log, data and tests. **Work in one game at a time:** `cd games/<game>`, read only that game's `AGENTS.md`, and run its commands from there. Don't read another game's docs unless you are porting code from it.
+
+## Rules for every game
+
+- Work in a separate worktree from the repo root: `git worktree add ../prometheus-models-<branch> -b <branch> <base>`, then `cd games/<game> && uv sync`. Gitignored state (`data/`, `db/`, `.env`) is per game; set it up as that game's `AGENTS.md` says, with `MAIN` meaning the main checkout's `games/<game>`.
+- Enable the hooks once per clone: `git config core.hooksPath .githooks`. The pre-commit hook rotates the work log of each game a commit touches.
+- A change to one game updates that game's work log. A change to the repo root (CI, hooks, this file) adds a short entry to the work log of each game it affects.
+- CI (`.github/workflows/ci.yml`) checks only the games whose files changed; a change under `.github/` checks all of them.
+
+## Status
+
+Imported with history on 2026-11-02 from `cs2-model`, `dota2-model` and `valorant-model`. Production (feeds, Kalshi collectors, DB refreshes, the S3 paths Prometheus reads) still runs from those repos; their workflows sit unused in `games/<game>/.github/` until cutover. Next: move shared code (Kalshi, quotes, blend, evaluation, backtest, trading, linking, Liquipedia) into one `core/` package, then move the scheduled workflows here and archive the old repos.

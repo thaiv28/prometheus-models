@@ -1,5 +1,9 @@
 
 
+## 2026-11-02 — Moved into prometheus-models
+
+Imported with full history into `prometheus-models/games/dota2/` (branch `main`, base: this repo's local `main` merged with `origin/main`). `tests/test_steering.py` now finds the git repo from a subfolder and checks only this game's paths; the work-log hook moved to the repo root and the CI to a root workflow that checks only changed games. Production workflows still run from the old repo until cutover. Checks: steering guard fails without this entry and passes with it; full pytest and ruff from `games/dota2/`.
+
 ## 2026-10-30 — feed: cached schedule when Liquipedia rate-limits
 
 Branch `liquipedia-429`, base `origin/main`. Site feed run 41124259738 hit Liquipedia `HTTP 429` past the fetcher's retries; `| tee` without pipefail hid the crash until the upload step. `promdota export` now reuses the last snapshot on a URL/timeout error (snapshot left unchanged, summary `liquipedia_stale=1`; no snapshot still fails), and the export step runs with `shell: bash` (pipefail). Same fix as cs2-model. Checks: new feed test, full pytest, ruff, YAML parse.

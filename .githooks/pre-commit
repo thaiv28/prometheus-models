@@ -1,0 +1,7 @@
+#!/bin/sh
+# Rotate each game's work log when a commit touches it (see games/<game>/scripts/work_log.py).
+# Enable once per clone: git config core.hooksPath .githooks
+for game in $(git diff --cached --name-only | sed -n 's#^games/\([^/]*\)/docs/steering/work_log\.md$#\1#p'); do
+    (cd "games/$game" && python3 scripts/work_log.py rotate) &&
+        git add "games/$game/docs/steering/work_log.md" "games/$game/docs/steering/work_log_archive.md" || exit 1
+done

@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      games: ${{ steps.diff.outputs.games }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Pick games and test scope from changed paths
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # A missing base (first push) or a CI change runs every game in full.
+          if git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            [ "$EVENT" = pull_request ] && base=$(git merge-base "$BASE" "$HEAD") || base="$BASE"
+            git diff --name-only "$base" "$HEAD" > /tmp/changed
+          else
+            echo .github/workflows/ci.yml > /tmp/changed
+          fi
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          paths = Path("/tmp/changed").read_text().split()
+          games = sorted(p.name for p in Path("games").iterdir() if p.is_dir())
+          everything = any(p.startswith(".github/") for p in paths)
+          out = []
+          for g in games:
+              own = [p.removeprefix(f"games/{g}/") for p in paths if p.startswith(f"games/{g}/")]
+              if not own and not everything:
+                  continue
+              docs_only = bool(own) and not everything and all(
+                  p.startswith("docs/") or ("/" not in p and p.endswith(".md")) for p in own
+              )
+              out.append({"game": g, "docs_only": docs_only})
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"games={json.dumps(out)}\n")
+          print(out)
+          PYTHON
+
+  check:
+    needs: changes
+    if: needs.changes.outputs.games != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.games) }}
+    name: check (${{ matrix.game }})
+    defaults:
+      run:
+        working-directory: games/${{ matrix.game }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: games/${{ matrix.game }}/uv.lock
+      - run: uv sync --frozen
+      - run: uv run ruff format --check && uv run ruff check
+      - if: matrix.docs_only
+        run: uv run pytest -q tests/test_steering.py
+      - if: ${{ !matrix.docs_only }}
+        run: uv run pytest -q

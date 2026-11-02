@@ -21,11 +21,11 @@ Read large docs by section (`grep -n '^## '`), not whole. Code and built data ar
 - Feature status and limits: `current_state.md`; sources, tables, algorithms and layout: `tech.md`; schedules, storage, secrets and AWS: `deployment.md`.
 - Every tested model idea: `docs/research/README.md` with stage-1 and stage-2 numbers. Model or benchmark changes also regenerate `docs/elo_backtest.md` when the benchmark exists.
 
-`uv run pytest -q` includes `tests/test_steering.py`, which requires a work-log update for code changes and enforces doc budgets. The pre-commit hook rotates the work log. Enable with `git config core.hooksPath .githooks`.
+`uv run pytest -q` includes `tests/test_steering.py`, which requires a work-log update for code changes and enforces doc budgets. The repo-root pre-commit hook rotates the work log. Enable once per clone: `git config core.hooksPath .githooks`.
 
 ## What this is
 
-A pre-map trading model for CS2 esports: player-based round Elo, a map layer, priced against Kalshi's CS2 series (`KXCS2GAME`) and map-winner (`KXCS2MAP`) markets. It follows Prometheus (`../Prometheus`) and valorant-model (`../valorant-model`), whose Elo, benchmark and Kalshi code it reuses.
+A pre-map trading model for CS2 esports: player-based round Elo, a map layer, priced against Kalshi's CS2 series (`KXCS2GAME`) and map-winner (`KXCS2MAP`) markets. It follows Prometheus (the sibling `Prometheus` repo) and Valorant (`../valorant`), whose Elo, benchmark and Kalshi code it reuses.
 
 ## Quick commands
 

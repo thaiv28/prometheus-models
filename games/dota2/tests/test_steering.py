@@ -39,22 +39,31 @@ def test_steering_docs_exist():
     assert not missing, f"Missing steering docs: {missing}"
 
 
-def _changed_paths():
-    out = subprocess.run(
-        ["git", "status", "--porcelain=v1", "--untracked-files=all", "-z"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
+def _git(*args):
+    return subprocess.run(
+        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout
+
+
+def _in_git():
+    if shutil.which("git") is None:
+        return False
+    try:
+        return _git("rev-parse", "--is-inside-work-tree").strip() == "true"
+    except subprocess.CalledProcessError:
+        return False
+
+
+def _changed_paths():
+    # Porcelain paths are relative to the repo root; this game lives under a prefix.
+    prefix = _git("rev-parse", "--show-prefix").strip()
+    out = _git("status", "--porcelain=v1", "--untracked-files=all", "-z", "--", ".")
     # Entries are "XY path"; renames add the old path as a separate entry.
-    return [entry[3:] for entry in out.split("\0") if len(entry) > 3]
+    paths = [entry[3:] for entry in out.split("\0") if len(entry) > 3]
+    return [p.removeprefix(prefix) for p in paths if p.startswith(prefix)]
 
 
-@pytest.mark.skipif(
-    shutil.which("git") is None or not (ROOT / ".git").exists(),
-    reason="not a git checkout",
-)
+@pytest.mark.skipif(not _in_git(), reason="not a git checkout")
 def test_code_changes_have_a_work_log_entry():
     changed = _changed_paths()
     code = [p for p in changed if CODE.match(p)]
@@ -70,10 +79,7 @@ def _entries(text):
     return {h: len(body.split()) for h, body in zip(parts[1::2], parts[2::2])}
 
 
-@pytest.mark.skipif(
-    shutil.which("git") is None or not (ROOT / ".git").exists(),
-    reason="not a git checkout",
-)
+@pytest.mark.skipif(not _in_git(), reason="not a git checkout")
 def test_changed_docs_stay_within_word_budgets():
     changed = set(_changed_paths())
     over = {
@@ -89,10 +95,7 @@ def test_changed_docs_stay_within_word_budgets():
     )
 
 
-@pytest.mark.skipif(
-    shutil.which("git") is None or not (ROOT / ".git").exists(),
-    reason="not a git checkout",
-)
+@pytest.mark.skipif(not _in_git(), reason="not a git checkout")
 def test_new_work_log_entries_are_short():
     if WORK_LOG not in _changed_paths():
         return

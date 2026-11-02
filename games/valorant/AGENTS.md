@@ -29,7 +29,7 @@ The pre-commit hook rotates the work log (past 15 entries, all but the newest 10
 
 ## What this is
 
-A pre-map trading model for Valorant esports: player-based round Elo, a map layer and a veto model, priced against Kalshi's Valorant series (`KXVALORANTGAME`) and map-winner (`KXVALORANTMAP`) markets. It follows the conventions of the sister project Prometheus (LoL, `../Prometheus`), whose Elo, benchmark and Kalshi execution code it reuses. A website comes later.
+A pre-map trading model for Valorant esports: player-based round Elo, a map layer and a veto model, priced against Kalshi's Valorant series (`KXVALORANTGAME`) and map-winner (`KXVALORANTMAP`) markets. It follows the conventions of the sister project Prometheus (LoL, the sibling `Prometheus` repo), whose Elo, benchmark and Kalshi execution code it reuses. A website comes later.
 
 ## Quick commands
 
@@ -44,7 +44,7 @@ uv run promval --help                     # CLI: kalshi and vlr command groups
 
 ### Worktrees
 
-Work in a separate worktree (`git worktree add ../valorant-model-<branch> -b <branch> <base>`), then `uv sync`. Share the read-only raw caches by symlink (`mkdir -p data && ln -s "$MAIN/data/vlr" "$MAIN/data/kalshi" data/`); never share `db/`.
+Work in a separate worktree (`git worktree add ../prometheus-models-<branch> -b <branch> <base>`), then `cd games/valorant && uv sync`; `MAIN` is the main checkout's `games/valorant`. Share the read-only raw caches by symlink (`mkdir -p data && ln -s "$MAIN/data/vlr" "$MAIN/data/kalshi" data/`); never share `db/`.
 
 ## Conventions
 
