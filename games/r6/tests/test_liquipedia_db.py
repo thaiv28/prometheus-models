@@ -323,8 +323,23 @@ def test_orientation_names_and_ambiguity():
 
     alpha = SiegeTeam("Alpha Esports", None, 1, ())
     beta = SiegeTeam("Unknown", None, 1, ())
-    siege = SiegeMatch(alpha, beta, None, None, (), True)
-    row = {"name1": "Beta", "name2": "Alpha", "score1": 1, "score2": 1}
+    siege = SiegeMatch(alpha, beta, "2026-09-09T18:00:00Z", None, (), True)
+    row = {
+        "name1": "Beta",
+        "name2": "Alpha",
+        "score1": 1,
+        "score2": 1,
+        "start_utc": "2026-09-10T12:00:00Z",
+    }
     assert lineups.orientation(row, siege, []) == (beta, alpha)
+    # A page more than 48 hours away is another match behind a wrong ID.
+    assert (
+        lineups.orientation({**row, "start_utc": "2026-09-12T12:00:00Z"}, siege, [])
+        is None
+    )
+    assert (
+        lineups.orientation(row, SiegeMatch(alpha, beta, None, None, (), True), [])
+        is None
+    )
     row["name2"] = "Other"
     assert lineups.orientation(row, siege, []) is None

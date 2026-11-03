@@ -7,7 +7,7 @@ import re
 import sqlite3
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -27,7 +27,16 @@ def fold(name):
 
 
 def orientation(match, siege, maps):
-    """Return siege teams in database order, requiring a unique orientation."""
+    """Return siege teams in database order, requiring a unique orientation.
+
+    Some Liquipedia `siegegg=` IDs point at unrelated matches, so the page's
+    start must also lie within 48 hours of the Liquipedia start.
+    """
+    if siege.start_utc is None or abs(
+        datetime.fromisoformat(siege.start_utc)
+        - datetime.fromisoformat(match["start_utc"])
+    ) > timedelta(hours=48):
+        return None
     teams = (siege.team1, siege.team2)
 
     def similar(a, b):
