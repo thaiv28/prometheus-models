@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-03 — Holdout: gate failed
+
+`evaluate_elo.py --holdout --layers none,calibration` once (62 s) on frozen rookie + calibration with June blend fits; wrote `docs/elo_holdout.md`. Trade set series blended depth-capped flat ROI −1.72% [−23.8, +19.4] (48 filled of 104 bets): gate fails (H4). Blended series log loss −0.0014 vs Kalshi n.s.; raw +0.0186. Maps outside the trade set: blended tier1 −0.059 (significant), August only. Checks: `uv run pytest -q`.
+
 ## 2026-11-03 — Stage-2 look 1: rookie + calibration adopted
 
 siege.gg fetch finished (932 pages; IDs ≥7000 and pre-2024 skipped as old numbering); DB rebuilt, links series 669/719, maps 396/414. Stage-1 re-search on the new lineups kept both pins. Stage-2 look 1: rookie −0.0078 map / −0.0111 series vs base (significant; tier1 and international n.s.); calibration over rookie −0.00088 map (significant), regional +0.000001 (rejected). Set `ADOPTED`/`ADOPTED_LAYER`; benchmark defaults to the adopted baseline; refreshed `docs/elo_backtest.md`. vs Kalshi: series +0.0196, blended +0.0061 (n.s.). Trade set: series, blended. Checks: `uv run pytest -q`; ruff.

@@ -4,6 +4,12 @@ Every model idea tested, adopted or not, newest first, with its stage-1 and stag
 
 ## Two-stage runs
 
+**Holdout (opened once, 2026-11-03)**: 2026-07-01 – 2026-11-02, 324 linked series and 81 maps with a tradeable quote; frozen `player_round_glicko_rookie` + calibration, June blend fits (series a 1.09, b 0.35). Report: [`docs/elo_holdout.md`](../elo_holdout.md).
+
+- **Gate failed.** Trade set (series, blended, depth-capped) flat ROI −1.72% [−23.8, +19.4], 48 of 104 bets filled; unlimited depth +1.5% [−15.1, +19.4], Kelly $59.17 from $50.
+- Series log loss vs Kalshi: raw +0.0186 [−0.006, +0.045], blended −0.0014 [−0.011, +0.008]; tier2 blended −0.0026, tier1 −0.0004 (n.s.). No month drives it.
+- Outside the trade set: maps blended tier1 −0.059 [−0.130, −0.008], flat ROI +64% (26 bets, 14 matches, all August); depth-capped +96% [−5, +200]. Post hoc; not a basis for retuning.
+
 2026-11-03 **stage-2 look 1** (rebuilt DB with 2024+ siege.gg lineups; stage-1 re-search kept both pins). Base, rookie candidate, team_elo, each with none/regional/calibration; re-displayed paired against rookie (same look). Report: [`docs/elo_backtest.md`](../elo_backtest.md). Stage-2 looks: 1.
 
 - **Adopted: rookie discount** (`player_round_glicko_rookie`, 225 / 3200). Stage 1 −0.0080; stage 2 map −0.0078 [−0.0104, −0.0049], series −0.0111 [−0.0147, −0.0075]; tier2/tier3 significant, tier1 +0.0085 and international +0.0032 n.s.
