@@ -4,7 +4,7 @@ Newest first.
 
 ## 2026-11-03 — Stage-1 ladder: rookie candidate
 
-Stage-1-only ladder over pinned player_round_glicko (`--validate-from 2026-07-01`, no stage-2 look). Rookie discount (penalty 225, maps 3200, after widening both grids) −0.0080 map log loss, significant overall/tier2/tier3: pinned as `CANDIDATE`. Tier-3 K adds −0.00015 (below 0.0005); online K, reversion to init and tier reversion rejected. Added `rookie_revert`/`rookie_tier_revert` ladders and season month {1, 2}. Checks: `uv run pytest -q`; ruff; three benchmark runs (40–111 s).
+Stage-1-only ladder over pinned player_round_glicko (`--validate-from 2026-07-01`, no stage-2 look). Rookie discount (penalty 225, maps 3200, after widening both grids) −0.0080 map log loss, significant overall/tier2/tier3: pinned as `CANDIDATE`. Tier-3 K adds −0.00015 (below 0.0005); online K, reversion to init and tier reversion rejected. Added `rookie_revert`/`rookie_tier_revert` ladders and season month {1, 2}. Checks: `uv run pytest -q`; ruff (a follow-up commit fixes one lint error this commit shipped); three benchmark runs (40–111 s).
 
 ## 2026-11-03 — Stage-1 baseline; bases pinned
 

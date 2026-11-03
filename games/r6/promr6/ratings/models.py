@@ -109,7 +109,7 @@ for base, credit in (("player_glicko", "binary"), ("player_round_glicko", "round
             )
         if "weights" in variant:
             grid.update(online_k=(0.5, 0.75, 1.0), tier3_k=(0.5, 0.75, 1.0))
-        if variant.endswith("_revert") and "tier" not in variant or variant == "revert":
+        if variant in ("revert", "rookie_revert"):
             grid.update(
                 season_revert=(0, 0.1, 0.2, 0.35, 0.5),
                 season_month=(1, 2),
