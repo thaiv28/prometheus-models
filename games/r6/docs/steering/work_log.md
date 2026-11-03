@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-03 — Stage-1 ladder: rookie candidate
+
+Stage-1-only ladder over pinned player_round_glicko (`--validate-from 2026-07-01`, no stage-2 look). Rookie discount (penalty 225, maps 3200, after widening both grids) −0.0080 map log loss, significant overall/tier2/tier3: pinned as `CANDIDATE`. Tier-3 K adds −0.00015 (below 0.0005); online K, reversion to init and tier reversion rejected. Added `rookie_revert`/`rookie_tier_revert` ladders and season month {1, 2}. Checks: `uv run pytest -q`; ruff; three benchmark runs (40–111 s).
+
 ## 2026-11-03 — Stage-1 baseline; bases pinned
 
 `scripts/evaluate_elo.py --validate-from 2026-07-01` (stage 1 only, no stage-2 look; 154 s): 50,153 maps. player_round_glicko map 0.5897 / series 0.5756; player_glicko 0.5982 / 0.5847; team_elo 0.6359 / 0.6309. rd_info chose the grid minimum; widened to 0.015625, choice unchanged, all interior. Pinned both Glicko bases; wrote `docs/elo_backtest.md` and the ledger entry. Checks: `uv run pytest -q`. Limit: lineups mostly from Liquipedia cards until the siege.gg fetch finishes.

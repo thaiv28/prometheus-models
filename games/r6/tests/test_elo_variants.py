@@ -129,7 +129,7 @@ def test_region_offsets_only_cross_region_and_zero_sum():
 
 
 def test_registry_grids_and_v1_regression():
-    assert len(MODELS) == len(PARAM_GRIDS) == 17
+    assert len(MODELS) == len(PARAM_GRIDS) == 21
     assert "team_binary" not in MODELS
     for name in MODELS:
         if name == "coin":
@@ -392,8 +392,8 @@ def test_ladder_registry_exact_grids(variant):
     grid = {}
     if "rookie" in variant:
         grid.update(
-            rookie_penalty=(300, 400, 600, 800, 1200),
-            rookie_maps=(200, 400, 800, 1600),
+            rookie_penalty=(75, 150, 225, 300, 400, 600),
+            rookie_maps=(400, 800, 1600, 3200, 6400),
         )
     if "weights" in variant:
         grid.update(online_k=(0.5, 0.75, 1.0), tier3_k=(0.5, 0.75, 1.0))
