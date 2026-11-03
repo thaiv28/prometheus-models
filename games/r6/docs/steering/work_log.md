@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-03 — Stage-1 baseline; bases pinned
+
+`scripts/evaluate_elo.py --validate-from 2026-07-01` (stage 1 only, no stage-2 look; 154 s): 50,153 maps. player_round_glicko map 0.5897 / series 0.5756; player_glicko 0.5982 / 0.5847; team_elo 0.6359 / 0.6309. rd_info chose the grid minimum; widened to 0.015625, choice unchanged, all interior. Pinned both Glicko bases; wrote `docs/elo_backtest.md` and the ledger entry. Checks: `uv run pytest -q`. Limit: lineups mostly from Liquipedia cards until the siege.gg fetch finishes.
+
 ## 2026-11-03 — Benchmark port
 
 Ported Dota's two-stage benchmark to R6 maps (`promr6/ratings`, evaluation, backtest, blend, quotes, `scripts/evaluate_elo.py`) with CS2's round credit. Map probability is first to 7 with R6 overtime at 6–6 (best two of three, matching 8–6/8–7 in the data); maps whose winner has under 7 are map counts and use win/loss. Lineups accept ≥4 players a side. No KDA/form code (no player stats). Checks: `uv run pytest -q` 334 passed; ruff clean. Limit: baseline not yet run.

@@ -1095,7 +1095,7 @@ def test_outcome_report_without_kalshi_tables(database, tmp_path, capsys):
 
 
 def test_pinned_grid_and_full_grid(monkeypatch):
-    assert benchmark.PINNED == {}
+    assert set(benchmark.PINNED) == {"player_glicko", "player_round_glicko"}
     full = benchmark.parameter_grid("player_glicko", full=True)
     assert len(full) == 300
     monkeypatch.delitem(benchmark.PINNED, "player_glicko", raising=False)
@@ -1219,7 +1219,8 @@ def test_series_only_supported_odd_lengths_and_resolved_results():
 @pytest.mark.parametrize(
     "variant", ["rookie", "weights", "rookie_weights", "revert", "tier_revert"]
 )
-def test_all_ladders_require_their_base(base, variant):
+def test_all_ladders_require_their_base(monkeypatch, base, variant):
+    monkeypatch.delitem(benchmark.PINNED, base, raising=False)
     with pytest.raises(ValueError, match="pin the base first"):
         benchmark.parameter_grid(f"{base}_{variant}")
     assert benchmark.parameter_grid(f"{base}_{variant}", full=True)

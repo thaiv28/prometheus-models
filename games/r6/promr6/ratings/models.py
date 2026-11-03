@@ -59,10 +59,26 @@ PARAM_GRIDS["player_round_glicko"] = {
     "k": (16, 24, 32, 48),
     "tau": (0.5, 0.75, 1.0),
     "rd_new": (200, 280, 350, 450),
-    "rd_info": (0.0625, 0.125, 0.25),
+    "rd_info": (0.015625, 0.03125, 0.0625, 0.125, 0.25),
     "new_player": ("fixed", "teammates"),
 }
-PINNED = {}
+# Stage-1 winners, interior after widening rd_info (2026-11-03, research ledger).
+# evaluate_elo.py --full-grid re-searches PARAM_GRIDS; update these after.
+PINNED = {
+    "player_round_glicko": {
+        "k": 24,
+        "tau": 0.75,
+        "rd_new": 280,
+        "rd_info": 0.0625,
+        "new_player": "fixed",
+    },
+    "player_glicko": {
+        "k": 24,
+        "rd_new": 350,
+        "rd_info": 0.0625,
+        "new_player": "fixed",
+    },
+}
 ADOPTED = None
 ADOPTED_LAYER = None
 LADDER_BASE = {}
