@@ -431,8 +431,8 @@ def test_glicko_report_default_and_explicit_models(
     selected = benchmark.main(args)
     assert set(selected) == {
         "team_elo",
-        "player_glicko",
         "player_round_glicko",
+        "player_round_glicko_rookie",
     }
     report = out.read_text()
     assert report.index("## Combined summary") < report.index("### Leaderboard")

@@ -79,8 +79,9 @@ PINNED = {
         "new_player": "fixed",
     },
 }
-ADOPTED = None
-ADOPTED_LAYER = None
+# Adopted 2026-11-03 at stage-2 look 1 (ledger): rookie discount + calibration.
+ADOPTED = "player_round_glicko_rookie"
+ADOPTED_LAYER = "calibration"
 LADDER_BASE = {}
 # Stage-1 rookie candidate over player_round_glicko (2026-11-03); reversion
 # ladders named rookie_* hold it fixed.

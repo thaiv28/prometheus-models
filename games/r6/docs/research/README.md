@@ -4,6 +4,14 @@ Every model idea tested, adopted or not, newest first, with its stage-1 and stag
 
 ## Two-stage runs
 
+2026-11-03 **stage-2 look 1** (rebuilt DB with 2024+ siege.gg lineups; stage-1 re-search kept both pins). Base, rookie candidate, team_elo, each with none/regional/calibration; re-displayed paired against rookie (same look). Report: [`docs/elo_backtest.md`](../elo_backtest.md). Stage-2 looks: 1.
+
+- **Adopted: rookie discount** (`player_round_glicko_rookie`, 225 / 3200). Stage 1 −0.0080; stage 2 map −0.0078 [−0.0104, −0.0049], series −0.0111 [−0.0147, −0.0075]; tier2/tier3 significant, tier1 +0.0085 and international +0.0032 n.s.
+- **Adopted: calibration layer** (tier × online, ridge 4) over rookie: stage 2 map −0.00088 [−0.00165, −0.00019], none worse; series −0.0006 n.s. Judged on stage 2 only (the layer is fit on stage 1): weaker evidence.
+- Rejected: regional layer (+0.000001 map).
+- vs Kalshi (rookie+calibration, tradeable quote): series 244 rows +0.0196 [−0.016, +0.053]; blended 136 rows +0.0061 (tier1 −0.0046, tier2 +0.0099, n.s.); blended series flat ROI depth-capped −22.8% [−51.7, +5.6]. Maps 109 rows, no blend fit. Kalshi lists only tier1/tier2.
+- **Trade set: series, all tiers, blended.** No slice is significant, so none is singled out.
+
 2026-11-03 ladder, **stage 1 only** (no stage-2 look), over pinned player_round_glicko (map 0.5897); paired by match.
 
 - **Candidate: rookie discount** (`player_round_glicko_rookie`: penalty 225, maps 3200; grids widened to 75–600 and 400–6400, interior): map 0.5817, −0.0080; series 0.5641. Pinned; awaits stage 2.

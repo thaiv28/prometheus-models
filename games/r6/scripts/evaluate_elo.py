@@ -38,7 +38,7 @@ from promr6.kalshi.collect import data_dir
 from promr6.quotes import TRADEABLE as TRADEABLE
 from promr6.quotes import QuoteRule, candle_quote
 from promr6.ratings.layers import LAYERS
-from promr6.ratings.models import LADDER_BASE, MODELS, PARAM_GRIDS, PINNED
+from promr6.ratings.models import ADOPTED, LADDER_BASE, MODELS, PARAM_GRIDS, PINNED
 from promr6.ratings.regions import macro_region
 from promr6.ratings.replay import load_lineups, load_maps, replay
 
@@ -374,19 +374,19 @@ def main(argv=None):
     parser.add_argument("--db", type=Path, default=Path("db/r6.db"))
     parser.add_argument("--out", type=Path, default=Path("docs/elo_backtest.md"))
     parser.add_argument(
-        "--models", default="team_elo,player_glicko,player_round_glicko"
+        "--models", default="team_elo,player_round_glicko,player_round_glicko_rookie"
     )
     parser.add_argument(
         "--report-models",
-        default="team_elo,player_glicko,player_round_glicko",
-        help="comma list (default: team_elo,player_glicko,player_round_glicko)",
+        default="team_elo,player_round_glicko,player_round_glicko_rookie",
+        help="comma list (default: team_elo,player_round_glicko,player_round_glicko_rookie)",
     )
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 1, 8))
     parser.add_argument("--k-grid", help="optional K grid override for every model")
     parser.add_argument(
         "--baseline",
-        default="player_round_glicko",
-        help="model each candidate is paired against (default: player_round_glicko)",
+        default=ADOPTED,
+        help="model each candidate is paired against (default: the adopted model)",
     )
     parser.add_argument(
         "--full-grid",

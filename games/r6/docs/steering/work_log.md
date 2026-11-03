@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-03 — Stage-2 look 1: rookie + calibration adopted
+
+siege.gg fetch finished (932 pages; IDs ≥7000 and pre-2024 skipped as old numbering); DB rebuilt, links series 669/719, maps 396/414. Stage-1 re-search on the new lineups kept both pins. Stage-2 look 1: rookie −0.0078 map / −0.0111 series vs base (significant; tier1 and international n.s.); calibration over rookie −0.00088 map (significant), regional +0.000001 (rejected). Set `ADOPTED`/`ADOPTED_LAYER`; benchmark defaults to the adopted baseline; refreshed `docs/elo_backtest.md`. vs Kalshi: series +0.0196, blended +0.0061 (n.s.). Trade set: series, blended. Checks: `uv run pytest -q`; ruff.
+
 ## 2026-11-03 — Stage-1 ladder: rookie candidate
 
 Stage-1-only ladder over pinned player_round_glicko (`--validate-from 2026-07-01`, no stage-2 look). Rookie discount (penalty 225, maps 3200, after widening both grids) −0.0080 map log loss, significant overall/tier2/tier3: pinned as `CANDIDATE`. Tier-3 K adds −0.00015 (below 0.0005); online K, reversion to init and tier reversion rejected. Added `rookie_revert`/`rookie_tier_revert` ladders and season month {1, 2}. Checks: `uv run pytest -q`; ruff (a follow-up commit fixes one lint error this commit shipped); three benchmark runs (40–111 s).
