@@ -262,6 +262,9 @@ class EloModel:
         if self.credit == "binary":
             return row.won
         if self.credit == "round":
+            # Scores below a full map (≈1.5% of maps) are map counts, not rounds.
+            if max(row.score1, row.score2) < 7:
+                return float(row.won)
             return row.score1 / (row.score1 + row.score2)
         magnitude = 0.5 * tanh(abs(row.score1 - row.score2) / self.c)
         return 0.5 + (magnitude if row.won else -magnitude)

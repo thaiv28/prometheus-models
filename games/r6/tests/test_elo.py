@@ -44,3 +44,15 @@ def test_replay_order_and_no_leakage():
     model = MODELS["team_elo"](k=16)
     model.update(row)
     assert model.elo.ratings[10] == 1508
+
+
+def test_overtime_is_best_two_of_three_and_short_scores_are_binary():
+    from promr6.ratings.elo import EloModel
+    from promr6.ratings.rounds import map_win
+
+    # target=1 starts in the 0–0 "overtime" state: win two of up to three rounds.
+    assert map_win(0.6, target=1) == pytest.approx(0.36 * 1.8)
+    model = EloModel(unit="team", credit="round")
+    row = SimpleNamespace(score1=1, score2=0, won=True)
+    assert model.score(row) == 1.0
+    assert model.score(SimpleNamespace(score1=7, score2=5, won=True)) == 7 / 12

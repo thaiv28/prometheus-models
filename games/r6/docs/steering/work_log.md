@@ -4,7 +4,7 @@ Newest first.
 
 ## 2026-11-03 — Benchmark port
 
-Ported Dota’s two-stage benchmark to R6 maps, restored round credit and first-to-7 map probabilities, and added independent four-or-more-player lineup handling, generic ladders and synthetic coverage. Baseline not run; no model adopted. Checks: synthetic test suite passed; ruff format/check and evaluate_elo.py --help passed. UV_NO_SYNC=1 uses the existing environment offline because plain uv panics in macOS system configuration. Full suite: 333 tests in 14.97 s; pre-port timing unavailable.
+Ported Dota's two-stage benchmark to R6 maps (`promr6/ratings`, evaluation, backtest, blend, quotes, `scripts/evaluate_elo.py`) with CS2's round credit. Map probability is first to 7 with R6 overtime at 6–6 (best two of three, matching 8–6/8–7 in the data); maps whose winner has under 7 are map counts and use win/loss. Lineups accept ≥4 players a side. No KDA/form code (no player stats). Checks: `uv run pytest -q` 334 passed; ruff clean. Limit: baseline not yet run.
 
 ## 2026-11-02 — Linker: date-only rules, siege.gg team names
 
