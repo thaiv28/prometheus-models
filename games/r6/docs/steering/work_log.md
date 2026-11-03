@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-03 — H4: keep frozen, recheck later
+
+The user chose to keep the R6 model frozen after the failed holdout gate and recheck the same gate after more months (about 2027-02). Recorded the decision and the recheck steps in current_state and the ledger. Docs only. Checks: `uv run pytest -q`.
+
 ## 2026-11-03 — Holdout: gate failed
 
 `evaluate_elo.py --holdout --layers none,calibration` once (62 s) on frozen rookie + calibration with June blend fits; wrote `docs/elo_holdout.md`. Trade set series blended depth-capped flat ROI −1.72% [−23.8, +19.4] (48 filled of 104 bets): gate fails (H4). Blended series log loss −0.0014 vs Kalshi n.s.; raw +0.0186. Maps outside the trade set: blended tier1 −0.059 (significant), August only. Checks: `uv run pytest -q`.
