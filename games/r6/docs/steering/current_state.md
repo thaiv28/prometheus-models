@@ -2,6 +2,8 @@
 
 ## Status
 
+Phase 3 code ported; baseline not run.
+
 Playbook phase 2 (data) built and run live 2026-11-02; phase 3 (baseline benchmark) next. Phase 0: go (windows in [Product](product.md)). Data: 6,161 Liquipedia pages; 80,762 series and 86,058 maps (0 parse errors, 2021 on: 13–17k series a year); Kalshi 1,438 series and 828 map markets; series links 650/719, map links 380/414. siege.gg pages are still being fetched (5,306 IDs, newest first, ~4 s each).
 
 ## Known limits
@@ -14,4 +16,4 @@ Playbook phase 2 (data) built and run live 2026-11-02; phase 3 (baseline benchma
 ## Future work
 
 - Rebuild once the siege.gg fetch is done; read the remaining link failures (49 "no team match").
-- Phase 3: port the benchmark and ratings from `../dota2`.
+- Phase 3: run the baseline benchmark, then record results before selecting any model.

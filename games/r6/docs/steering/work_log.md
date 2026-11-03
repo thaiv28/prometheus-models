@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-11-03 — Benchmark port
+
+Ported Dota’s two-stage benchmark to R6 maps, restored round credit and first-to-7 map probabilities, and added independent four-or-more-player lineup handling, generic ladders and synthetic coverage. Baseline not run; no model adopted. Checks: synthetic test suite passed; ruff format/check and evaluate_elo.py --help passed. UV_NO_SYNC=1 uses the existing environment offline because plain uv panics in macOS system configuration. Full suite: 333 tests in 14.97 s; pre-port timing unavailable.
+
 ## 2026-11-02 — Linker: date-only rules, siege.gg team names
 
 Date-only Kalshi rules (2025 – Mar 2026) now centre the ±30 h window on noon ET (16:00Z) of their date instead of open time + 24 h (these markets open ~3 days early). Lineups now run before linking (`004_load_lineups.py`, `005_link_kalshi.py`) and record each team's oriented siege.gg names in `team_siegegg`; the linker adds them as name variants, so template codes (`tl`, `bd`, `cag by varrel`) match Kalshi names. Some Liquipedia `siegegg=` IDs point at unrelated matches (27 of the first 85 pages), so a siege.gg page is used only if its start is within 48 h of Liquipedia's. Series links 623 → 650/719, map links 360 → 380/414. Checks: `uv run pytest -q`; ruff. Limit: siege.gg pages still being fetched (5,306 IDs, ~4 s each with the redirect).

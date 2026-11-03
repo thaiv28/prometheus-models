@@ -9,6 +9,11 @@ Python 3.12, uv, SQLite (raw SQL), typer CLI `promr6`, pytest, ruff. Ported from
 | Path | Contents |
 |---|---|
 | `promr6/main.py` | CLI entry point |
+| `promr6/ratings/{elo,models,replay,rounds,regions,layers}.py` | Ratings, registry, map replay, first-to-7 probability and frozen layers |
+| `promr6/{evaluation,benchmark,quotes,backtest,blend}.py` | Metrics, series/market orientation, quote rules, returns and monthly fits |
+| `scripts/evaluate_elo.py` | Offline two-stage selection and report |
+| `scripts/series_independence.py` | Series calibration and map-dependence diagnostics |
+| `tests/test_{elo,elo_variants,evaluation,backtest,layers}.py` | Synthetic rating and benchmark coverage |
 | `promr6/liquipedia/__init__.py` | Liquipedia package |
 | `promr6/liquipedia/http.py` | Polite API requests, contact and retry backoff |
 | `promr6/liquipedia/cache.py` | Raw gzip page cache and atomic index |
@@ -85,3 +90,22 @@ Do not tune or select on holdout. Stage 1 tunes on outcomes only, [2023-01-01,20
 - Removals ship when every guarded section's interval stays below +0.0005 on both stages (non-inferior).
 - Every tested model idea goes in the [research ledger](../research/README.md), adopted or not, with its numbers; count the tests run against stage 2.
 - Trading results are reported, not gates. Data fixes ship when correct and the benchmark doesn't get significantly worse.
+
+
+## Ratings and benchmark
+
+Phase 3 code is ported; baseline has not run. `uv run python scripts/evaluate_elo.py` reads `db/r6.db` and writes `docs/elo_backtest.md`. Replay predicts before updates in UTC start, match ID, map order. `load_maps` joins maps/matches/events, retaining resolved winners and nonexcluded events; scores are actual round counts, with map name and nullable series winner. Lineups use any player_maps source: each side independently needs at least four players and retains extras above five. Missing sides use the team’s latest earlier lineup, then a namespaced team pseudo-player. Player strength is the starter mean; newcomers initialize at 1500 or known teammates’ mean.
+
+Elo uses initial 1500 and scale 400. Binary credit is map win/loss; optional margin credit uses a tanh score difference. Round credit updates against rounds1/(rounds1+rounds2). Prediction converts round expectation through cached first-to-7 dynamic programming; at 6–6, win-by-two overtime has probability e²/(e²+(1−e)²). A tau multiplier then scales map log odds. RD scales updates by uncertainty, grows with idle time and shrinks with observations. Rookie discounts, online/tier3 K multipliers and season/inactivity reversion remain optional. No player statistics or form layer are used.
+
+Registry grids:
+
+- coin is 0.5; team_elo uses K={16,24,32,48,64,96}.
+- player_binary uses the same K and fixed/teammates initialization; player_binary_region adds region_k={2,4,8,16}.
+- player_glicko uses K={16,24,32,48,64}, rd_new={160,200,240,280,350,450}, rd_info={0.03125,0.0625,0.125,0.25,0.5}, both initializations. player_region_glicko adds region_k={2,4}.
+- player_round_glicko uses K={16,24,32,48}, tau={0.5,0.75,1}, rd_new={200,280,350,450}, rd_info={0.0625,0.125,0.25}, both initializations.
+- Both Glicko bases register rookie, weights, rookie_weights, revert and tier_revert ladders. Rookie grids cross penalty={300,400,600,800,1200}, maps={200,400,800,1600}; weights cross online_k/tier3_k={0.5,0.75,1}. Revert crosses season_revert={0,0.1,0.2,0.35,0.5}, season_month={1,10}, inactive_half_life={0,180,365,730}; tier_revert fixes target=tier and inactivity=0, with season_revert={0.025,0.05,0.1,0.2,0.35}, month={1,10}. Ladders require their pinned base unless --full-grid crosses its full grid. PINNED is empty; no model or layer is adopted and no weights file exists.
+
+Stage 1 outcomes tune [2023-01-01,2026-01-01); earlier maps seed history. Stage 2 freezes parameters for [2026-01-01,2026-07-01). Only --holdout opens July onward. --validate-from 2026-07-01 produces zero stage-2 outcome and market rows. Defaults tune/report team_elo, player_glicko and player_round_glicko, pairing against player_round_glicko. Series use the first map’s independent-map chance for Bo1/Bo3/Bo5; skip Bo2, unsupported lengths and unresolved winners. Stage-1 temperatures fit Bo3/Bo5 on ≥30 series over 0.40–1.50; Bo1 stays 1.
+
+Kalshi compares KXR6GAME series and KXR6MAP maps (map N ↔ map_order N), preferring team1 contracts and reversing team2 quotes. Tradeable/robustness quote rules, paired match-clustered intervals, rounded fees, depth caps, flat $1 stakes and Kelly from $50 follow Dota with Prometheus execution caps. Monthly blends use earlier same-kind rows from 2025-11-01, excluding holdout; fewer than 100 rows retain midpoint and are excluded from blended metrics. Regional and calibration layers fit stage 1 only. Causal homes use earlier noninternational event hosts: NA, EU including MENA, SA including Brazil/LATAM, APAC including Asia/Oceania/Japan/Korea, and CN; other hosts are unknown.
