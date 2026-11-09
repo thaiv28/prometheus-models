@@ -102,6 +102,7 @@ def test_candidate_names_orientation_start_and_validation_shape(inputs):
     assert saved["provenance"]["p_series"] == row["p_series"]
     assert saved["provenance"]["names"] == ["hotu", "gl"]
     assert saved["provenance"]["data_through"] == "2026-10-28"
+    assert saved["provenance"]["section"] == "INTL"
     # Mirror saved_candidates' input validation without importing its live runtime.
     assert saved["kind"] == "candidate-v1" and saved["schema_version"] == 1
     assert saved["group"] == "cs2-series"

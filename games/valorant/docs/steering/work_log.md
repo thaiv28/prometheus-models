@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-09 — Candidates name their section
+
+Execution candidates now carry `provenance.section`, so Prometheus can skip paused slices (CS2 `INTL`, `T1`; Valorant `GC`, `OFF`). The list and evidence live in Prometheus `docs/betting_scope.md`. Checks: full pytest; ruff. Limit: private S3 candidates not inspected (AWS login expired).
+
 ## 2026-11-02 — Feed gate before install
 
 Added a stdlib pre-install gate over the previous feed and open KXVALORANTGAME events. Live matches, passed starts, new ratings-state ETag, age, clock skew and missing/broken inputs force export; unchanged runs skip install/export/publication/dispatch and save only changed gate bytes. Prediction-log and schedule-cache persistence remain on full runs. Checks: full pytest, ruff format/check, system-python gate help, actionlint and work-log rotation passed. Live runner savings remain unmeasured; unchanged fixtures skip export after the event probe.

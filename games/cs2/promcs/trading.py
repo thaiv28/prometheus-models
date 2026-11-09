@@ -174,6 +174,7 @@ def candidates(feed_rows, linked_markets, now, *, data_through=None, skipped=Non
                             "p_game": row["p_game"],
                             "p_series": p,
                             "best_of": row["best_of"],
+                            "section": row["section"],
                             "data_through": data_through,
                             "names": [row["name1"], row["name2"]],
                             "start": row["start"],

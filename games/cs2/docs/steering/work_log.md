@@ -1,5 +1,9 @@
 # Work log
 
+## 2026-11-09 — Candidates name their section
+
+Execution candidates now carry `provenance.section`, so Prometheus can skip paused slices (CS2 `INTL`, `T1`; Valorant `GC`, `OFF`). The list and evidence live in Prometheus `docs/betting_scope.md`. Checks: full pytest; ruff. Limit: private S3 candidates not inspected (AWS login expired).
+
 ## 2026-11-02 — refresh-db fails loudly; runner timings after the speed-up
 
 A Liquipedia 429 on the first listing request crashed the crawl, and `| tee` without pipefail hid it: the run passed and rebuilt from cached pages. refresh-db now runs bash with pipefail; a failed crawl posts a warning and builds from cached pages; Kaggle's fallback warning now fires. Runner timings after the crawl/link speed-up (run of 22:41 UTC): crawl 48 s (was ~250 s), linking ~67 s (was ~190 s), whole run 5.2 min (was ~10). Checks: actionlint, pytest, ruff.

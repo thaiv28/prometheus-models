@@ -86,6 +86,7 @@ def inputs():
         "start": "2026-10-30T21:00Z",
         "best_of": 3,
         "international": True,
+        "section": "VCT",
         "p_game": 0.6,
         "p_series": 0.64,
         "name1": "MIBR GC",
@@ -115,6 +116,7 @@ def test_candidate_orientation_identity_and_validation_shape(inputs):
         ).hexdigest()
     )
     assert record["provenance"] == {
+        "section": "VCT",
         "model": "player_round_glicko_rookie_tier_revert",
         "match_id": "42",
         "p_game": 0.6,
